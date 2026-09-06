@@ -1,0 +1,821 @@
+[
+ {
+  "name": "Chimeric Idol",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 28983,
+  "text": "{0}: Tap all lands you control. This artifact becomes a 3/3 Turtle artifact creature until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:turtle",
+   "cares:type:land",
+   "col:none",
+   "eff:tap-own",
+   "rec:partial",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Crippling Fatigue",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 28984,
+  "text": "Target creature gets -2/-2 until end of turn.\nFlashback—{1}{B}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:flashback",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Master Healer",
+  "type": "Creature — Human Cleric",
+  "cost": "{4}{W}",
+  "rank": 28985,
+  "text": "{T}: Prevent the next 4 damage that would be dealt to any target this turn.",
+  "facets": [
+   "acost:1",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Daru Sanctifier",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 28986,
+  "text": "Morph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "kw:morph",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Silent-Chant Zubera",
+  "type": "Creature — Zubera Spirit",
+  "cost": "{1}{W}",
+  "rank": 28987,
+  "text": "When this creature dies, you gain 2 life for each Zubera that died this turn.",
+  "facets": [
+   "cares:sub:zubera",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "sub:zubera",
+   "sub:zubera spirit",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Childhood Horror",
+  "type": "Creature — Horror",
+  "cost": "{3}{B}",
+  "rank": 28990,
+  "text": "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:flying",
+   "kw:threshold",
+   "rec:partial",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Enfeeblement",
+  "type": "Enchantment — Aura",
+  "cost": "{B}{B}",
+  "rank": 28996,
+  "text": "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nEnchanted creature gets -2/-2.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Temple Thief",
+  "type": "Creature — Human Rogue",
+  "cost": "{1}{B}",
+  "rank": 28997,
+  "text": "This creature can't be blocked by enchanted creatures or enchantment creatures.",
+  "facets": [
+   "cares:type:enchantment",
+   "mv:cheap",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vexing Arcanix",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 28999,
+  "text": "{3}, {T}: Target player chooses a card name, then reveals the top card of their library. If that card has the chosen name, that player puts it into their hand. Otherwise, they put it into their graveyard and this artifact deals 2 damage to them.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:damage",
+   "eff:mill",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Tuinvale Guide",
+  "type": "Creature — Faerie Scout",
+  "cost": "{3}{W}",
+  "rank": 29000,
+  "text": "Flying\nCelebration — This creature gets +1/+0 and has lifelink as long as two or more nonland permanents entered the battlefield under your control this turn.",
+  "facets": [
+   "eff:gain-life",
+   "kw:celebration",
+   "kw:flying",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:faerie",
+   "sub:faerie scout",
+   "sub:scout",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Drifting Shade",
+  "type": "Creature — Shade",
+  "cost": "{3}{B}",
+  "rank": 29002,
+  "text": "Flying\n{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dread Charge",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 29004,
+  "text": "Black creatures you control can't be blocked this turn except by black creatures.",
+  "facets": [
+   "cares:color:b",
+   "eff:cant-be-blocked",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ventifact Bottle",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 29006,
+  "text": "{X}{1}, {T}: Put X charge counters on this artifact. Activate only as a sorcery.\nAt the beginning of your first main phase, if this artifact has a charge counter on it, tap it and remove all charge counters from it. Add {C} for each charge counter removed this way.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "col:none",
+   "cost:tap",
+   "ctr:charge-self",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "rec:partial",
+   "trig:step",
+   "trig:step:precombat-main",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sun's Bounty",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 29012,
+  "text": "You gain 4 life.\nRecover {1}{W} (When a creature is put into your graveyard from the battlefield, you may pay {1}{W}. If you do, return this card from your graveyard to your hand. Otherwise, exile this card.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:gain-life",
+   "eff:return-from",
+   "kw:recover",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Puffer Extract",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 29015,
+  "text": "{X}, {T}: Target creature you control gets +X/+X until end of turn. Destroy it at the beginning of the next end step.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "War Falcon",
+  "type": "Creature — Bird",
+  "cost": "{W}",
+  "rank": 29016,
+  "text": "Flying\nThis creature can't attack unless you control a Knight or a Soldier.",
+  "facets": [
+   "cares:sub:knight",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:cant-attack-self",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ritual of Steel",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 29018,
+  "text": "Enchant creature\nWhen this Aura enters, draw a card at the beginning of the next turn's upkeep.\nEnchanted creature gets +0/+2.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:draw",
+   "eff:pump",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fresh Volunteers",
+  "type": "Creature — Human Rebel",
+  "cost": "{1}{W}",
+  "rank": 29019,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warp Artifact",
+  "type": "Enchantment — Aura",
+  "cost": "{B}{B}",
+  "rank": 29020,
+  "text": "Enchant artifact\nAt the beginning of the upkeep of enchanted artifact's controller, this Aura deals 1 damage to that player.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:artifact",
+   "eff:damage",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Gwyllion Hedge-Mage",
+  "type": "Creature — Hag Wizard",
+  "cost": "{2}{W/B}",
+  "rank": 29023,
+  "text": "When this creature enters, if you control two or more Plains, you may create a 1/1 white Kithkin Soldier creature token.\nWhen this creature enters, if you control two or more Swamps, you may put a -1/-1 counter on target creature.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:sub:swamp",
+   "cares:type:creature",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "eff:create-token",
+   "rec:full",
+   "sub:hag",
+   "sub:hag wizard",
+   "sub:wizard",
+   "tok:kithkin",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Absolving Lammasu",
+  "type": "Creature — Lammasu",
+  "cost": "{4}{W}",
+  "rank": 29024,
+  "text": "Flying\nWhen this creature enters, all suspected creatures are no longer suspected.\nWhen this creature dies, you gain 3 life and suspect up to one target creature an opponent controls. (A suspected creature has menace and can't block.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "kw:suspect",
+   "rec:partial",
+   "sub:lammasu",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nighthawk, Dark Defender",
+  "type": "Legendary Creature — Human Hero",
+  "cost": "{1}{W}",
+  "rank": 29026,
+  "text": "Flying\nWhenever Nighthawk or another Hero you control enters, target creature gets +1/+1 until end of turn.",
+  "facets": [
+   "cares:sub:hero",
+   "cares:type:creature",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:hero",
+   "sub:human",
+   "sub:human hero",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bog Smugglers",
+  "type": "Creature — Human Mercenary",
+  "cost": "{1}{B}{B}",
+  "rank": 29027,
+  "text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)",
+  "facets": [
+   "eff:cant-be-blocked",
+   "kw:landwalk",
+   "kw:swampwalk",
+   "rec:full",
+   "sub:human",
+   "sub:human mercenary",
+   "sub:mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Urborg Stalker",
+  "type": "Creature — Horror",
+  "cost": "{3}{B}",
+  "rank": 29030,
+  "text": "At the beginning of each player's upkeep, if that player controls a nonblack, nonland permanent, this creature deals 1 damage to that player.",
+  "facets": [
+   "cares:color:b",
+   "eff:damage",
+   "rec:partial",
+   "sub:horror",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slithering Shade",
+  "type": "Creature — Shade",
+  "cost": "{B}",
+  "rank": 29033,
+  "text": "Defender (This creature can't attack.)\n{B}: This creature gets +1/+1 until end of turn.\nHellbent — This creature can attack as though it didn't have defender as long as you have no cards in hand.",
+  "facets": [
+   "acost:1",
+   "cares:zone:hand",
+   "eff:pump",
+   "kw:defender",
+   "kw:hellbent",
+   "mv:cheap",
+   "rec:partial",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sandcrafter Mage",
+  "type": "Creature — Human Wizard",
+  "cost": "{2}{W}",
+  "rank": 29034,
+  "text": "When this creature enters, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)",
+  "facets": [
+   "eff:add-counters",
+   "kw:bolster",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dutiful Servants",
+  "type": "Creature — Zombie",
+  "cost": "{3}{W}",
+  "rank": 29038,
+  "text": "",
+  "facets": [
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mockingbird, Bobbi Morse",
+  "type": "Legendary Creature — Human Hero",
+  "cost": "{3}{W}",
+  "rank": 29039,
+  "text": "Whenever Mockingbird is dealt damage, put a +1/+1 counter on her. (She must survive the damage to get the counter.)",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "sub:hero",
+   "sub:human",
+   "sub:human hero",
+   "trig:dealt-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Ghastly Remains",
+  "type": "Creature — Zombie",
+  "cost": "{B}{B}{B}",
+  "rank": 29042,
+  "text": "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nAt the beginning of your upkeep, if this card is in your graveyard, you may pay {B}{B}{B}. If you do, return it to your hand.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:add-counters-self",
+   "eff:return-from",
+   "kw:amplify",
+   "rec:partial",
+   "sub:zombie",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Headstone",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 29043,
+  "text": "Exile target card from a graveyard.\nDraw a card at the beginning of the next turn's upkeep.",
+  "facets": [
+   "eff:draw",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Glyph of Doom",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 29045,
+  "text": "Choose target Wall creature. At this turn's next end of combat, destroy all creatures that were blocked by that creature this turn.",
+  "facets": [
+   "cares:sub:wall",
+   "cares:type:creature",
+   "mv:cheap",
+   "trig:blocks",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mind Whip",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}{B}",
+  "rank": 29047,
+  "text": "Enchant creature\nAt the beginning of the upkeep of enchanted creature's controller, that player may pay {3}. If they don't, this Aura deals 2 damage to that player and you tap that creature.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:damage",
+   "eff:tap",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:step",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Zombie Goliath",
+  "type": "Creature — Zombie Giant",
+  "cost": "{4}{B}",
+  "rank": 29051,
+  "text": "",
+  "facets": [
+   "sub:giant",
+   "sub:zombie",
+   "sub:zombie giant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Call for Blood",
+  "type": "Instant — Arcane",
+  "cost": "{4}{B}",
+  "rank": 29056,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nTarget creature gets -X/-X until end of turn, where X is the sacrificed creature's power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:shrink",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Netter en-Dal",
+  "type": "Creature — Human Spellshaper",
+  "cost": "{W}",
+  "rank": 29060,
+  "text": "{W}, {T}, Discard a card: Target creature can't attack this turn.",
+  "facets": [
+   "eff:cant-attack",
+   "eff:discard-self",
+   "mv:cheap",
+   "sub:human",
+   "sub:human spellshaper",
+   "sub:spellshaper",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stronghold Taskmaster",
+  "type": "Creature — Giant Minion",
+  "cost": "{2}{B}{B}",
+  "rank": 29062,
+  "text": "Other black creatures get -1/-1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:giant",
+   "sub:giant minion",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Midnight Entourage",
+  "type": "Creature — Aetherborn Rogue",
+  "cost": "{2}{B}{B}",
+  "rank": 29063,
+  "text": "Other Aetherborn you control get +1/+1.\nWhenever this creature or another Aetherborn you control dies, you draw a card and you lose 1 life.",
+  "facets": [
+   "cares:sub:aetherborn",
+   "eff:draw",
+   "eff:lose-life",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:aetherborn",
+   "sub:aetherborn rogue",
+   "sub:rogue",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mass of Ghouls",
+  "type": "Creature — Zombie Warrior",
+  "cost": "{3}{B}{B}",
+  "rank": 29067,
+  "text": "",
+  "facets": [
+   "pt:big",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rune of Protection: Lands",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 29069,
+  "text": "{W}: The next time a land source of your choice would deal damage to you this turn, prevent that damage.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ritual of the Returned",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 29070,
+  "text": "Exile target creature card from your graveyard. Create a black Zombie creature token. Its power is equal to that card's power and its toughness is equal to that card's toughness.",
+  "facets": [
+   "cares:power",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "eff:exile-graveyard",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Osai Vultures",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 29072,
+  "text": "Flying\nAt the beginning of each end step, if a creature died this turn, put a carrion counter on this creature.\nRemove two carrion counters from this creature: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cost:remove-counters",
+   "ctr:carrion-self",
+   "eff:add-counters-self",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Chain of Silence",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 29074,
+  "text": "Prevent all damage target creature would deal this turn. That creature's controller may sacrifice a land of their choice. If the player does, they may copy this spell and may choose a new target for that copy.",
+  "facets": [
+   "cares:type:land",
+   "cost:sacrifice",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mishra's Groundbreaker",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 29075,
+  "text": "{T}, Sacrifice this artifact: Target land becomes a 3/3 artifact creature that's still a land. (This effect lasts indefinitely.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:land",
+   "col:none",
+   "cost:sacrifice-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Infernal Caretaker",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{B}",
+  "rank": 29076,
+  "text": "Morph {3}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, return all Zombie cards from all graveyards to their owners' hands.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:morph",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hypnotic Cloud",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 29079,
+  "text": "Kicker {4} (You may pay an additional {4} as you cast this spell.)\nTarget player discards a card. If this spell was kicked, that player discards three cards instead.",
+  "facets": [
+   "eff:discard",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Phyrexian Grimoire",
+  "type": "Artifact — Book",
+  "cost": "{3}",
+  "rank": 29080,
+  "text": "{4}, {T}: Target opponent chooses one of the top two cards of your graveyard. Exile that card and put the other one into your hand.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "sub:book",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ruthless Cullblade",
+  "type": "Creature — Vampire Warrior",
+  "cost": "{1}{B}",
+  "rank": 29081,
+  "text": "This creature gets +2/+1 as long as an opponent has 10 or less life.",
+  "facets": [
+   "mv:cheap",
+   "sub:vampire",
+   "sub:vampire warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Leap of Faith",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 29082,
+  "text": "Target creature gains flying until end of turn. Prevent all damage that would be dealt to that creature this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Noble Steeds",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 29085,
+  "text": "{1}{W}: Target creature gains first strike until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Stone Haven Pilgrim",
+  "type": "Creature — Kor Cleric",
+  "cost": "{1}{W}",
+  "rank": 29086,
+  "text": "Whenever this creature attacks, if you control an artifact or enchantment, this creature gets +1/+1 and gains lifelink until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:pump",
+   "grants:lifelink",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:kor",
+   "sub:kor cleric",
+   "trig:attacks",
+   "type:creature"
+  ]
+ }
+]

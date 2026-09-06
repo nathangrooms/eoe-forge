@@ -1,0 +1,924 @@
+[
+ {
+  "name": "Gray Slaad // Entropic Decay",
+  "type": "Creature — Frog Horror // Sorcery — Adventure",
+  "cost": "{2}{B} // {1}{B}",
+  "rank": 16761,
+  "text": "As long as there are four or more creature cards in your graveyard, this creature has menace and deathtouch.\n//\nMill four cards. (Then exile this card. You may cast the creature later from exile.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:mill",
+   "grants:deathtouch",
+   "grants:menace",
+   "kw:deathtouch",
+   "kw:menace",
+   "kw:mill",
+   "rec:partial",
+   "sub:adventure",
+   "sub:frog",
+   "sub:frog horror",
+   "sub:horror",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blossoming Calm",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 16762,
+  "text": "You gain hexproof until your next turn. You gain 2 life.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:rebound",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mortarpod",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 16763,
+  "text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +0/+1 and has \"Sacrifice this creature: This creature deals 1 damage to any target.\"\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:damage",
+   "kw:equip",
+   "kw:living weapon",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "tok:germ",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Resourceful Return",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 16766,
+  "text": "Return target creature card from your graveyard to your hand. If you control an artifact, draw a card.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:draw",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Felhide Petrifier",
+  "type": "Creature — Minotaur Warrior",
+  "cost": "{2}{B}",
+  "rank": 16767,
+  "text": "Deathtouch\nOther Minotaur creatures you control have deathtouch.",
+  "facets": [
+   "cares:sub:minotaur",
+   "cares:type:creature",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "rec:full",
+   "scope:all",
+   "sub:minotaur",
+   "sub:minotaur warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Garrulous Sycophant",
+  "type": "Creature — Human Advisor",
+  "cost": "{2}{B}",
+  "rank": 16771,
+  "text": "At the beginning of your end step, if you're the monarch, each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:partial",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Black Knight",
+  "type": "Creature — Human Knight",
+  "cost": "{B}{B}",
+  "rank": 16772,
+  "text": "First strike (This creature deals combat damage before creatures without first strike.)\nProtection from white (This creature can't be blocked, targeted, dealt damage, or enchanted by anything white.)",
+  "facets": [
+   "cares:color:w",
+   "kw:first strike",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gixian Infiltrator",
+  "type": "Creature — Phyrexian Human",
+  "cost": "{1}{B}",
+  "rank": 16774,
+  "text": "Whenever you sacrifice another permanent, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:phyrexian",
+   "sub:phyrexian human",
+   "trig:sacrificed",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Synapse Necromage",
+  "type": "Creature — Fungus Wizard",
+  "cost": "{2}{B}",
+  "rank": 16775,
+  "text": "When this creature dies, create two 1/1 black Fungus creature tokens with \"This token can't block.\"",
+  "facets": [
+   "cares:sub:fungus",
+   "rec:partial",
+   "sub:fungus",
+   "sub:fungus wizard",
+   "sub:wizard",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Terashi's Grasp",
+  "type": "Sorcery — Arcane",
+  "cost": "{2}{W}",
+  "rank": 16776,
+  "text": "Destroy target artifact or enchantment. You gain life equal to its mana value.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:full",
+   "sub:arcane",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dawn of the Dead",
+  "type": "Enchantment",
+  "cost": "{2}{B}{B}{B}",
+  "rank": 16777,
+  "text": "At the beginning of your upkeep, you lose 1 life.\nAt the beginning of your upkeep, you may return target creature card from your graveyard to the battlefield. That creature gains haste until end of turn. Exile it at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:lose-life",
+   "eff:return-from",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Midnight Oil",
+  "type": "Enchantment",
+  "cost": "{2}{B}{B}",
+  "rank": 16778,
+  "text": "This enchantment enters with seven hour counters on it.\nAt the beginning of your draw step, draw an additional card and remove two hour counters from this enchantment.\nYour maximum hand size is equal to the number of hour counters on this enchantment.\nWhenever you discard a card, you lose 1 life.",
+  "facets": [
+   "ctr:hour",
+   "eff:add-counters",
+   "rec:partial",
+   "trig:step",
+   "trig:step:draw",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Soltari Champion",
+  "type": "Creature — Soltari Soldier",
+  "cost": "{2}{W}",
+  "rank": 16779,
+  "text": "Shadow (This creature can block or be blocked by only creatures with shadow.)\nWhenever this creature attacks, other creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:shadow",
+   "rec:full",
+   "scope:all",
+   "sub:soldier",
+   "sub:soltari",
+   "sub:soltari soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Salt Road Packbeast",
+  "type": "Creature — Beast",
+  "cost": "{5}{W}",
+  "rank": 16783,
+  "text": "Affinity for creatures (This spell costs {1} less to cast for each creature you control.)\nWhen this creature enters, draw a card.",
+  "facets": [
+   "eff:draw",
+   "kw:affinity",
+   "mv:big",
+   "rec:full",
+   "sub:beast",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Insatiable Skittermaw",
+  "type": "Creature — Insect Horror",
+  "cost": "{2}{B}",
+  "rank": 16784,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nVoid — At the beginning of your end step, if a nonland permanent left the battlefield this turn or a spell was warped this turn, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:menace",
+   "kw:void",
+   "rec:partial",
+   "sub:horror",
+   "sub:insect",
+   "sub:insect horror",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jade Monolith",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 16785,
+  "text": "{1}: The next time a source of your choice would deal damage to target creature this turn, that source deals that damage to you instead.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:redirect-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Heart-Shaped Herb",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 16786,
+  "text": "If a source an opponent controls would deal damage to you, prevent 1 of that damage.\n{2}, {T}, Sacrifice this artifact: You may sacrifice a creature. If you do, return that card to the battlefield under its owner's control with three +1/+1 counters on it and you become the monarch.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-counters",
+   "eff:sacrifice",
+   "rec:partial",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Psychotic Episode",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 16788,
+  "text": "Target player reveals their hand and the top card of their library. You choose a card revealed this way. That player puts the chosen card on the bottom of their library.\nMadness {1}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:move-zone",
+   "kw:madness",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Aether Shockwave",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 16789,
+  "text": "Choose one —\n• Tap all Spirits.\n• Tap all non-Spirit creatures.",
+  "facets": [
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "eff:tap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "King Solomon's Frogs",
+  "type": "Legendary Artifact",
+  "cost": "{3}{W}",
+  "rank": 16791,
+  "text": "Flash\nWhen King Solomon's Frogs enters, if you cast it, for each opponent, exile up to one target permanent that player controls with mana value 3 or greater. For each permanent exiled this way, its controller draws a card.\n{3}, {T}, Exile King Solomon's Frogs: You become the monarch.",
+  "facets": [
+   "eff:exile",
+   "kw:flash",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Necromancer's Stockpile",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 16793,
+  "text": "{1}{B}, Discard a creature card: Draw a card. If the discarded card was a Zombie card, create a tapped 2/2 black Zombie creature token.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:draw",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Strength of Lunacy",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 16794,
+  "text": "Enchant creature\nEnchanted creature gets +2/+1 and has protection from white.\nMadness {B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+  "facets": [
+   "cares:color:w",
+   "grants:protection",
+   "kw:enchant",
+   "kw:madness",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Blight Keeper",
+  "type": "Creature — Bat Imp",
+  "cost": "{B}",
+  "rank": 16795,
+  "text": "Flying\n{7}{B}, {T}, Sacrifice this creature: Target opponent loses 4 life and you gain 4 life.",
+  "facets": [
+   "acost:3",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:bat",
+   "sub:bat imp",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Raffine's Silencer",
+  "type": "Creature — Human Assassin",
+  "cost": "{2}{B}",
+  "rank": 16798,
+  "text": "When this creature enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)\nWhen this creature dies, target creature an opponent controls gets -X/-X until end of turn, where X is this creature's power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:add-counters-self",
+   "eff:shrink",
+   "kw:connive",
+   "rec:partial",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Orzhov Keyrune",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 16800,
+  "text": "{T}: Add {W} or {B}.\n{W}{B}: This artifact becomes a 1/4 white and black Thrull artifact creature with lifelink until end of turn.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:sub:thrull",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Soulcoil Viper",
+  "type": "Creature — Snake",
+  "cost": "{2}{B}",
+  "rank": 16801,
+  "text": "{B}, {T}, Sacrifice this creature: Return target creature card from your graveyard to the battlefield with a finality counter on it. Activate only as a sorcery. (If a creature with a finality counter on it would die, exile it instead.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice-self",
+   "eff:return-from",
+   "sub:snake",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mirran Bardiche",
+  "type": "Artifact — Equipment",
+  "cost": "{4}{W}",
+  "rank": 16809,
+  "text": "For Mirrodin! (When this Equipment enters, create a 2/2 red Rebel creature token, then attach this to it.)\nEquipped creature gets +2/+1 and has vigilance.\nEquip {3}{W} ({3}{W}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:for mirrodin!",
+   "kw:vigilance",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Pride of the Road",
+  "type": "Creature — Zombie Cat Warrior",
+  "cost": "{3}{W}",
+  "rank": 16811,
+  "text": "Vigilance\nStart your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\nMax speed — At the beginning of combat on your turn, target creature or Vehicle you control gains double strike until end of turn.",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:double strike",
+   "kw:double strike",
+   "kw:max speed",
+   "kw:start your engines!",
+   "kw:vigilance",
+   "rec:full",
+   "sub:cat",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie cat warrior",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gelid Shackles",
+  "type": "Snow Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 16814,
+  "text": "Enchant creature\nEnchanted creature can't block, and its activated abilities can't be activated.\n{S}: Enchanted creature gains defender until end of turn. ({S} can be paid with one mana from a snow source.)",
+  "facets": [
+   "acost:1",
+   "eff:cant-activate",
+   "eff:pump",
+   "grants:defender",
+   "kw:defender",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Angel of the Dawn",
+  "type": "Creature — Angel",
+  "cost": "{4}{W}",
+  "rank": 16815,
+  "text": "Flying\nWhen this creature enters, creatures you control get +1/+1 and gain vigilance until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "False Cure",
+  "type": "Instant",
+  "cost": "{B}{B}",
+  "rank": 16816,
+  "text": "Until end of turn, whenever a player gains life, that player loses 2 life for each 1 life they gained.",
+  "facets": [
+   "eff:lose-life",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Infernal Kirin",
+  "type": "Legendary Creature — Kirin Spirit",
+  "cost": "{2}{B}{B}",
+  "rank": 16820,
+  "text": "Flying\nWhenever you cast a Spirit or Arcane spell, target player reveals their hand and discards all cards with that spell's mana value.",
+  "facets": [
+   "cares:sub:arcane",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:discard",
+   "kw:flying",
+   "rec:partial",
+   "sub:kirin",
+   "sub:kirin spirit",
+   "sub:spirit",
+   "trig:cast",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hivestone",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 16821,
+  "text": "Creatures you control are Slivers in addition to their other creature types.",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "col:none",
+   "mv:cheap",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Samurai of the Pale Curtain",
+  "type": "Creature — Fox Samurai",
+  "cost": "{W}{W}",
+  "rank": 16823,
+  "text": "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)\nIf a permanent would be put into a graveyard, exile it instead.",
+  "facets": [
+   "eff:exile-graveyard",
+   "eff:pump",
+   "kw:bushido",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:fox",
+   "sub:fox samurai",
+   "sub:samurai",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Took Reaper",
+  "type": "Creature — Halfling Peasant",
+  "cost": "{1}{W}",
+  "rank": 16825,
+  "text": "When this creature dies, the Ring tempts you.",
+  "facets": [
+   "mv:cheap",
+   "rec:partial",
+   "sub:halfling",
+   "sub:halfling peasant",
+   "sub:peasant",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Death Cultist",
+  "type": "Creature — Human Wizard",
+  "cost": "{B}",
+  "rank": 16834,
+  "text": "Sacrifice this creature: Target player loses 1 life and you gain 1 life.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zagoth Mamba",
+  "type": "Creature — Nightmare Snake",
+  "cost": "{B}",
+  "rank": 16836,
+  "text": "Whenever this creature mutates, target creature an opponent controls gets -2/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "sub:nightmare",
+   "sub:nightmare snake",
+   "sub:snake",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Merrow Bonegnawer",
+  "type": "Creature — Merfolk Rogue",
+  "cost": "{B}",
+  "rank": 16837,
+  "text": "{T}: Target player exiles a card from their graveyard.\nWhenever you cast a black spell, you may untap this creature.",
+  "facets": [
+   "acost:1",
+   "cares:color:b",
+   "cares:zone:stack",
+   "eff:untap",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:merfolk",
+   "sub:merfolk rogue",
+   "sub:rogue",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mighty Mutanimals",
+  "type": "Creature — Mutant Rebel",
+  "cost": "{2}{W}{W}",
+  "rank": 16841,
+  "text": "When this creature enters, create a 2/2 red Mutant creature token.\nAlliance — Whenever another creature you control enters, put a +1/+1 counter on target creature you control.",
+  "facets": [
+   "cares:sub:mutant",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:create-token",
+   "kw:alliance",
+   "rec:full",
+   "scope:all",
+   "sub:mutant",
+   "sub:mutant rebel",
+   "sub:rebel",
+   "tok:mutant",
+   "trig:enters",
+   "trig:enters-other",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tower Worker",
+  "type": "Artifact Creature — Assembly-Worker",
+  "cost": "{3}",
+  "rank": 16844,
+  "text": "Reach\n{T}: Add {C}. If you control creatures named Mine Worker and Power Plant Worker, add {C}{C}{C} instead.",
+  "facets": [
+   "acost:0",
+   "cares:sub:plant",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:reach",
+   "mana:1",
+   "rec:partial",
+   "sub:assembly-worker",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "First Sliver's Chosen",
+  "type": "Creature — Sliver",
+  "cost": "{4}{W}",
+  "rank": 16845,
+  "text": "Sliver creatures you control have exalted. (Whenever a creature you control attacks alone, it gets +1/+1 until end of turn for each instance of exalted among permanents you control.)",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "grants:exalted",
+   "kw:exalted",
+   "rec:full",
+   "scope:all",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warteye Witch",
+  "type": "Creature — Goblin Shaman",
+  "cost": "{2}{B}",
+  "rank": 16847,
+  "text": "Whenever this creature or another creature you control dies, scry 1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "scope:all",
+   "sub:goblin",
+   "sub:goblin shaman",
+   "sub:shaman",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kheru Mind-Eater",
+  "type": "Creature — Vampire",
+  "cost": "{2}{B}",
+  "rank": 16848,
+  "text": "Menace\nWhenever this creature deals combat damage to a player, that player exiles a card from their hand face down.\nYou may look at cards exiled with this creature, and you may play lands and cast spells from among those cards.",
+  "facets": [
+   "cares:zone:hand",
+   "kw:menace",
+   "rec:partial",
+   "sub:vampire",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Savior of the Small",
+  "type": "Creature — Kor Survivor",
+  "cost": "{3}{W}",
+  "rank": 16852,
+  "text": "Survival — At the beginning of your second main phase, if this creature is tapped, return target creature card with mana value 3 or less from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:survival",
+   "rec:partial",
+   "sub:kor",
+   "sub:kor survivor",
+   "sub:survivor",
+   "trig:step",
+   "trig:step:postcombat-main",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Banishment",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 16856,
+  "text": "Flash\nWhen this enchantment enters, exile target nonland permanent an opponent controls and all other nonland permanents your opponents control with the same name as that permanent until this enchantment leaves the battlefield.",
+  "facets": [
+   "eff:exile",
+   "kw:flash",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Skorpekh Destroyer",
+  "type": "Artifact Creature — Necron",
+  "cost": "{2}{B}{B}",
+  "rank": 16857,
+  "text": "Deathtouch\nHyperphase Threshers — Whenever an artifact you control enters, this creature gains first strike until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:pump",
+   "grants:first strike",
+   "kw:deathtouch",
+   "kw:first strike",
+   "kw:hyperphase threshers",
+   "rec:full",
+   "scope:all",
+   "sub:necron",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mortal Obstinacy",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 16861,
+  "text": "Enchant creature you control\nEnchanted creature gets +1/+1.\nWhenever enchanted creature deals combat damage to a player, you may sacrifice this Aura. If you do, destroy target enchantment.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:pump",
+   "eff:sacrifice",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "trig:deals-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "War Priest of Thune",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 16862,
+  "text": "When this creature enters, you may destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Infernal Idol",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 16863,
+  "text": "{T}: Add {B}.\n{1}{B}{B}, {T}, Sacrifice this artifact: You draw two cards and you lose 2 life.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:lose-life",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Silver Surfer, Galactus's Herald",
+  "type": "Legendary Creature — Alien Hero",
+  "cost": "{5}",
+  "rank": 16865,
+  "text": "Flying\nWhen Silver Surfer enters, you may search your library for a card named Galactus, Devourer of Worlds, reveal it, put it into your hand, then shuffle.\nWhenever Silver Surfer deals combat damage to a player, until the end of your next turn, target creature attacks that player each combat if able.",
+  "facets": [
+   "col:none",
+   "eff:search-library",
+   "kw:flying",
+   "rec:partial",
+   "sub:alien",
+   "sub:alien hero",
+   "sub:hero",
+   "trig:deals-damage",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ }
+]

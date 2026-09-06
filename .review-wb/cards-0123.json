@@ -1,0 +1,917 @@
+[
+ {
+  "name": "Moonlight Bargain",
+  "type": "Instant",
+  "cost": "{3}{B}{B}",
+  "rank": 15769,
+  "text": "Look at the top five cards of your library. For each card, put that card into your graveyard unless you pay 2 life. Then put the rest into your hand.",
+  "facets": [
+   "cares:zone:library",
+   "eff:draw",
+   "eff:mill",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Psychic Whorl",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 15775,
+  "text": "Target opponent discards two cards. Then if you control a Rat, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+  "facets": [
+   "cares:sub:rat",
+   "eff:discard",
+   "eff:surveil",
+   "kw:surveil",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Awe Strike",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 15776,
+  "text": "The next time target creature would deal damage this turn, prevent that damage. You gain life equal to the damage prevented this way.",
+  "facets": [
+   "eff:gain-life",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Netherborn Phalanx",
+  "type": "Creature — Horror",
+  "cost": "{5}{B}",
+  "rank": 15781,
+  "text": "When this creature enters, each opponent loses 1 life for each creature they control.\nTransmute {1}{B}{B} ({1}{B}{B}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+  "facets": [
+   "eff:lose-life",
+   "eff:search-library",
+   "kw:transmute",
+   "mv:big",
+   "rec:partial",
+   "sub:horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sinister Concoction",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 15782,
+  "text": "{B}, Pay 1 life, Mill a card, Discard a card, Sacrifice this enchantment: Destroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "cost:life",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "eff:discard-self",
+   "eff:mill",
+   "kw:mill",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fell Horseman // Deathly Ride",
+  "type": "Creature — Zombie Knight // Sorcery — Adventure",
+  "cost": "{3}{B} // {1}{B}",
+  "rank": 15784,
+  "text": "When this creature dies, put it on the bottom of its owner's library.\n//\nReturn target creature card from your graveyard to your hand. (Then exile this card. You may cast the creature later from exile.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:move-zone",
+   "eff:return-from",
+   "rec:partial",
+   "sub:adventure",
+   "sub:knight",
+   "sub:zombie",
+   "sub:zombie knight",
+   "trig:dies",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Silver Deputy",
+  "type": "Artifact Creature — Mercenary",
+  "cost": "{2}",
+  "rank": 15788,
+  "text": "When this creature enters, you may search your library for a basic land card or a Desert card, reveal it, then shuffle and put it on top.\n{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:partial",
+   "sub:mercenary",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Plague Engineer",
+  "type": "Creature — Phyrexian Carrier",
+  "cost": "{2}{B}",
+  "rank": 15789,
+  "text": "Deathtouch\nAs this creature enters, choose a creature type.\nCreatures of the chosen type your opponents control get -1/-1.",
+  "facets": [
+   "cares:sub:chosen",
+   "eff:choose",
+   "kw:deathtouch",
+   "rec:partial",
+   "sub:carrier",
+   "sub:phyrexian",
+   "sub:phyrexian carrier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stinging Hivemaster",
+  "type": "Creature — Phyrexian Warlock",
+  "cost": "{2}{B}",
+  "rank": 15790,
+  "text": "Toxic 1 (Players dealt combat damage by this creature also get a poison counter.)\nWhen this creature dies, create a 1/1 colorless Phyrexian Mite artifact creature token with toxic 1 and \"This token can't block.\"",
+  "facets": [
+   "cares:sub:mite",
+   "cares:sub:phyrexian",
+   "eff:poison",
+   "kw:toxic",
+   "rec:partial",
+   "sub:phyrexian",
+   "sub:phyrexian warlock",
+   "sub:warlock",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ordeal of Heliod",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 15791,
+  "text": "Enchant creature\nWhenever enchanted creature attacks, put a +1/+1 counter on it. Then if it has three or more +1/+1 counters on it, sacrifice this Aura.\nWhen you sacrifice this Aura, you gain 10 life.",
+  "facets": [
+   "cares:sub:aura",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:gain-life",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Knight Luminary",
+  "type": "Creature — Human Knight",
+  "cost": "{3}{W}",
+  "rank": 15792,
+  "text": "When this creature enters, create a 1/1 white Human Soldier creature token.\nWarp {1}{W} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "facets": [
+   "cares:sub:human",
+   "eff:create-token",
+   "kw:warp",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "tok:human",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ironpaw Aspirant",
+  "type": "Creature — Cat Warrior",
+  "cost": "{1}{W}",
+  "rank": 15796,
+  "text": "When this creature enters, put a +1/+1 counter on target creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "sub:cat warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Solemn Recruit",
+  "type": "Creature — Dwarf Warrior",
+  "cost": "{1}{W}{W}",
+  "rank": 15797,
+  "text": "Double strike\nRevolt — At the beginning of your end step, if a permanent left the battlefield under your control this turn, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:double strike",
+   "kw:revolt",
+   "rec:partial",
+   "sub:dwarf",
+   "sub:dwarf warrior",
+   "sub:warrior",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Darksteel Sentinel",
+  "type": "Artifact Creature — Golem",
+  "cost": "{6}",
+  "rank": 15800,
+  "text": "Flash (You may cast this spell any time you could cast an instant.)\nVigilance\nIndestructible (Damage and effects that say \"destroy\" don't destroy this creature. If its toughness is 0 or less, it's still put into its owner's graveyard.)",
+  "facets": [
+   "col:none",
+   "kw:flash",
+   "kw:indestructible",
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Underhanded Designs",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 15803,
+  "text": "Whenever an artifact you control enters, you may pay {1}. If you do, each opponent loses 1 life and you gain 1 life.\n{1}{B}, Sacrifice this enchantment: Destroy target creature. Activate only if you control two or more artifacts.",
+  "facets": [
+   "acost:2",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "eff:do-if-cost-paid",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Eyeblight Cullers",
+  "type": "Creature — Elf Warrior",
+  "cost": "{4}{B}",
+  "rank": 15804,
+  "text": "When this creature dies, create three 1/1 green Elf Warrior creature tokens, then mill three cards. (Put the top three cards of your library into your graveyard.)",
+  "facets": [
+   "cares:sub:elf",
+   "cares:sub:warrior",
+   "eff:create-token",
+   "eff:mill",
+   "kw:mill",
+   "rec:full",
+   "sub:elf",
+   "sub:elf warrior",
+   "sub:warrior",
+   "tok:elf",
+   "tok:warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dark Bargain",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 15806,
+  "text": "Look at the top three cards of your library. Put two of them into your hand and the other into your graveyard. Dark Bargain deals 2 damage to you.",
+  "facets": [
+   "eff:damage-self",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mind Slash",
+  "type": "Enchantment",
+  "cost": "{1}{B}{B}",
+  "rank": 15807,
+  "text": "{B}, Sacrifice a creature: Target opponent reveals their hand. You choose a card from it. That player discards that card. Activate only as a sorcery.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cost:sacrifice",
+   "eff:discard",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Spreading Plague",
+  "type": "Enchantment",
+  "cost": "{4}{B}",
+  "rank": 15811,
+  "text": "Whenever a creature enters, destroy all other creatures that share a color with it. They can't be regenerated.",
+  "facets": [
+   "cares:color:c",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "MJ, Rising Star",
+  "type": "Legendary Creature — Human Performer",
+  "cost": "{2}{W}",
+  "rank": 15812,
+  "text": "Vigilance (Attacking doesn't cause this creature to tap.)\nWhenever you gain life, put a +1/+1 counter on MJ.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human performer",
+   "sub:performer",
+   "trig:gains-life",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hylderblade",
+  "type": "Artifact — Equipment",
+  "cost": "{B}",
+  "rank": 15815,
+  "text": "Equipped creature gets +3/+1.\nVoid — At the beginning of your end step, if a nonland permanent left the battlefield this turn or a spell was warped this turn, attach this Equipment to target creature you control.\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "kw:void",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Brightfield Mustang",
+  "type": "Creature — Horse Mount",
+  "cost": "{3}{W}",
+  "rank": 15819,
+  "text": "Whenever this creature attacks while saddled, untap it and put a +1/+1 counter on it.\nSaddle 1 (Tap any number of other creatures you control with total power 1 or more: This Mount becomes saddled until end of turn. Saddle only as a sorcery.)",
+  "facets": [
+   "cares:type:creature",
+   "cost:tap-others",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:untap",
+   "kw:saddle",
+   "rec:partial",
+   "sub:horse",
+   "sub:horse mount",
+   "sub:mount",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Channeling",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 15820,
+  "text": "Enchant creature\nPay 2 life: Regenerate enchanted creature.",
+  "facets": [
+   "cost:life",
+   "eff:protect",
+   "kw:enchant",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Joust Through",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 15821,
+  "text": "Joust Through deals 3 damage to target attacking or blocking creature. You gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nothic",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}",
+  "rank": 15823,
+  "text": "Weird Insight — When this creature dies, roll a d20.\n1—9 | You draw a card and you lose 1 life.\n10—19 | You draw two cards and you lose 2 life.\n20 | You draw seven cards and you lose 7 life.",
+  "facets": [
+   "eff:draw",
+   "eff:random",
+   "kw:weird insight",
+   "rec:partial",
+   "sub:horror",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Commander Eesha",
+  "type": "Legendary Creature — Bird Soldier",
+  "cost": "{2}{W}{W}",
+  "rank": 15825,
+  "text": "Flying, protection from creatures",
+  "facets": [
+   "eff:cant-be-blocked",
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Scepter of Dominance",
+  "type": "Artifact",
+  "cost": "{1}{W}{W}",
+  "rank": 15826,
+  "text": "{W}, {T}: Tap target permanent.",
+  "facets": [
+   "acost:1",
+   "cost:tap",
+   "eff:tap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lethal Throwdown",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 15831,
+  "text": "As an additional cost to cast this spell, sacrifice a creature or sacrifice a modified creature. (Equipment, Auras you control, and counters are modifications.)\nDestroy target creature or planeswalker. If the modified creature was sacrificed, draw a card.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Nezumi Bone-Reader",
+  "type": "Creature — Rat Shaman",
+  "cost": "{1}{B}",
+  "rank": 15832,
+  "text": "{B}, Sacrifice a creature: Target player discards a card. Activate only as a sorcery.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:discard",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:rat",
+   "sub:rat shaman",
+   "sub:shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spirit of Resistance",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 15834,
+  "text": "As long as you control a permanent of each color, prevent all damage that would be dealt to you.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Salt Road Skirmish",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 15839,
+  "text": "Destroy target creature. Create two 1/1 red Warrior creature tokens. They gain haste until end of turn. Sacrifice them at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "rec:partial",
+   "tok:warrior",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lockjaw Snapper",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{4}",
+  "rank": 15841,
+  "text": "Wither (This deals damage to creatures in the form of -1/-1 counters.)\nWhen this creature dies, put a -1/-1 counter on each creature with a -1/-1 counter on it.",
+  "facets": [
+   "col:none",
+   "kw:wither",
+   "rec:partial",
+   "sub:scarecrow",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cinderhaze Wretch",
+  "type": "Creature — Elemental Shaman",
+  "cost": "{4}{B}",
+  "rank": 15843,
+  "text": "{T}: Target player discards a card. Activate only during your turn.\nPut a -1/-1 counter on this creature: Untap this creature.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:discard",
+   "eff:untap",
+   "rec:partial",
+   "sub:elemental",
+   "sub:elemental shaman",
+   "sub:shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Celestial Crusader",
+  "type": "Creature — Spirit",
+  "cost": "{2}{W}{W}",
+  "rank": 15849,
+  "text": "Flash\nSplit second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nFlying\nOther white creatures get +1/+1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:flash",
+   "kw:flying",
+   "kw:split second",
+   "rec:full",
+   "scope:all",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Decimator Web",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 15850,
+  "text": "{4}, {T}: Target opponent loses 2 life, gets a poison counter, then mills six cards.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "ctr:poison",
+   "eff:add-counters",
+   "eff:lose-life",
+   "eff:mill",
+   "kw:mill",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ichor Drinker",
+  "type": "Creature — Phyrexian Vampire",
+  "cost": "{B}",
+  "rank": 15851,
+  "text": "Lifelink\n{B}, Exile this card from your graveyard: Incubate 2. Activate only as a sorcery. (Create an Incubator token with two +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)",
+  "facets": [
+   "eff:create-token",
+   "kw:incubate",
+   "kw:lifelink",
+   "kw:transform",
+   "mv:cheap",
+   "rec:partial",
+   "sub:phyrexian",
+   "sub:phyrexian vampire",
+   "sub:vampire",
+   "tok:incubator",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Conciliator's Duelist",
+  "type": "Creature — Kor Warlock",
+  "cost": "{W}{W}{B}{B}",
+  "rank": 15854,
+  "text": "When this creature enters, draw a card. Each player loses 1 life.\nRepartee — Whenever you cast an instant or sorcery spell that targets a creature, exile up to one target creature. Return that card to the battlefield under its owner's control at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:exile",
+   "cares:zone:stack",
+   "eff:draw",
+   "eff:exile",
+   "eff:lose-life",
+   "eff:return-from",
+   "kw:repartee",
+   "rec:full",
+   "scope:all",
+   "sub:kor",
+   "sub:kor warlock",
+   "sub:warlock",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:instant",
+   "trig:cast:sorcery",
+   "trig:cast:targeting",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arcbound Lancer",
+  "type": "Artifact Creature — Beast",
+  "cost": "{7}",
+  "rank": 15855,
+  "text": "First strike\nModular 4 (This creature enters with four +1/+1 counters on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:first strike",
+   "kw:modular",
+   "mv:big",
+   "rec:full",
+   "sub:beast",
+   "trig:dies",
+   "trig:leaves",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Quicksand",
+  "type": "Land",
+  "cost": "",
+  "rank": 15861,
+  "text": "{T}: Add {C}.\n{T}, Sacrifice this land: Target attacking creature without flying gets -1/-2 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:shrink",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Carnage Altar",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 15869,
+  "text": "{3}, Sacrifice a creature: Draw a card.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "eff:draw",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nighthaze",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 15870,
+  "text": "Target creature gains swampwalk until end of turn. (It can't be blocked as long as defending player controls a Swamp.)\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:pump",
+   "grants:swampwalk",
+   "kw:swampwalk",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Roving Harper",
+  "type": "Creature — Elf Scout",
+  "cost": "{2}{W}",
+  "rank": 15872,
+  "text": "When this creature enters, draw a card.",
+  "facets": [
+   "eff:draw",
+   "rec:full",
+   "sub:elf",
+   "sub:elf scout",
+   "sub:scout",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Squall Drifter",
+  "type": "Snow Creature — Elemental",
+  "cost": "{1}{W}",
+  "rank": 15876,
+  "text": "Flying\n{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:elemental",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Dig Up the Body",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 15877,
+  "text": "Casualty 1 (As you cast this spell, you may sacrifice a creature with power 1 or greater. When you do, copy this spell.)\nMill two cards, then you may return a creature card from your graveyard to your hand. (To mill a card, put the top card of your library into your graveyard.)",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:copy",
+   "eff:mill",
+   "eff:return-from",
+   "kw:casualty",
+   "kw:mill",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Brain Maggot",
+  "type": "Enchantment Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 15879,
+  "text": "When this creature enters, target opponent reveals their hand and you choose a nonland card from it. Exile that card until this creature leaves the battlefield.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "mv:cheap",
+   "rec:partial",
+   "sub:insect",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Vibranium Energy Daggers",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 15880,
+  "text": "Indestructible (Effects that say \"destroy\" don't destroy this Equipment.)\nEquipped creature gets +2/+2.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Night Incarnate",
+  "type": "Creature — Elemental",
+  "cost": "{4}{B}",
+  "rank": 15881,
+  "text": "Deathtouch\nWhen this creature leaves the battlefield, all creatures get -3/-3 until end of turn.\nEvoke {3}{B} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:deathtouch",
+   "kw:evoke",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "sub:elemental",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Salvage",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 15884,
+  "text": "Return up to two target creature cards from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Forbidden Crypt",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 15886,
+  "text": "If you would draw a card, return a card from your graveyard to your hand instead. If you can't, you lose the game.\nIf a card would be put into your graveyard from anywhere, exile that card instead.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Dreg Recycler",
+  "type": "Creature — Phyrexian Beast",
+  "cost": "{1}{B}",
+  "rank": 15889,
+  "text": "{T}, Sacrifice an artifact or creature: Each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:beast",
+   "sub:phyrexian",
+   "sub:phyrexian beast",
+   "type:creature"
+  ]
+ }
+]

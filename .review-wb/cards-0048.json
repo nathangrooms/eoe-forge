@@ -1,0 +1,940 @@
+[
+ {
+  "name": "Unspeakable Symbol",
+  "type": "Enchantment",
+  "cost": "{1}{B}{B}",
+  "rank": 5854,
+  "text": "Pay 3 life: Put a +1/+1 counter on target creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:life",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fight On!",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 5856,
+  "text": "Return up to two target creature cards from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Liliana, Waker of the Dead",
+  "type": "Legendary Planeswalker — Liliana",
+  "cost": "{2}{B}{B}",
+  "rank": 5859,
+  "text": "+1: Each player discards a card. Each opponent who can't loses 3 life.\n−3: Target creature gets -X/-X until end of turn, where X is the number of cards in your graveyard.\n−7: You get an emblem with \"At the beginning of combat on your turn, put target creature card from a graveyard onto the battlefield under your control. It gains haste.\"",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:discard",
+   "eff:lose-life",
+   "eff:return-from",
+   "eff:shrink",
+   "rec:partial",
+   "sub:liliana",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Introduction to Annihilation",
+  "type": "Sorcery — Lesson",
+  "cost": "{5}",
+  "rank": 5860,
+  "text": "Exile target nonland permanent. Its controller draws a card.",
+  "facets": [
+   "col:none",
+   "eff:exile",
+   "rec:partial",
+   "sub:lesson",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Into the Pit",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 5863,
+  "text": "You may look at the top card of your library any time.\nYou may cast spells from the top of your library by sacrificing a nonland permanent in addition to paying their other costs.",
+  "facets": [
+   "cares:zone:library",
+   "cost:sacrifice",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ancient Craving",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 5864,
+  "text": "You draw three cards and you lose 3 life.",
+  "facets": [
+   "eff:draw",
+   "eff:lose-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Campfire",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 5866,
+  "text": "{1}, {T}: You gain 2 life.\n{2}, {T}, Exile this artifact: Put all commanders you own from the command zone and from your graveyard into your hand. Then shuffle your graveyard into your library.",
+  "facets": [
+   "acost:1",
+   "cares:commander",
+   "col:none",
+   "cost:tap",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sarevok's Tome",
+  "type": "Artifact — Book",
+  "cost": "{4}",
+  "rank": 5869,
+  "text": "When this artifact enters, you take the initiative.\n{T}: Add {C}. If you have the initiative, add {C}{C} instead.\n{3}, {T}: Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost. Activate only if you've completed a dungeon.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:book",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Anafenza, Kin-Tree Spirit",
+  "type": "Legendary Creature — Spirit Soldier",
+  "cost": "{W}{W}",
+  "rank": 5872,
+  "text": "Whenever another nontoken creature you control enters, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:bolster",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:soldier",
+   "sub:spirit",
+   "sub:spirit soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Shredder, Shadow Master",
+  "type": "Legendary Creature — Human Ninja",
+  "cost": "{3}{B}{B}",
+  "rank": 5875,
+  "text": "Whenever Shredder attacks a player, for each other opponent, create a token that's a copy of Shredder tapped and attacking that player, except it isn't legendary. Sacrifice those tokens at end of combat.\nWhenever Shredder deals combat damage to a player, that player loses half their life, rounded up.",
+  "facets": [
+   "eff:copy",
+   "pt:big",
+   "rec:partial",
+   "sub:human",
+   "sub:human ninja",
+   "sub:ninja",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Cruel Tutor",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 5877,
+  "text": "Search your library for a card, then shuffle and put that card on top. You lose 2 life.",
+  "facets": [
+   "cares:zone:library",
+   "eff:lose-life",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Intelligence Bobblehead",
+  "type": "Artifact — Bobblehead",
+  "cost": "{3}",
+  "rank": 5880,
+  "text": "{T}: Add one mana of any color.\n{5}, {T}: Draw X cards, where X is the number of Bobbleheads you control.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:bobblehead",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:1",
+   "rec:full",
+   "sub:bobblehead",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Continue?",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 5881,
+  "text": "Choose up to four target creature cards in your graveyard that were put there from the battlefield this turn. Return them to the battlefield.",
+  "facets": [
+   "eff:protect",
+   "eff:return-from",
+   "mv:cheap",
+   "trig:dies",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Pontiff of Blight",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{4}{B}{B}",
+  "rank": 5889,
+  "text": "Extort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)\nOther creatures you control have extort. (If a creature has multiple instances of extort, each triggers separately.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:lose-life",
+   "grants:extort",
+   "kw:extort",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grixis Panorama",
+  "type": "Land",
+  "cost": "",
+  "rank": 5890,
+  "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:island",
+   "cares:sub:mountain",
+   "cares:sub:swamp",
+   "cares:zone:library",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:search-library",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Mindblade Render",
+  "type": "Creature — Azra Warrior",
+  "cost": "{1}{B}",
+  "rank": 5894,
+  "text": "Whenever your opponents are dealt combat damage, if any of that damage was dealt by a Warrior, you draw a card and you lose 1 life.",
+  "facets": [
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "eff:draw",
+   "mv:cheap",
+   "sub:azra",
+   "sub:azra warrior",
+   "sub:warrior",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lifecraft Engine",
+  "type": "Artifact — Vehicle",
+  "cost": "{3}",
+  "rank": 5895,
+  "text": "As this Vehicle enters, choose a creature type.\nVehicle creatures you control are the chosen creature type in addition to their other types.\nEach creature you control of the chosen type other than this Vehicle gets +1/+1.\nCrew 3",
+  "facets": [
+   "cares:sub:chosen",
+   "cares:sub:vehicle",
+   "col:none",
+   "eff:choose",
+   "kw:crew",
+   "rec:partial",
+   "sub:vehicle",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Defiant Bloodlord",
+  "type": "Creature — Vampire",
+  "cost": "{5}{B}{B}",
+  "rank": 5896,
+  "text": "Flying\nWhenever you gain life, target opponent loses that much life.",
+  "facets": [
+   "eff:lose-life",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:vampire",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Recon Craft Theta",
+  "type": "Artifact — Vehicle",
+  "cost": "{4}",
+  "rank": 5903,
+  "text": "Flying\nWhen this Vehicle enters, create a 0/0 blue Alien creature token. Put a +1/+1 counter on it.\nWhenever this Vehicle attacks, proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)\nCrew 2",
+  "facets": [
+   "cares:sub:vehicle",
+   "col:none",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:proliferate",
+   "kw:crew",
+   "kw:flying",
+   "kw:proliferate",
+   "rec:partial",
+   "sub:vehicle",
+   "tok:alien",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Oft-Nabbed Goat",
+  "type": "Creature — Goat",
+  "cost": "{1}{B}",
+  "rank": 5906,
+  "text": "{1}: Draw a card. Gain control of this creature and put a -1/-1 counter on it. Only your opponents may activate this ability and only as a sorcery.\nWhen this creature dies, if it had one or more -1/-1 counters on it, its owner draws that many cards and each other player loses that much life.",
+  "facets": [
+   "acost:1",
+   "eff:draw",
+   "eff:give-control",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:goat",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dark Tutelage",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 5907,
+  "text": "At the beginning of your upkeep, reveal the top card of your library and put that card into your hand. You lose life equal to its mana value.",
+  "facets": [
+   "cares:zone:library",
+   "eff:draw",
+   "eff:lose-life",
+   "rec:full",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Segovian Angel",
+  "type": "Creature — Angel",
+  "cost": "{W}",
+  "rank": 5909,
+  "text": "Flying, vigilance",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pillar of Origins",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 5914,
+  "text": "As this artifact enters, choose a creature type.\n{T}: Add one mana of any color. Spend this mana only to cast a creature spell of the chosen type.",
+  "facets": [
+   "acost:0",
+   "cares:sub:chosen",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:choose",
+   "mana:1",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Michiko Konda, Truth Seeker",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{3}{W}",
+  "rank": 5915,
+  "text": "Whenever a source an opponent controls deals damage to you, that player sacrifices a permanent of their choice.",
+  "facets": [
+   "eff:sacrifice",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Katilda, Dawnhart Martyr // Katilda's Rising Dawn",
+  "type": "Legendary Creature — Spirit Warlock // Legendary Enchantment — Aura",
+  "cost": "",
+  "rank": 5916,
+  "text": "Flying, lifelink, protection from Vampires\nKatilda's power and toughness are each equal to the number of permanents you control that are Spirits and/or enchantments.\nDisturb {3}{W}{W} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nEnchant creature\nEnchanted creature has flying, lifelink, and protection from Vampires, and it gets +X/+X, where X is the number of permanents you control that are Spirits and/or enchantments.\nIf Katilda's Rising Dawn would be put into a graveyard from anywhere, exile it instead.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "eff:gain-life",
+   "eff:pump",
+   "eff:set-pt",
+   "grants:flying",
+   "grants:lifelink",
+   "grants:protection",
+   "kw:disturb",
+   "kw:enchant",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:protection",
+   "kw:transform",
+   "rec:partial",
+   "sub:aura",
+   "sub:spirit",
+   "sub:spirit warlock",
+   "sub:warlock",
+   "type:creature",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Liliana's Standard Bearer",
+  "type": "Creature — Zombie Knight",
+  "cost": "{2}{B}",
+  "rank": 5917,
+  "text": "Flash\nWhen this creature enters, draw X cards, where X is the number of creatures that died under your control this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "kw:flash",
+   "rec:full",
+   "sub:knight",
+   "sub:zombie",
+   "sub:zombie knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Turtle Lair",
+  "type": "Land",
+  "cost": "",
+  "rank": 5919,
+  "text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Ninja or Turtle spell.\n{3}, {T}: Target Ninja or Turtle can't be blocked this turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:ninja",
+   "cares:sub:turtle",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:cant-be-blocked",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Gaius van Baelsar",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{2}{B}{B}",
+  "rank": 5921,
+  "text": "When Gaius van Baelsar enters, choose one —\n• Each player sacrifices a creature token of their choice.\n• Each player sacrifices a nontoken creature of their choice.\n• Each player sacrifices an enchantment of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Eternal Thirst",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 5922,
+  "text": "Enchant creature\nEnchanted creature has lifelink and \"Whenever a creature an opponent controls dies, put a +1/+1 counter on this creature.\" (Damage dealt by a creature with lifelink also causes its controller to gain that much life.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:gain-life",
+   "grants:lifelink",
+   "kw:enchant",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Blessed Sanctuary",
+  "type": "Enchantment",
+  "cost": "{3}{W}{W}",
+  "rank": 5924,
+  "text": "Prevent all noncombat damage that would be dealt to you and creatures you control.\nWhenever a nontoken creature you control enters, create a 2/2 white Unicorn creature token.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "rec:partial",
+   "scope:all",
+   "tok:unicorn",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fanatical Devotion",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 5926,
+  "text": "Sacrifice a creature: Regenerate target creature.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:protect",
+   "kw:regenerate",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "The Queen of Dale",
+  "type": "Legendary Creature — Human Noble",
+  "cost": "{1}{W}",
+  "rank": 5928,
+  "text": "Whenever an opponent casts their first noncreature spell each turn, you recruit. (Draw a card, then discard a card. If you discarded a nonland card, create a 1/1 white Human Soldier creature token.)",
+  "facets": [
+   "cares:zone:stack",
+   "eff:create-token",
+   "kw:recruit",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human noble",
+   "sub:noble",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Gwaihir, Greatest of the Eagles",
+  "type": "Legendary Creature — Bird Noble",
+  "cost": "{4}{W}",
+  "rank": 5929,
+  "text": "Flying\nWhenever Gwaihir attacks, target attacking creature gains flying until end of turn.\nAt the beginning of each end step, if you gained 3 or more life this turn, create a 3/3 white Bird creature token with flying and \"Whenever this token attacks, target attacking creature gains flying until end of turn.\"",
+  "facets": [
+   "cares:sub:bird",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "pt:big",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird noble",
+   "sub:noble",
+   "trig:attacks",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Abhorrent Overlord",
+  "type": "Creature — Demon",
+  "cost": "{5}{B}{B}",
+  "rank": 5930,
+  "text": "Flying\nWhen this creature enters, create a number of 1/1 black Harpy creature tokens with flying equal to your devotion to black. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)\nAt the beginning of your upkeep, sacrifice a creature.",
+  "facets": [
+   "cares:color:b",
+   "cares:sub:harpy",
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:demon",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Holy Day",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 5934,
+  "text": "Prevent all combat damage that would be dealt this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Skyscanner",
+  "type": "Artifact Creature — Thopter",
+  "cost": "{3}",
+  "rank": 5935,
+  "text": "Flying\nWhen this creature enters, draw a card.",
+  "facets": [
+   "col:none",
+   "eff:draw",
+   "kw:flying",
+   "rec:full",
+   "sub:thopter",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elspeth, Knight-Errant",
+  "type": "Legendary Planeswalker — Elspeth",
+  "cost": "{2}{W}{W}",
+  "rank": 5937,
+  "text": "+1: Create a 1/1 white Soldier creature token.\n+1: Target creature gets +3/+3 and gains flying until end of turn.\n−8: You get an emblem with \"Artifacts, creatures, enchantments, and lands you control have indestructible.\"",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cost:add-counters",
+   "eff:create-token",
+   "eff:pump",
+   "grants:flying",
+   "grants:indestructible",
+   "kw:flying",
+   "kw:indestructible",
+   "rec:partial",
+   "sub:elspeth",
+   "tok:soldier",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Vorrac Battlehorns",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 5938,
+  "text": "Equipped creature has trample and can't be blocked by more than one creature.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Spectrum Sentinel",
+  "type": "Artifact Creature — Soldier",
+  "cost": "{1}",
+  "rank": 5940,
+  "text": "Protection from multicolored (This creature can't be blocked, targeted, dealt damage, enchanted, or equipped by anything multicolored.)\nWhenever a nonbasic land an opponent controls enters, you gain 1 life.",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "eff:gain-life",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Conversion Apparatus",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 5944,
+  "text": "{T}: Add {C}.\n{3}, {T}: You get {E}{E}{E} (three energy counters).\n{T}, Pay {E}{E}{E}: Add three mana in any combination of colors.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "ctr:energy",
+   "eff:add-mana",
+   "eff:player-counter",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Phyrexian Soulgorger",
+  "type": "Snow Artifact Creature — Phyrexian Construct",
+  "cost": "{3}",
+  "rank": 5948,
+  "text": "Cumulative upkeep—Sacrifice a creature. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "kw:cumulative upkeep",
+   "pt:big",
+   "sub:construct",
+   "sub:phyrexian",
+   "sub:phyrexian construct",
+   "trig:step",
+   "type:artifact",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Charisma Bobblehead",
+  "type": "Artifact — Bobblehead",
+  "cost": "{3}",
+  "rank": 5949,
+  "text": "{T}: Add one mana of any color.\n{4}, {T}: Create X 1/1 white Soldier creature tokens, where X is the number of Bobbleheads you control. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:bobblehead",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "mana:1",
+   "rec:full",
+   "sub:bobblehead",
+   "tok:soldier",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Perception Bobblehead",
+  "type": "Artifact — Bobblehead",
+  "cost": "{3}",
+  "rank": 5958,
+  "text": "{T}: Add one mana of any color.\n{3}, {T}: Look at the top X cards of your library, where X is the number of Bobbleheads you control. You may cast a spell with mana value 3 or less from among them without paying its mana cost. Put the rest on the bottom of your library in a random order.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:bobblehead",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:look-and-pick",
+   "mana:1",
+   "rec:partial",
+   "sub:bobblehead",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Mighty Servant of Leuk-o",
+  "type": "Artifact — Vehicle",
+  "cost": "{3}",
+  "rank": 5960,
+  "text": "Trample\nWard—Discard a card.\nWhenever this Vehicle becomes crewed for the first time each turn, if it was crewed by exactly two creatures, it gains \"Whenever this creature deals combat damage to a player, draw two cards\" until end of turn.\nCrew 4",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap-others",
+   "eff:draw",
+   "kw:crew",
+   "kw:trample",
+   "kw:ward",
+   "pt:big",
+   "rec:partial",
+   "sub:vehicle",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Thieves' Tools",
+  "type": "Artifact — Equipment",
+  "cost": "{1}{B}",
+  "rank": 5963,
+  "text": "When this Equipment enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nEquipped creature can't be blocked as long as its power is 3 or less.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:cant-be-blocked",
+   "eff:create-token",
+   "kw:equip",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "tok:treasure",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hourglass of the Lost",
+  "type": "Artifact",
+  "cost": "{2}{W}",
+  "rank": 5966,
+  "text": "{T}: Add {W}. Put a time counter on this artifact.\n{T}, Remove X time counters from this artifact and exile it: Return each nonland permanent card with mana value X from your graveyard to the battlefield. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "ctr:time-self",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Obsessive Pursuit",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 5967,
+  "text": "When this enchantment enters and at the beginning of your upkeep, you lose 1 life and create a Clue token. (It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")\nWhenever you attack, put X +1/+1 counters on target attacking creature, where X is the number of permanents you've sacrificed this turn. If X is three or more, that creature gains lifelink until end of turn.",
+  "facets": [
+   "cares:sub:clue",
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:gain-life",
+   "grants:lifelink",
+   "kw:lifelink",
+   "mv:cheap",
+   "trig:attacks",
+   "trig:sacrificed",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bone Splinters",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 5971,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nDestroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Priest of Ancient Lore",
+  "type": "Creature — Dwarf Cleric",
+  "cost": "{2}{W}",
+  "rank": 5973,
+  "text": "When this creature enters, you gain 1 life and draw a card.",
+  "facets": [
+   "eff:draw",
+   "eff:gain-life",
+   "rec:full",
+   "sub:cleric",
+   "sub:dwarf",
+   "sub:dwarf cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Killing Wave",
+  "type": "Sorcery",
+  "cost": "{X}{B}",
+  "rank": 5974,
+  "text": "For each creature, its controller sacrifices it unless they pay X life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "mv:cheap",
+   "scope:all",
+   "type:sorcery"
+  ]
+ }
+]

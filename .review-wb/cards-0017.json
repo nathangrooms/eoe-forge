@@ -1,0 +1,941 @@
+[
+ {
+  "name": "Norn's Annex",
+  "type": "Artifact",
+  "cost": "{3}{W/P}{W/P}",
+  "rank": 1954,
+  "text": "({W/P} can be paid with either {W} or 2 life.)\nCreatures can't attack you or planeswalkers you control unless their controller pays {W/P} for each of those creatures.",
+  "facets": [
+   "cares:type:planeswalker",
+   "cost:cast-life",
+   "eff:unless-pays",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Deafening Silence",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 1955,
+  "text": "Each player can't cast more than one noncreature spell each turn.",
+  "facets": [
+   "mv:cheap",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ogre Slumlord",
+  "type": "Creature — Ogre Rogue",
+  "cost": "{3}{B}{B}",
+  "rank": 1958,
+  "text": "Whenever another nontoken creature dies, you may create a 1/1 black Rat creature token.\nRats you control have deathtouch.",
+  "facets": [
+   "cares:sub:rat",
+   "cares:type:creature",
+   "eff:create-token",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "rec:full",
+   "scope:all",
+   "sub:ogre",
+   "sub:ogre rogue",
+   "sub:rogue",
+   "tok:rat",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kor Spiritdancer",
+  "type": "Creature — Kor Wizard",
+  "cost": "{1}{W}",
+  "rank": 1959,
+  "text": "This creature gets +2/+2 for each Aura attached to it.\nWhenever you cast an Aura spell, you may draw a card.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:zone:stack",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:kor",
+   "sub:kor wizard",
+   "sub:wizard",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Orzhov Guildgate",
+  "type": "Land — Gate",
+  "cost": "",
+  "rank": 1961,
+  "text": "This land enters tapped.\n{T}: Add {W} or {B}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "sub:gate",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ob Nixilis, the Fallen",
+  "type": "Legendary Creature — Demon",
+  "cost": "{3}{B}{B}",
+  "rank": 1963,
+  "text": "Landfall — Whenever a land you control enters, you may have target player lose 3 life. If you do, put three +1/+1 counters on Ob Nixilis.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:lose-life",
+   "kw:landfall",
+   "rec:full",
+   "scope:all",
+   "sub:demon",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Junk Diver",
+  "type": "Artifact Creature — Bird",
+  "cost": "{3}",
+  "rank": 1964,
+  "text": "Flying\nWhen this creature dies, return another target artifact card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:return-from",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hero of Bladehold",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}{W}",
+  "rank": 1965,
+  "text": "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nWhenever this creature attacks, create two 1/1 white Soldier creature tokens that are tapped and attacking.",
+  "facets": [
+   "cares:sub:soldier",
+   "eff:create-token",
+   "kw:battle cry",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eldritch Immunity",
+  "type": "Kindred Instant — Eldrazi",
+  "cost": "{C}",
+  "rank": 1967,
+  "text": "Target creature you control gains protection from each color until end of turn.\nOverload {4}{C} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "facets": [
+   "col:none",
+   "eff:protect",
+   "grants:protection",
+   "kw:overload",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:eldrazi",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Helpful Hunter",
+  "type": "Creature — Cat",
+  "cost": "{1}{W}",
+  "rank": 1968,
+  "text": "When this creature enters, draw a card.",
+  "facets": [
+   "eff:draw",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Horn of Gondor",
+  "type": "Legendary Artifact",
+  "cost": "{3}",
+  "rank": 1969,
+  "text": "When Horn of Gondor enters, create a 1/1 white Human Soldier creature token.\n{3}, {T}: Create X 1/1 white Human Soldier creature tokens, where X is the number of Humans you control.",
+  "facets": [
+   "acost:3",
+   "cares:sub:human",
+   "col:none",
+   "cost:tap",
+   "eff:create-token",
+   "rec:full",
+   "tok:human",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hero's Downfall",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 1970,
+  "text": "Destroy target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Solitude",
+  "type": "Creature — Elemental Incarnation",
+  "cost": "{3}{W}{W}",
+  "rank": 1972,
+  "text": "Flash\nLifelink\nWhen this creature enters, exile up to one other target creature. That creature's controller gains life equal to its power.\nEvoke—Exile a white card from your hand.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "kw:evoke",
+   "kw:flash",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:elemental",
+   "sub:elemental incarnation",
+   "sub:incarnation",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Drownyard Temple",
+  "type": "Land",
+  "cost": "",
+  "rank": 1975,
+  "text": "{T}: Add {C}.\n{3}: Return this card from your graveyard to the battlefield tapped.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:recur-self",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Split Up",
+  "type": "Sorcery",
+  "cost": "{1}{W}{W}",
+  "rank": 1978,
+  "text": "Choose one —\n• Destroy all tapped creatures.\n• Destroy all untapped creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Power Depot",
+  "type": "Artifact Land",
+  "cost": "",
+  "rank": 1980,
+  "text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast artifact spells or activate abilities of artifacts.\nModular 1",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "kw:modular",
+   "mana:1",
+   "rec:full",
+   "type:artifact",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Falkenrath Noble",
+  "type": "Creature — Vampire Noble",
+  "cost": "{3}{B}",
+  "rank": 1982,
+  "text": "Flying\nWhenever this creature or another creature dies, target player loses 1 life and you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:noble",
+   "sub:vampire",
+   "sub:vampire noble",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angel's Grace",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 1984,
+  "text": "Split second (As long as this spell is on the stack, players can't cast spells or activate abilities that aren't mana abilities.)\nYou can't lose the game this turn and your opponents can't win the game this turn. Until end of turn, damage that would reduce your life total to less than 1 reduces it to 1 instead.",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:split second",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Lord of the Accursed",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 1986,
+  "text": "Other Zombies you control get +1/+1.\n{1}{B}, {T}: All Zombies gain menace until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:sub:zombie",
+   "cost:tap",
+   "eff:pump",
+   "grants:menace",
+   "kw:menace",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Venser's Journal",
+  "type": "Artifact — Book",
+  "cost": "{5}",
+  "rank": 1989,
+  "text": "You have no maximum hand size.\nAt the beginning of your upkeep, you gain 1 life for each card in your hand.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "eff:gain-life",
+   "rec:partial",
+   "sub:book",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Inkmoth Nexus",
+  "type": "Land",
+  "cost": "",
+  "rank": 1990,
+  "text": "{T}: Add {C}.\n{1}: This land becomes a 1/1 Phyrexian Blinkmoth artifact creature with flying and infect until end of turn. It's still a land. (It deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:phyrexian",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:poison",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Emeria Angel",
+  "type": "Creature — Angel",
+  "cost": "{2}{W}{W}",
+  "rank": 1993,
+  "text": "Flying\nLandfall — Whenever a land you control enters, you may create a 1/1 white Bird creature token with flying.",
+  "facets": [
+   "cares:type:land",
+   "eff:create-token",
+   "kw:flying",
+   "kw:landfall",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "tok:bird",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bitterthorn, Nissa's Animus",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 1995,
+  "text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +1/+1.\nWhenever equipped creature attacks, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "eff:search-library",
+   "kw:equip",
+   "kw:living weapon",
+   "rec:full",
+   "scope:all",
+   "sub:equipment",
+   "tok:germ",
+   "trig:attacks",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Kederekt Parasite",
+  "type": "Creature — Horror",
+  "cost": "{B}",
+  "rank": 1996,
+  "text": "Whenever an opponent draws a card, if you control a red permanent, you may have this creature deal 1 damage to that player.",
+  "facets": [
+   "eff:damage",
+   "mv:cheap",
+   "rec:partial",
+   "sub:horror",
+   "trig:draws-card",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nevinyrral's Disk",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 1997,
+  "text": "This artifact enters tapped.\n{1}, {T}: Destroy all artifacts, creatures, and enchantments.",
+  "facets": [
+   "acost:1",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "col:none",
+   "cost:tap",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gix, Yawgmoth Praetor",
+  "type": "Legendary Creature — Phyrexian Praetor",
+  "cost": "{1}{B}{B}",
+  "rank": 1998,
+  "text": "Whenever a creature deals combat damage to one of your opponents, its controller may pay 1 life. If they do, they draw a card.\n{4}{B}{B}{B}, Discard X cards: Exile the top X cards of target opponent's library. You may play lands and cast spells from among cards exiled this way without paying their mana costs.",
+  "facets": [
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:cast-free",
+   "eff:discard-self",
+   "eff:draw",
+   "eff:mill",
+   "sub:phyrexian",
+   "sub:phyrexian praetor",
+   "sub:praetor",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Starscape Cleric",
+  "type": "Creature — Bat Cleric",
+  "cost": "{1}{B}",
+  "rank": 2001,
+  "text": "Offspring {2}{B} (You may pay an additional {2}{B} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nFlying\nThis creature can't block.\nWhenever you gain life, each opponent loses 1 life.",
+  "facets": [
+   "eff:copy",
+   "eff:create-token",
+   "eff:lose-life",
+   "kw:flying",
+   "kw:offspring",
+   "mv:cheap",
+   "rec:full",
+   "sub:bat",
+   "sub:bat cleric",
+   "sub:cleric",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sangromancer",
+  "type": "Creature — Vampire Shaman",
+  "cost": "{2}{B}{B}",
+  "rank": 2002,
+  "text": "Flying\nWhenever a creature an opponent controls dies, you may gain 3 life.\nWhenever an opponent discards a card, you may gain 3 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:shaman",
+   "sub:vampire",
+   "sub:vampire shaman",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Winds of Abandon",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 2003,
+  "text": "Exile target creature you don't control. For each creature exiled this way, its controller searches their library for a basic land card. Those players put those cards onto the battlefield tapped, then shuffle.\nOverload {4}{W}{W} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "kw:overload",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Conduit Pylons",
+  "type": "Land — Desert",
+  "cost": "",
+  "rank": 2010,
+  "text": "When this land enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)\n{T}: Add {C}.\n{1}, {T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:surveil",
+   "kw:surveil",
+   "mana:1",
+   "rec:full",
+   "sub:desert",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Adaptive Omnitool",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 2011,
+  "text": "Equipped creature gets +1/+1 for each artifact you control.\nWhenever equipped creature attacks, look at the top six cards of your library. You may reveal an artifact card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:exile",
+   "cares:zone:library",
+   "col:none",
+   "eff:attach",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cryptbreaker",
+  "type": "Creature — Zombie",
+  "cost": "{B}",
+  "rank": 2013,
+  "text": "{1}{B}, {T}, Discard a card: Create a 2/2 black Zombie creature token.\nTap three untapped Zombies you control: You draw a card and you lose 1 life.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:sub:zombie",
+   "cost:discard",
+   "cost:tap",
+   "cost:tap-others",
+   "eff:create-token",
+   "eff:draw",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "tok:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bitterbloom Bearer",
+  "type": "Creature — Faerie Rogue",
+  "cost": "{B}{B}",
+  "rank": 2014,
+  "text": "Flash\nFlying\nAt the beginning of your upkeep, you lose 1 life and create a 1/1 blue and black Faerie creature token with flying.",
+  "facets": [
+   "cares:sub:faerie",
+   "eff:create-token",
+   "eff:lose-life",
+   "kw:flash",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:faerie",
+   "sub:faerie rogue",
+   "sub:rogue",
+   "tok:faerie",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Goldvein Pick",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 2015,
+  "text": "Equipped creature gets +1/+1.\nWhenever equipped creature deals combat damage to a player, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "kw:equip",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "tok:treasure",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Perpetual Timepiece",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 2023,
+  "text": "{T}: Mill two cards. (Put the top two cards of your library into your graveyard.)\n{2}, Exile this artifact: Shuffle any number of target cards from your graveyard into your library.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:mill",
+   "kw:mill",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Crippling Fear",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 2026,
+  "text": "Choose a creature type. Creatures that aren't of the chosen type get -3/-3 until end of turn.",
+  "facets": [
+   "cares:sub:chosen",
+   "eff:choose",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Righteous Valkyrie",
+  "type": "Creature — Angel Cleric",
+  "cost": "{2}{W}",
+  "rank": 2028,
+  "text": "Flying\nWhenever another Angel or Cleric you control enters, you gain life equal to that creature's toughness.\nAs long as you have at least 7 life more than your starting life total, creatures you control get +2/+2.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:sub:cleric",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:angel",
+   "sub:angel cleric",
+   "sub:cleric",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Walls of Ba Sing Se",
+  "type": "Legendary Artifact Creature — Wall",
+  "cost": "{8}",
+  "rank": 2032,
+  "text": "Defender\nOther permanents you control have indestructible.",
+  "facets": [
+   "col:none",
+   "grants:indestructible",
+   "kw:defender",
+   "kw:indestructible",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:wall",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "White Sun's Twilight",
+  "type": "Sorcery",
+  "cost": "{X}{W}{W}",
+  "rank": 2033,
+  "text": "You gain X life. Create X 1/1 colorless Phyrexian Mite artifact creature tokens with toxic 1 and \"This token can't block.\" If X is 5 or more, destroy all other creatures. (Players dealt combat damage by a creature with toxic 1 also get a poison counter.)",
+  "facets": [
+   "cares:sub:mite",
+   "cares:sub:phyrexian",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "eff:poison",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Resplendent Angel",
+  "type": "Creature — Angel",
+  "cost": "{1}{W}{W}",
+  "rank": 2034,
+  "text": "Flying\nAt the beginning of each end step, if you gained 5 or more life this turn, create a 4/4 white Angel creature token with flying and vigilance.\n{3}{W}{W}{W}: Until end of turn, this creature gets +2/+2 and gains lifelink.",
+  "facets": [
+   "acost:3",
+   "cares:sub:angel",
+   "eff:create-token",
+   "eff:pump",
+   "kw:flying",
+   "rec:partial",
+   "sub:angel",
+   "tok:angel",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nashi, Moon Sage's Scion",
+  "type": "Legendary Creature — Rat Ninja",
+  "cost": "{1}{B}{B}",
+  "rank": 2035,
+  "text": "Ninjutsu {3}{B} ({3}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever Nashi deals combat damage to a player, exile the top card of each player's library. Until end of turn, you may play one of those cards. If you cast a spell this way, pay life equal to its mana value rather than paying its mana cost.",
+  "facets": [
+   "kw:ninjutsu",
+   "rec:partial",
+   "sub:ninja",
+   "sub:rat",
+   "sub:rat ninja",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Anticausal Vestige",
+  "type": "Creature — Eldrazi",
+  "cost": "{6}",
+  "rank": 2038,
+  "text": "When this creature leaves the battlefield, draw a card, then you may put a permanent card with mana value less than or equal to the number of lands you control from your hand onto the battlefield tapped.\nWarp {4} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "eff:draw",
+   "kw:warp",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Single Combat",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 2039,
+  "text": "Each player chooses a creature or planeswalker they control, then sacrifices the rest. Players can't cast creature or planeswalker spells until the end of your next turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:cant-cast",
+   "eff:sacrifice",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Crystal Barricade",
+  "type": "Artifact Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 2040,
+  "text": "Defender (This creature can't attack.)\nYou have hexproof. (You can't be the target of spells or abilities your opponents control.)\nPrevent all noncombat damage that would be dealt to other creatures you control.",
+  "facets": [
+   "eff:prevent-damage",
+   "grants:hexproof",
+   "kw:defender",
+   "kw:hexproof",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Darksteel Ingot",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 2043,
+  "text": "Indestructible (Effects that say \"destroy\" don't destroy this artifact.)\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:indestructible",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Thousand Moons Smithy // Barracks of the Thousand",
+  "type": "Legendary Artifact // Legendary Artifact Land",
+  "cost": "",
+  "rank": 2044,
+  "text": "When Thousand Moons Smithy enters, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"\nAt the beginning of your first main phase, you may tap five untapped artifacts and/or creatures you control. If you do, transform Thousand Moons Smithy.\n//\n(Transforms from Thousand Moons Smithy.)\n{T}: Add {W}.\nWhenever you cast an artifact or creature spell using mana produced by Barracks of the Thousand, create a white Gnome Soldier artifact creature token with \"This token's power and toughness are each equal to the number of artifacts and/or creatures you control.\"",
+  "facets": [
+   "acost:1",
+   "eff:add-mana",
+   "eff:create-token",
+   "kw:transform",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:step",
+   "trig:step:precombat-main",
+   "type:artifact",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Gonti, Lord of Luxury",
+  "type": "Legendary Creature — Aetherborn Rogue",
+  "cost": "{2}{B}{B}",
+  "rank": 2047,
+  "text": "Deathtouch\nWhen Gonti enters, look at the top four cards of target opponent's library, exile one of them face down, then put the rest on the bottom of that library in a random order. You may cast that card for as long as it remains exiled, and mana of any type can be spent to cast that spell.",
+  "facets": [
+   "kw:deathtouch",
+   "rec:partial",
+   "sub:aetherborn",
+   "sub:aetherborn rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Warping Wail",
+  "type": "Instant",
+  "cost": "{1}{C}",
+  "rank": 2050,
+  "text": "({C} represents colorless mana.)\nChoose one —\n• Exile target creature with power or toughness 1 or less.\n• Counter target sorcery spell.\n• Create a 1/1 colorless Eldrazi Scion creature token. It has \"Sacrifice this token: Add {C}.\"",
+  "facets": [
+   "cares:sub:eldrazi",
+   "cares:type:creature",
+   "cares:type:sorcery",
+   "cares:zone:stack",
+   "col:none",
+   "eff:counter",
+   "eff:exile",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mycosynth Lattice",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 2051,
+  "text": "All permanents are artifacts in addition to their other types.\nAll cards that aren't on the battlefield, spells, and permanents are colorless.\nPlayers may spend mana as though it were mana of any color.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "mv:big",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cybermen Squadron",
+  "type": "Artifact Creature — Cyberman",
+  "cost": "{7}",
+  "rank": 2053,
+  "text": "Nonlegendary artifact creatures you control have myriad. (Whenever a creature with myriad attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "grants:myriad",
+   "kw:myriad",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:cyberman",
+   "type:artifact",
+   "type:creature"
+  ]
+ }
+]

@@ -1,0 +1,792 @@
+[
+ {
+  "name": "Warpath Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 30124,
+  "text": "",
+  "facets": [
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Prismatic Circle",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 30125,
+  "text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAs this enchantment enters, choose a color.\n{1}: The next time a source of your choice of the chosen color would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:1",
+   "eff:choose",
+   "kw:cumulative upkeep",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Stream of Acid",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 30126,
+  "text": "Destroy target land or nonblack creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Xun Yu, Wei Advisor",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{1}{B}{B}",
+  "rank": 30127,
+  "text": "{T}: Target creature you control gets +2/+0 until end of turn. Activate only during your turn, before attackers are declared.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "rec:partial",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Heavy Infantry",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 30132,
+  "text": "When this creature enters, tap target creature an opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carrion Wurm",
+  "type": "Creature — Zombie Wurm",
+  "cost": "{3}{B}{B}",
+  "rank": 30138,
+  "text": "Whenever this creature attacks or blocks, any player may exile three cards from their graveyard. If a player does, this creature assigns no combat damage this turn.",
+  "facets": [
+   "pt:big",
+   "rec:partial",
+   "sub:wurm",
+   "sub:zombie",
+   "sub:zombie wurm",
+   "trig:attacks",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spirit Flare",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 30143,
+  "text": "Tap target untapped creature you control. If you do, it deals damage equal to its power to target attacking or blocking creature an opponent controls.\nFlashback—{1}{W}, Pay 3 life. (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:tap-own",
+   "kw:flashback",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mana Leech",
+  "type": "Creature — Leech",
+  "cost": "{2}{B}",
+  "rank": 30146,
+  "text": "You may choose not to untap this creature during your untap step.\n{T}: Tap target land. It doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cost:tap",
+   "eff:tap",
+   "rec:partial",
+   "sub:leech",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vigilant Sentry",
+  "type": "Creature — Human Nomad",
+  "cost": "{1}{W}{W}",
+  "rank": 30147,
+  "text": "Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has \"{T}: Target attacking or blocking creature gets +3/+3 until end of turn.\"",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:pump",
+   "kw:threshold",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Purge",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 30148,
+  "text": "Destroy target artifact creature or black creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Necrogen Scudder",
+  "type": "Creature — Phyrexian Horror",
+  "cost": "{2}{B}",
+  "rank": 30150,
+  "text": "Flying\nWhen this creature enters, you lose 3 life.",
+  "facets": [
+   "eff:lose-life",
+   "kw:flying",
+   "rec:full",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lead Astray",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 30151,
+  "text": "Tap up to two target creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Hazduhr the Abbot",
+  "type": "Legendary Creature — Human Cleric",
+  "cost": "{3}{W}{W}",
+  "rank": 30154,
+  "text": "{X}, {T}: The next X damage that would be dealt this turn to target white creature you control is dealt to Hazduhr instead.",
+  "facets": [
+   "acost:1",
+   "acost:x",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Fevered Strength",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 30163,
+  "text": "Target creature gets +2/+0 until end of turn.\nDraw a card at the beginning of the next turn's upkeep.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:pump",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Runesword",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 30167,
+  "text": "{3}, {T}: Target attacking creature gets +2/+0 until end of turn. When that creature leaves the battlefield this turn, sacrifice this artifact. If the creature deals damage to a creature this turn, the creature dealt damage can't be regenerated this turn. If a creature dealt damage by the targeted creature would die this turn, exile that creature instead.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "mv:big",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Loyal Cathar // Unhallowed Cathar",
+  "type": "Creature — Human Soldier // Creature — Zombie Soldier",
+  "cost": "",
+  "rank": 30169,
+  "text": "Vigilance\nWhen this creature dies, return it to the battlefield transformed under your control at the beginning of the next end step.\n//\nThis creature can't block.",
+  "facets": [
+   "kw:transform",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "sub:zombie",
+   "sub:zombie soldier",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phyrexian Boon",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 30170,
+  "text": "Enchant creature\nEnchanted creature gets +2/+1 as long as it's black. Otherwise, it gets -1/-2.",
+  "facets": [
+   "cares:color:b",
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Duskwalker",
+  "type": "Creature — Human Minion",
+  "cost": "{B}",
+  "rank": 30171,
+  "text": "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nIf this creature was kicked, it enters with two +1/+1 counters on it and with fear. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "eff:add-counters-self",
+   "grants:fear",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human minion",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vanquish",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 30172,
+  "text": "Destroy target blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Prying Questions",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 30173,
+  "text": "Target opponent loses 3 life and puts a card from their hand on top of their library.",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:lose-life",
+   "eff:move-zone",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Corpse Lunge",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 30175,
+  "text": "As an additional cost to cast this spell, exile a creature card from your graveyard.\nCorpse Lunge deals damage equal to the exiled card's power to target creature.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Loxodon Mender",
+  "type": "Creature — Elephant Cleric",
+  "cost": "{5}{W}",
+  "rank": 30176,
+  "text": "{W}, {T}: Regenerate target artifact.",
+  "facets": [
+   "acost:2",
+   "cares:type:artifact",
+   "kw:regenerate",
+   "mv:big",
+   "sub:cleric",
+   "sub:elephant",
+   "sub:elephant cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Celestial Prism",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 30181,
+  "text": "{2}, {T}: Add one mana of any color.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cyclopean Giant",
+  "type": "Creature — Zombie Giant",
+  "cost": "{2}{B}{B}",
+  "rank": 30184,
+  "text": "When this creature dies, target land becomes a Swamp. Exile this card.",
+  "facets": [
+   "cares:type:land",
+   "eff:exile-self",
+   "rec:partial",
+   "sub:giant",
+   "sub:zombie",
+   "sub:zombie giant",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razor Pendulum",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 30185,
+  "text": "At the beginning of each player's end step, if that player has 5 or less life, this artifact deals 2 damage to that player.",
+  "facets": [
+   "col:none",
+   "eff:damage",
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Foot Soldiers",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 30186,
+  "text": "",
+  "facets": [
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shadowbane",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 30191,
+  "text": "The next time a source of your choice would deal damage to you and/or creatures you control this turn, prevent that damage. If damage from a black source is prevented this way, you gain that much life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Chimney Imp",
+  "type": "Creature — Imp",
+  "cost": "{4}{B}",
+  "rank": 30197,
+  "text": "Flying\nWhen this creature dies, target opponent puts a card from their hand on top of their library.",
+  "facets": [
+   "kw:flying",
+   "rec:partial",
+   "sub:imp",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fallen Askari",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{B}",
+  "rank": 30199,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nThis creature can't block.",
+  "facets": [
+   "kw:flanking",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fyndhorn Bow",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 30200,
+  "text": "{3}, {T}: Target creature gains first strike until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sanctum Custodian",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 30207,
+  "text": "{T}: Prevent the next 2 damage that would be dealt to any target this turn.",
+  "facets": [
+   "acost:1",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hillcomber Giant",
+  "type": "Creature — Giant Scout",
+  "cost": "{2}{W}{W}",
+  "rank": 30213,
+  "text": "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
+  "facets": [
+   "eff:cant-be-blocked",
+   "kw:landwalk",
+   "kw:mountainwalk",
+   "rec:full",
+   "sub:giant",
+   "sub:giant scout",
+   "sub:scout",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Void Helix",
+  "type": "Instant",
+  "cost": "{4}{B}{B}",
+  "rank": 30216,
+  "text": "Void Helix deals 5 damage to any target and you gain 5 life.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "mv:big",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cloudreach Cavalry",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 30223,
+  "text": "As long as you control a Bird, this creature gets +2/+2 and has flying.",
+  "facets": [
+   "cares:sub:bird",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vault Guardsman",
+  "type": "Artifact Creature — Human Advisor",
+  "cost": "{5}{W}",
+  "rank": 30226,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nWhen this creature enters, exile target artifact or creature an opponent controls until this creature leaves the battlefield.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:exile",
+   "kw:convoke",
+   "mv:big",
+   "rec:partial",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dogged Hunter",
+  "type": "Creature — Human Nomad",
+  "cost": "{2}{W}",
+  "rank": 30227,
+  "text": "{T}: Destroy target creature token.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:type:token",
+   "cost:tap",
+   "eff:destroy",
+   "rec:full",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mantis Engine",
+  "type": "Artifact Creature — Insect",
+  "cost": "{5}",
+  "rank": 30229,
+  "text": "{2}: This creature gains flying until end of turn. (It can't be blocked except by creatures with flying or reach.)\n{2}: This creature gains first strike until end of turn. (It deals combat damage before creatures without first strike.)",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:pump",
+   "grants:first strike",
+   "grants:flying",
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:insect",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Frightshroud Courier",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 30232,
+  "text": "You may choose not to untap this creature during your untap step.\n{2}{B}, {T}: Target Zombie creature gets +2/+2 and has fear for as long as this creature remains tapped. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:zombie",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cleric of the Forward Order",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 30234,
+  "text": "When this creature enters, you gain 2 life for each creature you control named Cleric of the Forward Order.",
+  "facets": [
+   "cares:sub:cleric",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flay",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 30237,
+  "text": "Target player discards a card at random. Then that player discards another card at random unless they pay {1}.",
+  "facets": [
+   "eff:discard",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Grapeshot Catapult",
+  "type": "Artifact Creature — Construct",
+  "cost": "{4}",
+  "rank": 30241,
+  "text": "{T}: This creature deals 1 damage to target creature with flying.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:damage",
+   "kw:flying",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Onulet",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 30243,
+  "text": "When this creature dies, you gain 2 life.",
+  "facets": [
+   "col:none",
+   "eff:gain-life",
+   "rec:full",
+   "sub:construct",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pillar of War",
+  "type": "Artifact Creature — Golem",
+  "cost": "{3}",
+  "rank": 30244,
+  "text": "Defender\nAs long as this creature is enchanted, it can attack as though it didn't have defender.",
+  "facets": [
+   "cares:type:enchantment",
+   "col:none",
+   "kw:defender",
+   "rec:partial",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Echoing Calm",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 30245,
+  "text": "Destroy target enchantment and all other enchantments with the same name as that enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Fulgent Distraction",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 30246,
+  "text": "Choose two target creatures. Tap those creatures, then unattach all Equipment from them.",
+  "facets": [
+   "cares:sub:equipment",
+   "eff:tap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Morale",
+  "type": "Instant",
+  "cost": "{1}{W}{W}",
+  "rank": 30248,
+  "text": "Attacking creatures get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kjeldoran Home Guard",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 30249,
+  "text": "At end of combat, if this creature attacked or blocked this combat, put a -0/-1 counter on this creature and create a 0/1 white Deserter creature token.",
+  "facets": [
+   "cares:type:token",
+   "eff:add-counters",
+   "eff:create-token",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marsh Hulk",
+  "type": "Creature — Zombie Ogre",
+  "cost": "{4}{B}{B}",
+  "rank": 30251,
+  "text": "Megamorph {6}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:megamorph",
+   "mv:big",
+   "rec:full",
+   "sub:ogre",
+   "sub:zombie",
+   "sub:zombie ogre",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mind Knives",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 30255,
+  "text": "Target opponent discards a card at random.",
+  "facets": [
+   "eff:discard",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ghostly Visit",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 30258,
+  "text": "Destroy target nonblack creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ }
+]

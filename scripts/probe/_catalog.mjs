@@ -43,8 +43,11 @@ const CURATED = CURATED_MODE === '1' || CURATED_MODE === 'remove' || CURATED_MOD
 const USE_ADD = CURATED_MODE === '1' || CURATED_MODE === 'add';
 const USE_REMOVE = CURATED_MODE === '1' || CURATED_MODE === 'remove';
 const curation = new Map();
-if (CURATED && existsSync('scratch/card-review.json')) {
-  for (const c of JSON.parse(readFileSync('scratch/card-review.json', 'utf8')).kept ?? []) {
+/* DM_CURATED_FILE names a different review to apply, so a SUBSET can be
+   measured without editing the full one. */
+const REVIEW_FILE = process.env.DM_CURATED_FILE ?? 'docs/review/wb-card-review.json';
+if (CURATED && existsSync(REVIEW_FILE)) {
+  for (const c of JSON.parse(readFileSync(REVIEW_FILE, 'utf8')).kept ?? []) {
     curation.set(c.name, {
       add: USE_ADD ? (c.add ?? []) : [],
       remove: new Set(USE_REMOVE ? (c.remove ?? []) : []),

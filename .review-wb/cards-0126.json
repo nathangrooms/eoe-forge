@@ -1,0 +1,881 @@
+[
+ {
+  "name": "Vanguard of Brimaz",
+  "type": "Creature — Cat Soldier",
+  "cost": "{W}{W}",
+  "rank": 16148,
+  "text": "Vigilance\nHeroic — Whenever you cast a spell that targets this creature, create a 1/1 white Cat Soldier creature token with vigilance.",
+  "facets": [
+   "cares:sub:cat",
+   "cares:sub:soldier",
+   "cares:zone:stack",
+   "eff:create-token",
+   "kw:heroic",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cat",
+   "sub:cat soldier",
+   "sub:soldier",
+   "tok:cat",
+   "tok:soldier",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Barrenton Medic",
+  "type": "Creature — Kithkin Cleric",
+  "cost": "{4}{W}",
+  "rank": 16150,
+  "text": "{T}: Prevent the next 1 damage that would be dealt to any target this turn.\nPut a -1/-1 counter on this creature: Untap this creature.",
+  "facets": [
+   "acost:1",
+   "eff:untap",
+   "sub:cleric",
+   "sub:kithkin",
+   "sub:kithkin cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Merciless Enforcers",
+  "type": "Creature — Human Mercenary Villain",
+  "cost": "{1}{B}",
+  "rank": 16155,
+  "text": "Lifelink\n{3}{B}: This creature deals 1 damage to each opponent.",
+  "facets": [
+   "acost:3",
+   "eff:damage",
+   "eff:gain-life",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human mercenary villain",
+   "sub:mercenary",
+   "sub:villain",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Malakir Cullblade",
+  "type": "Creature — Vampire Warrior",
+  "cost": "{1}{B}",
+  "rank": 16159,
+  "text": "Whenever a creature an opponent controls dies, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:vampire",
+   "sub:vampire warrior",
+   "sub:warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Magus of the Abyss",
+  "type": "Creature — Human Wizard",
+  "cost": "{3}{B}",
+  "rank": 16161,
+  "text": "At the beginning of each player's upkeep, destroy target nonartifact creature that player controls of their choice. It can't be regenerated.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wall of Souls",
+  "type": "Creature — Wall",
+  "cost": "{1}{B}",
+  "rank": 16166,
+  "text": "Defender (This creature can't attack.)\nWhenever this creature is dealt combat damage, it deals that much damage to target opponent or planeswalker.",
+  "facets": [
+   "cares:type:planeswalker",
+   "eff:damage",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blessed Breath",
+  "type": "Instant — Arcane",
+  "cost": "{W}",
+  "rank": 16167,
+  "text": "Target creature you control gains protection from the color of your choice until end of turn.\nSplice onto Arcane {W} (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)",
+  "facets": [
+   "cares:sub:arcane",
+   "cares:type:creature",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:protection",
+   "kw:splice",
+   "mv:cheap",
+   "rec:partial",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nether Void",
+  "type": "World Enchantment",
+  "cost": "{3}{B}",
+  "rank": 16169,
+  "text": "Whenever a player casts a spell, counter it unless that player pays {3}.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:counter",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "type:enchantment",
+   "type:world"
+  ]
+ },
+ {
+  "name": "Devilthorn Fox",
+  "type": "Creature — Fox",
+  "cost": "{1}{W}",
+  "rank": 16172,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:fox",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sigiled Paladin",
+  "type": "Creature — Human Knight",
+  "cost": "{W}{W}",
+  "rank": 16176,
+  "text": "First strike\nExalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)",
+  "facets": [
+   "eff:pump",
+   "kw:exalted",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Consulate Turret",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 16178,
+  "text": "{T}: You get {E} (an energy counter).\n{T}, Pay {E}{E}{E}: This artifact deals 2 damage to target player or planeswalker.",
+  "facets": [
+   "acost:0",
+   "cares:type:planeswalker",
+   "col:none",
+   "cost:tap",
+   "ctr:energy",
+   "eff:damage",
+   "eff:player-counter",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Diregraf Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{B}",
+  "rank": 16179,
+  "text": "This creature enters tapped.",
+  "facets": [
+   "mv:cheap",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marsh Flitter",
+  "type": "Creature — Faerie Rogue",
+  "cost": "{3}{B}",
+  "rank": 16180,
+  "text": "Flying\nWhen this creature enters, create two 1/1 black Goblin Rogue creature tokens.\nSacrifice a Goblin: This creature has base power and toughness 3/3 until end of turn.",
+  "facets": [
+   "cares:sub:rogue",
+   "eff:create-token",
+   "kw:flying",
+   "rec:partial",
+   "sub:faerie",
+   "sub:faerie rogue",
+   "sub:rogue",
+   "tok:goblin",
+   "tok:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Journey to Oblivion",
+  "type": "Enchantment",
+  "cost": "{4}{W}",
+  "rank": 16181,
+  "text": "This spell costs {1} less to cast for each creature in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)\nWhen this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield.",
+  "facets": [
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Hive Stirrings",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 16183,
+  "text": "Create two 1/1 colorless Sliver creature tokens.",
+  "facets": [
+   "eff:create-token",
+   "rec:full",
+   "tok:sliver",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Answered Prayers",
+  "type": "Enchantment",
+  "cost": "{1}{W}{W}",
+  "rank": 16187,
+  "text": "Whenever a creature you control enters, you gain 1 life. If this enchantment isn't a creature, it becomes a 3/3 Angel creature with flying in addition to its other types until end of turn.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:type:creature",
+   "eff:gain-life",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Angel of Renewal",
+  "type": "Creature — Angel Ally",
+  "cost": "{5}{W}",
+  "rank": 16190,
+  "text": "Flying\nWhen this creature enters, you gain 1 life for each creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:ally",
+   "sub:angel",
+   "sub:angel ally",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fight or Flight",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 16191,
+  "text": "At the beginning of combat on each opponent's turn, separate all creatures that player controls into two piles. Only creatures in the pile of their choice can attack this turn.",
+  "facets": [
+   "eff:cant-attack",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Benalish Sleeper",
+  "type": "Creature — Phyrexian Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 16192,
+  "text": "Kicker {B} (You may pay an additional {B} as you cast this spell.)\nWhen this creature enters, if it was kicked, each player sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:phyrexian",
+   "sub:phyrexian human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Disfigure",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 16195,
+  "text": "Target creature gets -2/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Carrion",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 16197,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nCreate X 0/1 black Insect creature tokens, where X is the sacrificed creature's power.",
+  "facets": [
+   "cares:power",
+   "cares:sub:insect",
+   "cares:type:creature",
+   "cares:type:token",
+   "cost:sacrifice",
+   "eff:create-token",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ulcerate",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 16198,
+  "text": "Target creature gets -3/-3 until end of turn. You lose 3 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:lose-life",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Contested Game Ball",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 16199,
+  "text": "Whenever you're dealt combat damage, the attacking player gains control of this artifact and untaps it.\n{2}, {T}: Draw a card and put a point counter on this artifact. Then if it has five or more point counters on it, sacrifice it and create a Treasure token.",
+  "facets": [
+   "acost:2",
+   "cares:sub:treasure",
+   "col:none",
+   "cost:tap",
+   "ctr:point-self",
+   "eff:add-counters-self",
+   "eff:draw",
+   "eff:give-control",
+   "eff:untap",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sky Crier",
+  "type": "Creature — Bird Citizen",
+  "cost": "{1}{W}",
+  "rank": 16201,
+  "text": "Flying, lifelink\n{3}{W}: You and target opponent each draw a card.",
+  "facets": [
+   "acost:3",
+   "eff:draw",
+   "kw:flying",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "sub:bird citizen",
+   "sub:citizen",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dust of Moments",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 16202,
+  "text": "Choose one —\n• Remove two time counters from each permanent and each suspended card.\n• Put two time counters on each permanent with a time counter on it and each suspended card.",
+  "facets": [
+   "eff:add-counters",
+   "eff:remove-counters",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Pulsemage Advocate",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 16204,
+  "text": "{T}: Return three target cards from an opponent's graveyard to their hand. Return target creature card from your graveyard to the battlefield.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:return-from",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Filigree Sylex",
+  "type": "Legendary Artifact",
+  "cost": "{2}",
+  "rank": 16206,
+  "text": "{T}: Put an oil counter on The Filigree Sylex.\n{T}, Sacrifice The Filigree Sylex: Destroy each nonland permanent with mana value equal to the number of oil counters on The Filigree Sylex.\n{T}, Remove ten oil counters from among permanents you control and sacrifice The Filigree Sylex: It deals 10 damage to any target.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "ctr:oil-self",
+   "eff:add-counters-self",
+   "eff:damage",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hundred-Handed One",
+  "type": "Creature — Giant",
+  "cost": "{2}{W}{W}",
+  "rank": 16207,
+  "text": "Vigilance\n{3}{W}{W}{W}: Monstrosity 3. (If this creature isn't monstrous, put three +1/+1 counters on it and it becomes monstrous.)\nAs long as this creature is monstrous, it has reach and can block an additional ninety-nine creatures each combat.",
+  "facets": [
+   "acost:3",
+   "kw:monstrosity",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:giant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Liliana's Elite",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 16208,
+  "text": "This creature gets +1/+1 for each creature card in your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seal Away",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 16209,
+  "text": "Flash\nWhen this enchantment enters, exile target tapped creature an opponent controls until this enchantment leaves the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "kw:flash",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Veteran Dungeoneer",
+  "type": "Creature — Human Warrior",
+  "cost": "{3}{W}",
+  "rank": 16210,
+  "text": "When this creature enters, venture into the dungeon. (Enter the first room or advance to the next room.)",
+  "facets": [
+   "kw:venture into the dungeon",
+   "rec:partial",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elite Interceptor // Rejoinder",
+  "type": "Creature — Human Wizard // Sorcery",
+  "cost": "{W} // {1}{W}",
+  "rank": 16215,
+  "text": "This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\n//\nYou may tap or untap target creature.\nDraw a card.",
+  "facets": [
+   "cares:zone:exile",
+   "eff:draw",
+   "eff:tap",
+   "kw:prepared",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Wander in Death",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 16216,
+  "text": "Return up to two target creature cards from your graveyard to your hand.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:return-from",
+   "kw:cycling",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sautekh Immortal",
+  "type": "Artifact Creature — Necron",
+  "cost": "{2}{B}",
+  "rank": 16217,
+  "text": "Flash\nElite Troops — This creature enters with a +1/+1 counter on it for each creature that died this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters-self",
+   "kw:elite troops",
+   "kw:flash",
+   "rec:partial",
+   "sub:necron",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Khalni Gem",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 16222,
+  "text": "When this artifact enters, return two lands you control to their owner's hand.\n{T}: Add two mana of any one color.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Captain Marvel, Earth's Protector",
+  "type": "Legendary Creature — Human Kree Hero",
+  "cost": "{3}{W}{W}",
+  "rank": 16225,
+  "text": "Flash\nFlying, lifelink\nPower-up — {5}{W}{W}: Put a +1/+1 counter and an indestructible counter on Captain Marvel. (Activate each power-up ability only once. Reduce the cost by her mana cost if she entered this turn.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:gain-life",
+   "kw:flash",
+   "kw:flying",
+   "kw:indestructible",
+   "kw:lifelink",
+   "kw:power-up",
+   "pt:big",
+   "rec:partial",
+   "sub:hero",
+   "sub:human",
+   "sub:human kree hero",
+   "sub:kree",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Cuombajj Witches",
+  "type": "Creature — Human Wizard",
+  "cost": "{B}{B}",
+  "rank": 16227,
+  "text": "{T}: This creature deals 1 damage to any target and 1 damage to any target of an opponent's choice.",
+  "facets": [
+   "acost:1",
+   "eff:damage",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Postmortem Professor",
+  "type": "Creature — Zombie Warlock",
+  "cost": "{1}{B}",
+  "rank": 16228,
+  "text": "This creature can't block.\nWhenever this creature attacks, each opponent loses 1 life and you gain 1 life.\n{1}{B}, Exile an instant or sorcery card from your graveyard: Return this card from your graveyard to the battlefield.",
+  "facets": [
+   "acost:2",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:recur-self",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:warlock",
+   "sub:zombie",
+   "sub:zombie warlock",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Remember the Fallen",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 16230,
+  "text": "Choose one or both —\n• Return target creature card from your graveyard to your hand.\n• Return target artifact card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Patrol Signaler",
+  "type": "Creature — Kithkin Soldier",
+  "cost": "{1}{W}",
+  "rank": 16234,
+  "text": "{1}{W}, {Q}: Create a 1/1 white Kithkin Soldier creature token. ({Q} is the untap symbol.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:kithkin",
+   "cares:sub:soldier",
+   "cost:untap",
+   "eff:create-token",
+   "eff:untap",
+   "mv:cheap",
+   "rec:full",
+   "sub:kithkin",
+   "sub:kithkin soldier",
+   "sub:soldier",
+   "tok:kithkin",
+   "tok:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deconstruction Hammer",
+  "type": "Artifact — Equipment",
+  "cost": "{W}",
+  "rank": 16236,
+  "text": "Equipped creature gets +1/+1 and has \"{3}, {T}, Sacrifice Deconstruction Hammer: Destroy target artifact or enchantment.\"\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:destroy",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bound in Gold",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 16238,
+  "text": "Enchant permanent\nEnchanted permanent can't attack, block, or crew Vehicles, and its activated abilities can't be activated unless they're mana abilities.",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:cant-activate",
+   "eff:cant-attack",
+   "eff:cant-block",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Elspeth's Smite",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 16240,
+  "text": "Elspeth's Smite deals 3 damage to target attacking or blocking creature. If that creature would die this turn, exile it instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Angelic Page",
+  "type": "Creature — Angel Spirit",
+  "cost": "{1}{W}",
+  "rank": 16241,
+  "text": "Flying\n{T}: Target attacking or blocking creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:angel",
+   "sub:angel spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hagra Diabolist",
+  "type": "Creature — Ogre Shaman Ally",
+  "cost": "{4}{B}",
+  "rank": 16242,
+  "text": "Whenever this creature or another Ally you control enters, you may have target player lose life equal to the number of Allies you control.",
+  "facets": [
+   "cares:sub:ally",
+   "eff:lose-life",
+   "rec:partial",
+   "scope:all",
+   "sub:ally",
+   "sub:ogre",
+   "sub:ogre shaman ally",
+   "sub:shaman",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sorcerous Spyglass",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 16244,
+  "text": "As this artifact enters, look at an opponent's hand, then choose any card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "eff:cant-activate",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lumbering Battlement",
+  "type": "Creature — Beast",
+  "cost": "{4}{W}",
+  "rank": 16245,
+  "text": "Vigilance\nWhen this creature enters, exile any number of other nontoken creatures you control until it leaves the battlefield.\nThis creature gets +2/+2 for each card exiled with it.",
+  "facets": [
+   "kw:vigilance",
+   "rec:partial",
+   "sub:beast",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gathering of Darkness",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 16248,
+  "text": "Return up to one target creature card from your graveyard to your hand.\nAmass Goblins 3. (Put three +1/+1 counters on an Army you control. It's also a Goblin. If you don't control an Army, create a 0/0 black Goblin Army creature token first.)",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:return-from",
+   "kw:amass",
+   "rec:partial",
+   "tok:army",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Repair and Recharge",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 16256,
+  "text": "Return target artifact, enchantment, or planeswalker card from your graveyard to the battlefield. Create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "facets": [
+   "cares:sub:powerstone",
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:type:planeswalker",
+   "cares:zone:graveyard",
+   "eff:add-mana",
+   "eff:return-from",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Harsh Annotation",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 16258,
+  "text": "Destroy target creature. Its controller creates a 1/1 white and black Inkling creature token with flying.",
+  "facets": [
+   "cares:sub:inkling",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ }
+]

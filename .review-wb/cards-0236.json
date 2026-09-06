@@ -1,0 +1,836 @@
+[
+ {
+  "name": "Plague Dogs",
+  "type": "Creature — Phyrexian Zombie Dog",
+  "cost": "{4}{B}",
+  "rank": 29734,
+  "text": "When this creature dies, all creatures get -1/-1 until end of turn.\n{2}, Sacrifice this creature: Draw a card.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:draw",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "sub:dog",
+   "sub:phyrexian",
+   "sub:phyrexian zombie dog",
+   "sub:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Caustic Rain",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 29735,
+  "text": "Exile target land.",
+  "facets": [
+   "cares:type:land",
+   "eff:exile",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Soul Charmer",
+  "type": "Creature — Human Rebel",
+  "cost": "{2}{W}",
+  "rank": 29740,
+  "text": "Whenever this creature deals combat damage to a creature, you gain 2 life unless that creature's controller pays {2}.",
+  "facets": [
+   "rec:partial",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghalma's Warden",
+  "type": "Creature — Elephant Soldier",
+  "cost": "{3}{W}",
+  "rank": 29744,
+  "text": "Metalcraft — This creature gets +2/+2 as long as you control three or more artifacts.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:pump",
+   "kw:metalcraft",
+   "rec:full",
+   "sub:elephant",
+   "sub:elephant soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghirapur Osprey",
+  "type": "Creature — Bird",
+  "cost": "{2}{W}",
+  "rank": 29745,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ironclad Revolutionary",
+  "type": "Creature — Aetherborn Artificer",
+  "cost": "{4}{B}{B}",
+  "rank": 29746,
+  "text": "When this creature enters, you may sacrifice an artifact. If you do, put two +1/+1 counters on this creature and each opponent loses 2 life.",
+  "facets": [
+   "cares:type:artifact",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:aetherborn",
+   "sub:aetherborn artificer",
+   "sub:artificer",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rhox Meditant",
+  "type": "Creature — Rhino Monk",
+  "cost": "{3}{W}",
+  "rank": 29747,
+  "text": "When this creature enters, if you control a green permanent, draw a card.",
+  "facets": [
+   "eff:draw",
+   "rec:full",
+   "sub:monk",
+   "sub:rhino",
+   "sub:rhino monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wicked Reward",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 29748,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nTarget creature gets +4/+2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:pump",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cabal Surgeon",
+  "type": "Creature — Human Minion",
+  "cost": "{2}{B}{B}",
+  "rank": 29752,
+  "text": "{2}{B}{B}, {T}, Exile two cards from your graveyard: Return target creature card from your graveyard to your hand.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "cost:tap",
+   "eff:return-from",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human minion",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shu Farmer",
+  "type": "Creature — Human",
+  "cost": "{1}{W}",
+  "rank": 29753,
+  "text": "{T}: You gain 1 life. Activate only during your turn, before attackers are declared.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Salt Road Patrol",
+  "type": "Creature — Human Scout",
+  "cost": "{3}{W}",
+  "rank": 29757,
+  "text": "Outlast {1}{W} ({1}{W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:outlast",
+   "rec:full",
+   "sub:human",
+   "sub:human scout",
+   "sub:scout",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sphere of Reason",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 29761,
+  "text": "If a blue source would deal damage to you, prevent 2 of that damage.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Steeple Roc",
+  "type": "Creature — Bird",
+  "cost": "{4}{W}",
+  "rank": 29762,
+  "text": "Flying, first strike",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sphere of Truth",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 29763,
+  "text": "If a white source would deal damage to you, prevent 2 of that damage.",
+  "facets": [
+   "cares:color:w",
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Vampire Hounds",
+  "type": "Creature — Vampire Dog",
+  "cost": "{2}{B}",
+  "rank": 29764,
+  "text": "Discard a creature card: This creature gets +2/+2 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cost:discard",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:dog",
+   "sub:vampire",
+   "sub:vampire dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hypochondria",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 29768,
+  "text": "{W}, Discard a card: Prevent the next 3 damage that would be dealt to any target this turn.\n{W}, Sacrifice this enchantment: Prevent the next 3 damage that would be dealt to any target this turn.",
+  "facets": [
+   "cost:sacrifice-self",
+   "eff:discard-self",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Phyrexian Defiler",
+  "type": "Creature — Phyrexian Carrier",
+  "cost": "{2}{B}{B}",
+  "rank": 29769,
+  "text": "{T}, Sacrifice this creature: Target creature gets -3/-3 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:shrink",
+   "rec:full",
+   "sub:carrier",
+   "sub:phyrexian",
+   "sub:phyrexian carrier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "War Chariot",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 29772,
+  "text": "{3}, {T}: Target creature gains trample until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "grants:trample",
+   "kw:trample",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Aven Farseer",
+  "type": "Creature — Bird Soldier",
+  "cost": "{1}{W}",
+  "rank": 29773,
+  "text": "Flying\nWhenever a permanent is turned face up, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Desperate Research",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 29777,
+  "text": "Choose a card name other than a basic land card name. Reveal the top seven cards of your library and put all of them with that name into your hand. Exile the rest.",
+  "facets": [
+   "eff:look-and-pick",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kami of the Painted Road",
+  "type": "Creature — Spirit",
+  "cost": "{4}{W}",
+  "rank": 29779,
+  "text": "Whenever you cast a Spirit or Arcane spell, this creature gains protection from the color of your choice until end of turn.",
+  "facets": [
+   "cares:sub:arcane",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "grants:protection",
+   "kw:protection",
+   "sub:spirit",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Intrusive Packbeast",
+  "type": "Creature — Beast",
+  "cost": "{4}{W}",
+  "rank": 29781,
+  "text": "Vigilance\nWhen this creature enters, tap up to two target creatures your opponents control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "kw:vigilance",
+   "rec:full",
+   "sub:beast",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Planeswalker's Scorn",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 29782,
+  "text": "{3}{B}: Target opponent reveals a card at random from their hand. Target creature gets -X/-X until end of turn, where X is the revealed card's mana value. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Zombie Brute",
+  "type": "Creature — Zombie",
+  "cost": "{6}{B}",
+  "rank": 29785,
+  "text": "Amplify 1 (As this creature enters, put a +1/+1 counter on it for each Zombie card you reveal in your hand.)\nTrample",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters-self",
+   "kw:amplify",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Serra Zealot",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 29786,
+  "text": "First strike",
+  "facets": [
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nav Squad Commandos",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 29790,
+  "text": "Battalion — Whenever this creature and at least two other creatures attack, this creature gets +1/+1 until end of turn. Untap it.",
+  "facets": [
+   "eff:untap",
+   "kw:battalion",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rhystic Shield",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 29792,
+  "text": "Creatures you control get +0/+1 until end of turn. They get an additional +0/+2 until end of turn unless any player pays {2}.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Maulfist Squad",
+  "type": "Creature — Human Artificer",
+  "cost": "{3}{B}",
+  "rank": 29799,
+  "text": "Menace\nFabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:fabricate",
+   "kw:menace",
+   "rec:full",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "tok:servo",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fylgja",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 29802,
+  "text": "Enchant creature\nThis Aura enters with four healing counters on it.\nRemove a healing counter from this Aura: Prevent the next 1 damage that would be dealt to enchanted creature this turn.\n{2}{W}: Put a healing counter on this Aura.",
+  "facets": [
+   "acost:3",
+   "cares:sub:aura",
+   "ctr:healing",
+   "ctr:healing-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rotted Hulk",
+  "type": "Creature — Elemental",
+  "cost": "{3}{B}",
+  "rank": 29804,
+  "text": "",
+  "facets": [
+   "sub:elemental",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Watcher of the Roost",
+  "type": "Creature — Bird Soldier",
+  "cost": "{2}{W}",
+  "rank": 29805,
+  "text": "Flying\nMorph—Reveal a white card in your hand. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, you gain 2 life.",
+  "facets": [
+   "cares:color:w",
+   "eff:gain-life",
+   "kw:flying",
+   "kw:morph",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Painbringer",
+  "type": "Creature — Human Minion",
+  "cost": "{2}{B}{B}",
+  "rank": 29806,
+  "text": "{T}, Exile any number of cards from your graveyard: Target creature gets -X/-X until end of turn, where X is the number of cards exiled this way.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:shrink",
+   "sub:human",
+   "sub:human minion",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nakaya Shade",
+  "type": "Creature — Shade",
+  "cost": "{1}{B}",
+  "rank": 29807,
+  "text": "{B}: This creature gets +1/+1 until end of turn unless any player pays {2}.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "mv:cheap",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Undead Slayer",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 29808,
+  "text": "{W}, {T}: Exile target Skeleton, Vampire, or Zombie.",
+  "facets": [
+   "acost:1",
+   "cares:sub:skeleton",
+   "cares:sub:vampire",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:exile",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Steadfast Cathar",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 29813,
+  "text": "Whenever this creature attacks, it gets +0/+2 until end of turn.",
+  "facets": [
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stench of Decay",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 29818,
+  "text": "Nonartifact creatures get -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Warlord's Elite",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 29820,
+  "text": "As an additional cost to cast this spell, tap two untapped artifacts, creatures, and/or lands you control.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:tap-others",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Opal Titan",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 29824,
+  "text": "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 4/4 Giant creature with protection from each of that spell's colors.",
+  "facets": [
+   "cares:sub:giant",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:animate",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-opponent",
+   "trig:cast:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Pick the Brain",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 29825,
+  "text": "Target opponent reveals their hand. You choose a nonland card from it and exile that card.\nDelirium — If there are four or more card types among cards in your graveyard, search that player's graveyard, hand, and library for any number of cards with the same name as the exiled card, exile those cards, then that player shuffles.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:discard",
+   "eff:exile-graveyard",
+   "kw:delirium",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Vampire Slayer",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 29834,
+  "text": "Whenever this creature deals damage to a Vampire, destroy that creature.",
+  "facets": [
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vampiric Touch",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 29835,
+  "text": "Vampiric Touch deals 2 damage to target opponent or planeswalker and you gain 2 life.",
+  "facets": [
+   "cares:type:planeswalker",
+   "eff:damage",
+   "eff:gain-life",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Teferi's Sentinel",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 29842,
+  "text": "As long as you control a Teferi planeswalker, this creature gets +4/+0.",
+  "facets": [
+   "cares:sub:teferi",
+   "cares:type:planeswalker",
+   "col:none",
+   "eff:pump",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rhet-Crop Spearmaster",
+  "type": "Creature — Human Warrior",
+  "cost": "{2}{W}",
+  "rank": 29843,
+  "text": "You may exert this creature as it attacks. When you do, it gets +1/+0 and gains first strike until end of turn. (An exerted creature won't untap during your next untap step.)",
+  "facets": [
+   "grants:first strike",
+   "kw:exert",
+   "kw:first strike",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vanquish the Foul",
+  "type": "Sorcery",
+  "cost": "{5}{W}",
+  "rank": 29844,
+  "text": "Destroy target creature with power 4 or greater. Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:scry",
+   "kw:scry",
+   "mv:big",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "The Howling Commandos",
+  "type": "Legendary Creature — Human Soldier Hero",
+  "cost": "{1}{W}",
+  "rank": 29845,
+  "text": "{5}: Creatures you control get +1/+1 until end of turn. Soldiers you control gain vigilance until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:hero",
+   "sub:human",
+   "sub:human soldier hero",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Nim Lasher",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 29846,
+  "text": "This creature gets +1/+0 for each artifact you control.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:pump",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spirit Shackle",
+  "type": "Enchantment — Aura",
+  "cost": "{B}{B}",
+  "rank": 29848,
+  "text": "Enchant creature\nWhenever enchanted creature becomes tapped, put a -0/-2 counter on it.",
+  "facets": [
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:tapped",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Numai Outcast",
+  "type": "Creature — Human Samurai",
+  "cost": "{3}{B}",
+  "rank": 29852,
+  "text": "Bushido 2 (Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn.)\n{B}, Pay 5 life: Regenerate this creature.",
+  "facets": [
+   "cost:life",
+   "eff:pump",
+   "kw:bushido",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:human",
+   "sub:human samurai",
+   "sub:samurai",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kabuto Moth",
+  "type": "Creature — Spirit",
+  "cost": "{2}{W}",
+  "rank": 29853,
+  "text": "Flying\n{T}: Target creature gets +1/+2 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Devout Monk",
+  "type": "Creature — Human Monk Cleric",
+  "cost": "{W}",
+  "rank": 29856,
+  "text": "When this creature enters, you gain 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human monk cleric",
+   "sub:monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ }
+]

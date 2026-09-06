@@ -1,0 +1,859 @@
+[
+ {
+  "name": "Dross Crocodile",
+  "type": "Creature — Zombie Crocodile",
+  "cost": "{3}{B}",
+  "rank": 25786,
+  "text": "",
+  "facets": [
+   "pt:big",
+   "sub:crocodile",
+   "sub:zombie",
+   "sub:zombie crocodile",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Artillery Blast",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 25795,
+  "text": "Domain — Artillery Blast deals X damage to target tapped creature, where X is 1 plus the number of basic land types among lands you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "kw:domain",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Tandem Tactics",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 25796,
+  "text": "Up to two target creatures each get +1/+2 until end of turn. You gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Silent Assassin",
+  "type": "Creature — Human Mercenary Assassin",
+  "cost": "{B}{B}",
+  "rank": 25798,
+  "text": "{3}{B}: Destroy target blocking creature at end of combat.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "sub:assassin",
+   "sub:human",
+   "sub:human mercenary assassin",
+   "sub:mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Auriok Replica",
+  "type": "Artifact Creature — Cleric",
+  "cost": "{3}",
+  "rank": 25800,
+  "text": "{W}, Sacrifice this creature: Prevent all damage a source of your choice would deal to you this turn.",
+  "facets": [
+   "cost:sacrifice-self",
+   "eff:prevent-damage",
+   "sub:cleric",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nature's Ruin",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 25802,
+  "text": "Destroy all green creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Brace for Impact",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 25803,
+  "text": "Prevent all damage that would be dealt to target multicolored creature this turn. For each 1 damage prevented this way, put a +1/+1 counter on that creature.",
+  "facets": [
+   "eff:add-counters",
+   "eff:prevent-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Scavenged Weaponry",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 25805,
+  "text": "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature gets +1/+1.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:draw",
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Tainted Well",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 25808,
+  "text": "Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land is a Swamp.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:land",
+   "eff:draw",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Soulshriek",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 25817,
+  "text": "Target creature you control gets +X/+0 until end of turn, where X is the number of creature cards in your graveyard. Sacrifice that creature at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Giant Scorpion",
+  "type": "Creature — Scorpion",
+  "cost": "{2}{B}",
+  "rank": 25819,
+  "text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "facets": [
+   "kw:deathtouch",
+   "rec:full",
+   "sub:scorpion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rank Officer",
+  "type": "Creature — Zombie Soldier",
+  "cost": "{3}{B}",
+  "rank": 25822,
+  "text": "When this creature enters, you may discard a card. If you do, create a 2/2 black Zombie creature token.\n{1}{B}, {T}, Exile a creature card from your graveyard: Each opponent loses 2 life.",
+  "facets": [
+   "acost:2",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "cost:tap",
+   "eff:create-token",
+   "eff:discard-self",
+   "eff:lose-life",
+   "rec:full",
+   "scope:all",
+   "sub:soldier",
+   "sub:zombie",
+   "sub:zombie soldier",
+   "tok:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tundra Wall",
+  "type": "Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 25823,
+  "text": "Defender (This creature can't attack.)",
+  "facets": [
+   "kw:defender",
+   "mv:cheap",
+   "rec:full",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marketwatch Phantom",
+  "type": "Creature — Spirit Detective",
+  "cost": "{1}{W}",
+  "rank": 25824,
+  "text": "Whenever another creature you control with power 2 or less enters, this creature gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "sub:detective",
+   "sub:spirit",
+   "sub:spirit detective",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Moodmark Painter",
+  "type": "Creature — Human Shaman",
+  "cost": "{2}{B}{B}",
+  "rank": 25825,
+  "text": "Undergrowth — When this creature enters, target creature gains menace and gets +X/+0 until end of turn, where X is the number of creature cards in your graveyard. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "grants:menace",
+   "kw:menace",
+   "kw:undergrowth",
+   "rec:full",
+   "sub:human",
+   "sub:human shaman",
+   "sub:shaman",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sacred Armory",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 25827,
+  "text": "{2}: Target creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Failed Conversion",
+  "type": "Enchantment — Aura",
+  "cost": "{4}{B}",
+  "rank": 25830,
+  "text": "Enchant creature\nEnchanted creature gets -4/-4.\nWhen enchanted creature dies, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)",
+  "facets": [
+   "eff:pump",
+   "eff:surveil",
+   "kw:enchant",
+   "kw:surveil",
+   "rec:full",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Griffin Rider",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 25832,
+  "text": "As long as you control a Griffin creature, this creature gets +3/+3 and has flying.",
+  "facets": [
+   "cares:sub:griffin",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Myrkul's Invoker",
+  "type": "Creature — Cat Rogue",
+  "cost": "{2}{B}",
+  "rank": 25833,
+  "text": "Psychic Blades — {8}: Creatures you control get +2/+0 and gain menace until end of turn. (A creature with menace can't be blocked except by two or more creatures.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:menace",
+   "kw:menace",
+   "kw:psychic blades",
+   "rec:full",
+   "scope:all",
+   "sub:cat",
+   "sub:cat rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Devout Lightcaster",
+  "type": "Creature — Kor Cleric",
+  "cost": "{W}{W}{W}",
+  "rank": 25837,
+  "text": "Protection from black\nWhen this creature enters, exile target black permanent.",
+  "facets": [
+   "eff:exile",
+   "kw:protection",
+   "rec:full",
+   "sub:cleric",
+   "sub:kor",
+   "sub:kor cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nested Ghoul",
+  "type": "Creature — Phyrexian Zombie Warrior",
+  "cost": "{3}{B}{B}",
+  "rank": 25838,
+  "text": "Whenever a source deals damage to this creature, create a 2/2 black Phyrexian Zombie creature token.",
+  "facets": [
+   "cares:sub:phyrexian",
+   "cares:sub:zombie",
+   "cares:type:token",
+   "eff:create-token",
+   "sub:phyrexian",
+   "sub:phyrexian zombie warrior",
+   "sub:warrior",
+   "sub:zombie",
+   "trig:dealt-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kozilek's Translator",
+  "type": "Creature — Eldrazi Drone",
+  "cost": "{4}{B}",
+  "rank": 25840,
+  "text": "Devoid (This card has no color.)\nPay 1 life: Add {C}. Activate only once each turn. ({C} represents colorless mana.)",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "eff:add-mana",
+   "kw:devoid",
+   "mana:1",
+   "rec:full",
+   "sub:drone",
+   "sub:eldrazi",
+   "sub:eldrazi drone",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sanctuary Raptor",
+  "type": "Artifact Creature — Bird",
+  "cost": "{3}",
+  "rank": 25841,
+  "text": "Flying\nWhenever this creature attacks, if you control three or more tokens, this creature gets +2/+0 and gains first strike until end of turn.",
+  "facets": [
+   "cares:type:token",
+   "col:none",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Emmessi Tome",
+  "type": "Artifact — Book",
+  "cost": "{4}",
+  "rank": 25842,
+  "text": "{5}, {T}: Draw two cards, then discard a card.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:discard-self",
+   "eff:draw",
+   "rec:full",
+   "sub:book",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Mardu Outrider",
+  "type": "Creature — Orc Warrior",
+  "cost": "{1}{B}{B}",
+  "rank": 25847,
+  "text": "As an additional cost to cast this spell, discard a card.",
+  "facets": [
+   "eff:discard-self",
+   "pt:big",
+   "sub:orc",
+   "sub:orc warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Checkpoint Officer",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 25848,
+  "text": "{1}{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Splatter Goblin",
+  "type": "Creature — Phyrexian Goblin",
+  "cost": "{1}{B}",
+  "rank": 25849,
+  "text": "When this creature dies, target creature an opponent controls gets -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "sub:goblin",
+   "sub:phyrexian",
+   "sub:phyrexian goblin",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Powerstone Engineer",
+  "type": "Creature — Human Artificer",
+  "cost": "{1}{W}",
+  "rank": 25851,
+  "text": "When this creature dies, create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "facets": [
+   "cares:sub:powerstone",
+   "mv:cheap",
+   "rec:partial",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Black Mana Battery",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 25854,
+  "text": "{2}, {T}: Put a charge counter on this artifact.\n{T}, Remove any number of charge counters from this artifact: Add {B}, then add an additional {B} for each charge counter removed this way.",
+  "facets": [
+   "acost:2",
+   "cost:tap",
+   "ctr:charge-self",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bronze Sable",
+  "type": "Artifact Creature — Sable",
+  "cost": "{2}",
+  "rank": 25855,
+  "text": "",
+  "facets": [
+   "col:none",
+   "mv:cheap",
+   "sub:sable",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Copper Carapace",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 25856,
+  "text": "Equipped creature gets +2/+2 and can't block.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Plague Fiend",
+  "type": "Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 25857,
+  "text": "Whenever this creature deals combat damage to a creature, destroy that creature unless its controller pays {2}.",
+  "facets": [
+   "mv:cheap",
+   "rec:partial",
+   "sub:insect",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aku Djinn",
+  "type": "Creature — Djinn",
+  "cost": "{3}{B}{B}",
+  "rank": 25859,
+  "text": "Trample\nAt the beginning of your upkeep, put a +1/+1 counter on each creature each opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:trample",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:djinn",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Basalt Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 25860,
+  "text": "This creature can't be blocked by artifact creatures.\nWhenever this creature becomes blocked by a creature, that creature's controller sacrifices it at end of combat. If the player does, they create a 0/2 colorless Wall artifact creature token with defender.",
+  "facets": [
+   "cares:sub:wall",
+   "cares:type:creature",
+   "cares:type:token",
+   "col:none",
+   "eff:create-token",
+   "eff:sacrifice",
+   "sub:golem",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seraph of New Capenna // Seraph of New Phyrexia",
+  "type": "Creature — Angel Soldier // Creature — Phyrexian Angel",
+  "cost": "",
+  "rank": 25867,
+  "text": "Flying\n{4}{B/P}: Transform this creature. Activate only as a sorcery. ({B/P} can be paid with either {B} or 2 life.)\n//\nFlying\nWhenever this creature attacks, you may sacrifice another creature or artifact. If you do, this creature gets +2/+1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "kw:flying",
+   "kw:transform",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel soldier",
+   "sub:phyrexian",
+   "sub:phyrexian angel",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Goldmeadow Lookout",
+  "type": "Creature — Kithkin Spellshaper",
+  "cost": "{3}{W}",
+  "rank": 25868,
+  "text": "{W}, {T}, Discard a card: Create a 1/1 white Kithkin Soldier creature token named Goldmeadow Harrier. It has \"{W}, {T}: Tap target creature.\"",
+  "facets": [
+   "cares:sub:kithkin",
+   "cares:sub:soldier",
+   "cares:type:token",
+   "eff:create-token",
+   "eff:discard-self",
+   "eff:tap",
+   "sub:kithkin",
+   "sub:kithkin spellshaper",
+   "sub:spellshaper",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Protection of the Hekma",
+  "type": "Enchantment",
+  "cost": "{4}{W}",
+  "rank": 25870,
+  "text": "If a source an opponent controls would deal damage to you, prevent 1 of that damage.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Liu Bei, Lord of Shu",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{3}{W}{W}",
+  "rank": 25871,
+  "text": "Horsemanship (This creature can't be blocked except by creatures with horsemanship.)\nLiu Bei gets +2/+2 as long as you control a permanent named Guan Yu, Sainted Warrior or a permanent named Zhang Fei, Fierce Warrior.",
+  "facets": [
+   "cares:sub:warrior",
+   "kw:horsemanship",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Countless Gears Renegade",
+  "type": "Creature — Dwarf Artificer",
+  "cost": "{1}{W}",
+  "rank": 25872,
+  "text": "Revolt — When this creature enters, if a permanent left the battlefield under your control this turn, create a 1/1 colorless Servo artifact creature token.",
+  "facets": [
+   "eff:create-token",
+   "kw:revolt",
+   "mv:cheap",
+   "rec:partial",
+   "sub:artificer",
+   "sub:dwarf",
+   "sub:dwarf artificer",
+   "tok:servo",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Woebearer",
+  "type": "Creature — Zombie",
+  "cost": "{4}{B}",
+  "rank": 25875,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhenever this creature deals combat damage to a player, you may return target creature card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:fear",
+   "rec:full",
+   "sub:zombie",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Strange Augmentation",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 25878,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1.\nDelirium — Enchanted creature gets an additional +2/+2 as long as there are four or more card types among cards in your graveyard.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:pump",
+   "kw:delirium",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Infernal Pet",
+  "type": "Creature — Imp",
+  "cost": "{2}{B}",
+  "rank": 25879,
+  "text": "Whenever you cast your second spell each turn, put a +1/+1 counter on this creature and it gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "grants:flying",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:imp",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Heart of Light",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 25888,
+  "text": "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nPrevent all damage that would be dealt to and dealt by enchanted creature.",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Enemy of Enlightenment",
+  "type": "Enchantment Creature — Demon",
+  "cost": "{5}{B}",
+  "rank": 25890,
+  "text": "Flying\nThis creature gets -1/-1 for each card in your opponents' hands.\nAt the beginning of your upkeep, each player discards a card.",
+  "facets": [
+   "eff:discard",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Angelic Blessing",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 25892,
+  "text": "Target creature gets +3/+3 and gains flying until end of turn. (It can't be blocked except by creatures with flying or reach.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Jeskai Student",
+  "type": "Creature — Human Monk",
+  "cost": "{1}{W}",
+  "rank": 25899,
+  "text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
+  "facets": [
+   "kw:prowess",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Chieftain en-Dal",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}{W}",
+  "rank": 25903,
+  "text": "Whenever this creature attacks, attacking creatures gain first strike until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dance of Shadows",
+  "type": "Sorcery — Arcane",
+  "cost": "{3}{B}{B}",
+  "rank": 25905,
+  "text": "Creatures you control get +1/+0 and gain fear until end of turn. (They can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:fear",
+   "kw:fear",
+   "rec:full",
+   "scope:all",
+   "sub:arcane",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Seize the Soul",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 25909,
+  "text": "Destroy target nonwhite, nonblack creature. Create a 1/1 white Spirit creature token with flying.\nHaunt (When this spell card is put into a graveyard after resolving, exile it haunting target creature.)\nWhen the creature this card haunts dies, destroy target nonwhite, nonblack creature. Create a 1/1 white Spirit creature token with flying.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "kw:haunt",
+   "rec:partial",
+   "tok:spirit",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ultimate Alliance",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 25912,
+  "text": "Ultimate Alliance deals damage equal to the number of creatures you control to target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ }
+]

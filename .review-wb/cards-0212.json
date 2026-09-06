@@ -1,0 +1,840 @@
+[
+ {
+  "name": "Marauding Knight",
+  "type": "Creature — Phyrexian Zombie Knight",
+  "cost": "{2}{B}{B}",
+  "rank": 26827,
+  "text": "Protection from white\nThis creature gets +1/+1 for each Plains your opponents control.",
+  "facets": [
+   "cares:color:w",
+   "cares:sub:plains",
+   "eff:pump",
+   "kw:protection",
+   "rec:full",
+   "sub:knight",
+   "sub:phyrexian",
+   "sub:phyrexian zombie knight",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Righteous Blow",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 26829,
+  "text": "Righteous Blow deals 2 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Roiling Horror",
+  "type": "Creature — Horror",
+  "cost": "{3}{B}{B}",
+  "rank": 26830,
+  "text": "Roiling Horror's power and toughness are each equal to your life total minus the life total of an opponent with the most life.\nSuspend X—{X}{B}{B}{B}. X can't be 0. (Rather than cast this card from your hand, you may pay {X}{B}{B}{B} and exile it with X time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)\nWhenever a time counter is removed from this card while it's exiled, target player loses 1 life and you gain 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:set-pt",
+   "grants:haste",
+   "kw:haste",
+   "kw:suspend",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sustainer of the Realm",
+  "type": "Creature — Angel",
+  "cost": "{2}{W}{W}",
+  "rank": 26836,
+  "text": "Flying\nWhenever this creature blocks, it gets +0/+2 until end of turn.",
+  "facets": [
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:angel",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Prakhata Pillar-Bug",
+  "type": "Artifact Creature — Insect",
+  "cost": "{3}",
+  "rank": 26837,
+  "text": "{B}: This creature gains lifelink until end of turn. (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "grants:lifelink",
+   "kw:lifelink",
+   "rec:full",
+   "sub:insect",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cabal Patriarch",
+  "type": "Legendary Creature — Human Wizard",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 26840,
+  "text": "{2}{B}, Sacrifice a creature: Target creature gets -2/-2 until end of turn.\n{2}{B}, Exile a creature card from your graveyard: Target creature gets -2/-2 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "cost:sacrifice",
+   "eff:shrink",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Order of the Ebon Hand",
+  "type": "Creature — Cleric Knight",
+  "cost": "{B}{B}",
+  "rank": 26841,
+  "text": "Protection from white\n{B}: This creature gains first strike until end of turn.\n{B}{B}: This creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:color:w",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:cleric knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Olivia's Midnight Ambush",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 26842,
+  "text": "Target creature gets -2/-2 until end of turn. If it's night, that creature gets -13/-13 until end of turn instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Supply Drop",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 26844,
+  "text": "Flash\nWhen this artifact enters, target creature you control gets +2/+2 until end of turn.\n{4}, {T}, Sacrifice this artifact: Draw a card.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:pump",
+   "kw:flash",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Noggin Whack",
+  "type": "Kindred Sorcery — Rogue",
+  "cost": "{2}{B}{B}",
+  "rank": 26845,
+  "text": "Prowl {1}{B} (You may cast this for its prowl cost if you dealt combat damage to a player this turn with a Rogue.)\nTarget player reveals three cards from their hand. You choose two of them. That player discards those cards.",
+  "facets": [
+   "cares:sub:rogue",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:discard",
+   "kw:prowl",
+   "rec:partial",
+   "sub:rogue",
+   "trig:attacks",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Cleansing Ray",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 26851,
+  "text": "Choose one —\n• Destroy target Vampire.\n• Destroy target enchantment.",
+  "facets": [
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Soulblade Corrupter",
+  "type": "Creature — Human Warrior",
+  "cost": "{4}{B}",
+  "rank": 26852,
+  "text": "Partner with Soulblade Renewer (When this creature enters, target player may put Soulblade Renewer into their hand from their library, then shuffle.)\nDeathtouch\nWhenever a creature with a +1/+1 counter on it attacks one of your opponents, that creature gains deathtouch until end of turn.",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:search-library",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:partner",
+   "kw:partner with",
+   "rec:partial",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skystreamer",
+  "type": "Creature — Griffin",
+  "cost": "{4}{W}",
+  "rank": 26854,
+  "text": "Assist (Another player can pay up to {4} of this spell's cost.)\nFlying\nWhen this creature enters, target player gains 4 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:assist",
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Puncturing Light",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 26860,
+  "text": "Destroy target attacking or blocking creature with power 3 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Soul-Guide Gryff",
+  "type": "Creature — Hippogriff Spirit",
+  "cost": "{4}{W}",
+  "rank": 26861,
+  "text": "Flying\nWhen this creature enters, exile up to one target card from a graveyard.",
+  "facets": [
+   "eff:exile-graveyard",
+   "kw:flying",
+   "rec:full",
+   "sub:hippogriff",
+   "sub:hippogriff spirit",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gruesome Discovery",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 26862,
+  "text": "Target player discards two cards.\nMorbid — If a creature died this turn, instead that player reveals their hand, you choose two cards from it, then that player discards those cards.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "kw:morbid",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Doctor Spectrum",
+  "type": "Legendary Creature — Human Hero",
+  "cost": "{3}{W}{W}",
+  "rank": 26863,
+  "text": "Flying\nWhen Doctor Spectrum enters, choose one —\n• Create a 0/4 colorless Wall creature token with defender.\n• Put a +1/+1 counter on each other Hero you control.\n• Destroy target enchantment.",
+  "facets": [
+   "cares:sub:hero",
+   "cares:type:enchantment",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:destroy",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:hero",
+   "sub:human",
+   "sub:human hero",
+   "tok:wall",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Pulse of the Dross",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 26865,
+  "text": "Target player reveals three cards from their hand and you choose one of them. That player discards that card. Then if that player has more cards in hand than you, return Pulse of the Dross to its owner's hand.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Thran Lens",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 26874,
+  "text": "All permanents are colorless.",
+  "facets": [
+   "col:none",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Armory Guard",
+  "type": "Creature — Giant Soldier",
+  "cost": "{3}{W}",
+  "rank": 26877,
+  "text": "This creature has vigilance as long as you control a Gate.",
+  "facets": [
+   "cares:sub:gate",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "sub:giant",
+   "sub:giant soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Morsel Theft",
+  "type": "Kindred Sorcery — Rogue",
+  "cost": "{2}{B}{B}",
+  "rank": 26880,
+  "text": "Prowl {1}{B} (You may cast this for its prowl cost if you dealt combat damage to a player this turn with a Rogue.)\nTarget player loses 3 life and you gain 3 life. If this spell's prowl cost was paid, draw a card.",
+  "facets": [
+   "cares:sub:rogue",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:prowl",
+   "rec:partial",
+   "sub:rogue",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Rottenheart Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 26884,
+  "text": "When this creature dies, target player discards a card.",
+  "facets": [
+   "eff:discard",
+   "rec:full",
+   "sub:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Undercity Necrolisk",
+  "type": "Creature — Zombie Lizard",
+  "cost": "{3}{B}",
+  "rank": 26889,
+  "text": "{1}, Sacrifice another creature: Put a +1/+1 counter on this creature. It gains menace until end of turn. Activate only as a sorcery. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:pump",
+   "grants:menace",
+   "kw:menace",
+   "rec:full",
+   "scope:all",
+   "sub:lizard",
+   "sub:zombie",
+   "sub:zombie lizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wei Assassins",
+  "type": "Creature — Human Soldier Assassin",
+  "cost": "{3}{B}{B}",
+  "rank": 26891,
+  "text": "When this creature enters, target opponent chooses a creature they control. Destroy that creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "sub:assassin",
+   "sub:human",
+   "sub:human soldier assassin",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Memoricide",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 26899,
+  "text": "Choose a nonland card name. Search target player's graveyard, hand, and library for any number of cards with that name and exile them. Then that player shuffles.",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:exile-graveyard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Thermal Glider",
+  "type": "Creature — Human Rebel",
+  "cost": "{2}{W}",
+  "rank": 26900,
+  "text": "Flying, protection from red",
+  "facets": [
+   "cares:color:r",
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Night Terrors",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 26902,
+  "text": "Target player reveals their hand. You choose a nonland card from it. Exile that card.",
+  "facets": [
+   "cares:zone:hand",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Death of a Thousand Stings",
+  "type": "Instant — Arcane",
+  "cost": "{4}{B}",
+  "rank": 26903,
+  "text": "Target player loses 1 life and you gain 1 life.\nAt the beginning of your upkeep, if you have more cards in hand than each opponent, you may return this card from your graveyard to your hand.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:return-from",
+   "rec:partial",
+   "sub:arcane",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Last Kiss",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 26910,
+  "text": "Last Kiss deals 2 damage to target creature and you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Yawgmoth's Agenda",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 26912,
+  "text": "You can't cast more than one spell each turn.\nYou may play lands and cast spells from your graveyard.\nIf a card would be put into your graveyard from anywhere, exile it instead.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "eff:exile-graveyard",
+   "eff:play-from-graveyard",
+   "eff:return-from",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Beacon of Destiny",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 26914,
+  "text": "{T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to this creature instead.",
+  "facets": [
+   "acost:1",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Glittering Lion",
+  "type": "Creature — Cat",
+  "cost": "{2}{W}",
+  "rank": 26916,
+  "text": "Prevent all damage that would be dealt to this creature.\n{3}: Until end of turn, this creature loses \"Prevent all damage that would be dealt to this creature.\" Any player may activate this ability.",
+  "facets": [
+   "eff:prevent-damage",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Iron Will",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 26920,
+  "text": "Target creature gets +0/+4 until end of turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:pump",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mindstab Thrull",
+  "type": "Creature — Thrull",
+  "cost": "{1}{B}{B}",
+  "rank": 26921,
+  "text": "Whenever this creature attacks and isn't blocked, you may sacrifice it. If you do, defending player discards three cards.",
+  "facets": [
+   "cost:sacrifice-self",
+   "eff:discard",
+   "sub:thrull",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carrion Crow",
+  "type": "Creature — Zombie Bird",
+  "cost": "{2}{B}",
+  "rank": 26922,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nThis creature enters tapped.",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:zombie",
+   "sub:zombie bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kitsune Palliator",
+  "type": "Creature — Fox Cleric",
+  "cost": "{2}{W}",
+  "rank": 26926,
+  "text": "{T}: Prevent the next 1 damage that would be dealt to each creature and each player this turn.",
+  "facets": [
+   "acost:1",
+   "sub:cleric",
+   "sub:fox",
+   "sub:fox cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Leonin Iconoclast",
+  "type": "Creature — Cat Monk",
+  "cost": "{3}{W}",
+  "rank": 26927,
+  "text": "Heroic — Whenever you cast a spell that targets this creature, destroy target enchantment creature an opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:zone:stack",
+   "eff:destroy",
+   "kw:heroic",
+   "rec:full",
+   "scope:all",
+   "sub:cat",
+   "sub:cat monk",
+   "sub:monk",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mourning Patrol // Morning Apparition",
+  "type": "Creature — Human Soldier // Creature — Spirit Soldier",
+  "cost": "",
+  "rank": 26929,
+  "text": "Vigilance\nDisturb {3}{W} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying, vigilance\nIf Morning Apparition would be put into a graveyard from anywhere, exile it instead.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "kw:disturb",
+   "kw:flying",
+   "kw:transform",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "sub:spirit",
+   "sub:spirit soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marsh Casualties",
+  "type": "Sorcery",
+  "cost": "{B}{B}",
+  "rank": 26932,
+  "text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nCreatures target player controls get -1/-1 until end of turn. If this spell was kicked, those creatures get -2/-2 until end of turn instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Selfless Cathar",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 26934,
+  "text": "{1}{W}, Sacrifice this creature: Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rag Man",
+  "type": "Creature — Human Minion",
+  "cost": "{2}{B}{B}",
+  "rank": 26935,
+  "text": "{B}{B}{B}, {T}: Target opponent reveals their hand and discards a creature card at random. Activate only during your turn.",
+  "facets": [
+   "acost:3",
+   "cares:zone:hand",
+   "eff:discard",
+   "sub:human",
+   "sub:human minion",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cornered Market",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 26936,
+  "text": "Players can't cast spells with the same name as a nontoken permanent.\nPlayers can't play nonbasic lands with the same name as a nontoken permanent.",
+  "facets": [
+   "cares:type:land",
+   "eff:cant-cast",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Krovikan Horror",
+  "type": "Creature — Horror Spirit",
+  "cost": "{3}{B}",
+  "rank": 26939,
+  "text": "At the beginning of the end step, if this card is in your graveyard with a creature card directly above it, you may return this card to your hand.\n{1}, Sacrifice a creature: This creature deals 1 damage to any target.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "eff:damage",
+   "eff:return-from",
+   "rec:partial",
+   "scope:all",
+   "sub:horror",
+   "sub:horror spirit",
+   "sub:spirit",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Circle of Affliction",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 26940,
+  "text": "As this enchantment enters, choose a color.\nWhenever a source of the chosen color deals damage to you, you may pay {1}. If you do, target player loses 1 life and you gain 1 life.",
+  "facets": [
+   "eff:choose",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Deathmask Nezumi",
+  "type": "Creature — Rat Shaman",
+  "cost": "{2}{B}",
+  "rank": 26941,
+  "text": "As long as you have seven or more cards in hand, this creature gets +2/+1 and has fear. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "cares:zone:hand",
+   "eff:pump",
+   "grants:fear",
+   "kw:fear",
+   "rec:full",
+   "sub:rat",
+   "sub:rat shaman",
+   "sub:shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rally Maneuver",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 26942,
+  "text": "Target creature gets +2/+0 and gains first strike until end of turn. Up to one other target creature gets +0/+2 and gains lifelink until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "grants:lifelink",
+   "kw:first strike",
+   "kw:lifelink",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Soothing Balm",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 26943,
+  "text": "Target player gains 5 life.",
+  "facets": [
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Soaring Stoneglider",
+  "type": "Creature — Elephant Cleric",
+  "cost": "{2}{W}",
+  "rank": 26945,
+  "text": "As an additional cost to cast this spell, exile two cards from your graveyard or pay {1}{W}.\nFlying, vigilance",
+  "facets": [
+   "cares:zone:graveyard",
+   "cost:exile",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:cleric",
+   "sub:elephant",
+   "sub:elephant cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bring Down",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 26950,
+  "text": "Assist (Another player can pay up to {3} of this spell's cost.)\nDestroy target creature with power 4 or greater.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:assist",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Nightsnare",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 26952,
+  "text": "Target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card. If you don't, that player discards two cards.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "type:sorcery"
+  ]
+ }
+]

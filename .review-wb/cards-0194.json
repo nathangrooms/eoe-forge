@@ -1,0 +1,882 @@
+[
+ {
+  "name": "Vengeful Warchief",
+  "type": "Creature — Orc Warrior",
+  "cost": "{4}{B}",
+  "rank": 24707,
+  "text": "Whenever you lose life for the first time each turn, put a +1/+1 counter on this creature. (Damage causes loss of life.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "sub:orc",
+   "sub:orc warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Goldmeadow Stalwart",
+  "type": "Creature — Kithkin Soldier",
+  "cost": "{W}",
+  "rank": 24709,
+  "text": "As an additional cost to cast this spell, reveal a Kithkin card from your hand or pay {3}.",
+  "facets": [
+   "cares:sub:kithkin",
+   "cares:type:creature",
+   "mv:cheap",
+   "sub:kithkin",
+   "sub:kithkin soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spirit of the Spires",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 24710,
+  "text": "Flying\nOther creatures you control with flying get +0/+1.",
+  "facets": [
+   "cares:kw:flying",
+   "cares:type:creature",
+   "eff:pump",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shore Lurker",
+  "type": "Creature — Merfolk Scout",
+  "cost": "{3}{W}",
+  "rank": 24712,
+  "text": "Flying\nWhen this creature enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "facets": [
+   "eff:surveil",
+   "kw:flying",
+   "kw:surveil",
+   "rec:full",
+   "sub:merfolk",
+   "sub:merfolk scout",
+   "sub:scout",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Survivor of Korlis",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 24718,
+  "text": "First strike\n{1}{W}, Exile this card from your graveyard: Scry 2.",
+  "facets": [
+   "acost:2",
+   "cost:exile-self",
+   "eff:scry",
+   "kw:first strike",
+   "kw:scry",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pillar of Light",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 24721,
+  "text": "Exile target creature with toughness 4 or greater.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Force Bubble",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 24722,
+  "text": "If damage would be dealt to you, put that many depletion counters on this enchantment instead.\nWhen there are four or more depletion counters on this enchantment, sacrifice it.\nAt the beginning of each end step, remove all depletion counters from this enchantment.",
+  "facets": [
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Turn the Tables",
+  "type": "Instant",
+  "cost": "{3}{W}{W}",
+  "rank": 24723,
+  "text": "All combat damage that would be dealt to you this turn is dealt to target attacking creature instead.",
+  "facets": [
+   "eff:prevent-damage",
+   "eff:redirect-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Bloodmist Infiltrator",
+  "type": "Creature — Vampire",
+  "cost": "{2}{B}",
+  "rank": 24724,
+  "text": "Whenever this creature attacks, you may sacrifice another creature. If you do, this creature can't be blocked this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "rec:partial",
+   "scope:all",
+   "sub:vampire",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Burn",
+  "type": "Sorcery",
+  "cost": "{X}{2}{B}",
+  "rank": 24725,
+  "text": "Spend only black and/or red mana on X.\nSoul Burn deals X damage to any target. You gain life equal to the damage dealt, but not more than the amount of {B} spent on X, the player's life total before the damage was dealt, the planeswalker's loyalty before the damage was dealt, or the creature's toughness.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sustaining Spirit",
+  "type": "Creature — Angel Spirit",
+  "cost": "{1}{W}",
+  "rank": 24726,
+  "text": "Cumulative upkeep {1}{W} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nDamage that would reduce your life total to less than 1 reduces it to 1 instead.",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:cumulative upkeep",
+   "mv:cheap",
+   "sub:angel",
+   "sub:angel spirit",
+   "sub:spirit",
+   "trig:step",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Die Young",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 24728,
+  "text": "Choose target creature. You get {E}{E} (two energy counters), then you may pay any amount of {E}. The creature gets -1/-1 until end of turn for each {E} paid this way.",
+  "facets": [
+   "cares:type:creature",
+   "cost:remove-counters",
+   "eff:player-counter",
+   "eff:shrink",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Aether Inspector",
+  "type": "Creature — Dwarf Artificer",
+  "cost": "{3}{W}",
+  "rank": 24731,
+  "text": "Vigilance\nWhen this creature enters, you get {E}{E} (two energy counters).\nWhenever this creature attacks, you may pay {E}{E}. If you do, create a 1/1 colorless Servo artifact creature token.",
+  "facets": [
+   "cares:sub:servo",
+   "ctr:energy",
+   "eff:create-token",
+   "eff:player-counter",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:artificer",
+   "sub:dwarf",
+   "sub:dwarf artificer",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Devoted Paladin",
+  "type": "Creature — Orc Knight",
+  "cost": "{4}{W}",
+  "rank": 24735,
+  "text": "Beacon of Hope — When this creature enters, creatures you control get +1/+1 and gain vigilance until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:beacon of hope",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:knight",
+   "sub:orc",
+   "sub:orc knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blight-Breath Catoblepas",
+  "type": "Creature — Beast",
+  "cost": "{4}{B}{B}",
+  "rank": 24737,
+  "text": "When this creature enters, target creature an opponent controls gets -X/-X until end of turn, where X is your devotion to black. (Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "mv:big",
+   "rec:partial",
+   "sub:beast",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Summary Judgment",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24738,
+  "text": "Summary Judgment deals 3 damage to target tapped creature.\nAddendum — If you cast this spell during your main phase, it deals 5 damage instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "kw:addendum",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Khenra Eternal",
+  "type": "Creature — Zombie Jackal Warrior",
+  "cost": "{1}{B}",
+  "rank": 24740,
+  "text": "Afflict 1 (Whenever this creature becomes blocked, defending player loses 1 life.)",
+  "facets": [
+   "eff:lose-life",
+   "kw:afflict",
+   "mv:cheap",
+   "rec:full",
+   "sub:jackal",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie jackal warrior",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aeronaut Cavalry",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 24746,
+  "text": "Flying\nWhen this creature enters, put a +1/+1 counter on another target Soldier you control.",
+  "facets": [
+   "cares:sub:soldier",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:flying",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Yoke of the Damned",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 24750,
+  "text": "Enchant creature\nWhen a creature dies, destroy enchanted creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:destroy-own",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Infernal Reckoning",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 24754,
+  "text": "Exile target colorless creature. You gain life equal to its power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:exile",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mercadian Atlas",
+  "type": "Artifact — Book",
+  "cost": "{5}",
+  "rank": 24755,
+  "text": "At the beginning of your end step, if you didn't play a land this turn, you may draw a card.",
+  "facets": [
+   "col:none",
+   "eff:draw",
+   "rec:partial",
+   "sub:book",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Arisen Gorgon",
+  "type": "Creature — Zombie Gorgon",
+  "cost": "{1}{B}{B}",
+  "rank": 24763,
+  "text": "This creature has deathtouch as long as you control a Liliana planeswalker. (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "facets": [
+   "cares:sub:liliana",
+   "cares:type:planeswalker",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "rec:full",
+   "sub:gorgon",
+   "sub:zombie",
+   "sub:zombie gorgon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aladdin's Ring",
+  "type": "Artifact",
+  "cost": "{8}",
+  "rank": 24767,
+  "text": "{8}, {T}: This artifact deals 4 damage to any target.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:damage",
+   "mv:big",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Glint-Sleeve Artisan",
+  "type": "Creature — Dwarf Artificer",
+  "cost": "{2}{W}",
+  "rank": 24768,
+  "text": "Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:fabricate",
+   "rec:full",
+   "sub:artificer",
+   "sub:dwarf",
+   "sub:dwarf artificer",
+   "tok:servo",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Air Nomad Student",
+  "type": "Creature — Human Monk",
+  "cost": "{3}{W}",
+  "rank": 24775,
+  "text": "Flying\nAt the beginning of your end step, if this creature didn't attack this turn, put a +1/+1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:partial",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wei Scout",
+  "type": "Creature — Human Soldier Scout",
+  "cost": "{1}{B}",
+  "rank": 24776,
+  "text": "Horsemanship (This creature can't be blocked except by creatures with horsemanship.)",
+  "facets": [
+   "kw:horsemanship",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier scout",
+   "sub:scout",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vectis Gloves",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 24778,
+  "text": "Equipped creature gets +2/+0 and has artifact landwalk. (It can't be blocked as long as defending player controls an artifact land.)\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sibsig Host",
+  "type": "Creature — Zombie",
+  "cost": "{4}{B}",
+  "rank": 24780,
+  "text": "When this creature enters, each player mills three cards.",
+  "facets": [
+   "eff:mill",
+   "kw:mill",
+   "rec:full",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Charge Across the Araba",
+  "type": "Instant — Arcane",
+  "cost": "{4}{W}",
+  "rank": 24786,
+  "text": "Sweep — Return any number of Plains you control to their owner's hand. Creatures you control get +1/+1 until end of turn for each Plains returned this way.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "kw:sweep",
+   "rec:partial",
+   "scope:all",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Flayed Nim",
+  "type": "Creature — Skeleton",
+  "cost": "{3}{B}",
+  "rank": 24787,
+  "text": "Whenever this creature deals combat damage to a creature, that creature's controller loses that much life.\n{2}{B}: Regenerate this creature.",
+  "facets": [
+   "acost:3",
+   "eff:lose-life",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:skeleton",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ancestor's Chosen",
+  "type": "Creature — Human Cleric",
+  "cost": "{5}{W}{W}",
+  "rank": 24791,
+  "text": "First strike (This creature deals combat damage before creatures without first strike.)\nWhen this creature enters, you gain 1 life for each card in your graveyard.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:gain-life",
+   "kw:first strike",
+   "mv:big",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Everdawn Champion",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 24792,
+  "text": "Prevent all combat damage that would be dealt to this creature.",
+  "facets": [
+   "eff:prevent-damage",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tsabo's Assassin",
+  "type": "Creature — Phyrexian Zombie Assassin",
+  "cost": "{2}{B}{B}",
+  "rank": 24795,
+  "text": "{T}: Destroy target creature if it shares a color with the most common color among all permanents or a color tied for most common. A creature destroyed this way can't be regenerated.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:destroy",
+   "sub:assassin",
+   "sub:phyrexian",
+   "sub:phyrexian zombie assassin",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Necrotic Fumes",
+  "type": "Sorcery — Lesson",
+  "cost": "{1}{B}{B}",
+  "rank": 24796,
+  "text": "As an additional cost to cast this spell, exile a creature you control.\nExile target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:exile",
+   "rec:partial",
+   "sub:lesson",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Swarm Surge",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 24800,
+  "text": "Devoid (This card has no color.)\nCreatures you control get +2/+0 until end of turn. Colorless creatures you control also gain first strike until end of turn.",
+  "facets": [
+   "cares:color:c",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:devoid",
+   "kw:first strike",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Tower of Coireall",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 24803,
+  "text": "{T}: Target creature can't be blocked by Walls this turn.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:cant-be-blocked",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bojuka Brigand",
+  "type": "Creature — Human Warrior Ally",
+  "cost": "{1}{B}",
+  "rank": 24806,
+  "text": "This creature can't block.\nWhenever this creature or another Ally you control enters, you may put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:sub:ally",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:ally",
+   "sub:human",
+   "sub:human warrior ally",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Guan Yu, Sainted Warrior",
+  "type": "Legendary Creature — Human Soldier Warrior",
+  "cost": "{3}{W}{W}",
+  "rank": 24815,
+  "text": "Horsemanship (This creature can't be blocked except by creatures with horsemanship.)\nWhen Guan Yu is put into your graveyard from the battlefield, you may shuffle Guan Yu into your library.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "kw:horsemanship",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier warrior",
+   "sub:soldier",
+   "sub:warrior",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Gryffwing Cavalry",
+  "type": "Creature — Human Knight",
+  "cost": "{3}{W}",
+  "rank": 24818,
+  "text": "Flying\nTraining (Whenever this creature attacks with another creature with greater power, put a +1/+1 counter on this creature.)\nWhenever this creature attacks, you may pay {1}{W}. If you do, target attacking creature without flying gains flying until end of turn.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "grants:flying",
+   "kw:flying",
+   "kw:training",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Supernatural Rescue",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{W}",
+  "rank": 24821,
+  "text": "This spell has flash as long as you control a Spirit.\nWhen you cast this spell, tap up to two target creatures you don't control.\nEnchant creature you control\nEnchanted creature gets +1/+2.",
+  "facets": [
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "eff:tap",
+   "grants:flash",
+   "kw:enchant",
+   "kw:flash",
+   "rec:full",
+   "sub:aura",
+   "trig:cast",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shrine of Boundless Growth",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 24823,
+  "text": "At the beginning of your upkeep and whenever you cast a green spell, put a charge counter on this artifact.\n{T}, Sacrifice this artifact: Add {C} for each charge counter on this artifact.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Revel Ruiner",
+  "type": "Creature — Octopus Rogue",
+  "cost": "{3}{B}",
+  "rank": 24824,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:connive",
+   "kw:menace",
+   "rec:partial",
+   "sub:octopus",
+   "sub:octopus rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Redeem the Lost",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24825,
+  "text": "Target creature you control gains protection from the color of your choice until end of turn. Clash with an opponent. If you win, return Redeem the Lost to its owner's hand. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:clash",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kiku's Shadow",
+  "type": "Sorcery",
+  "cost": "{B}{B}",
+  "rank": 24829,
+  "text": "Target creature deals damage to itself equal to its power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dagger of the Worthy",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 24830,
+  "text": "Equipped creature gets +2/+0 and has afflict 1. (Whenever it becomes blocked, defending player loses 1 life.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:lose-life",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Urza's Engine",
+  "type": "Artifact Creature — Juggernaut",
+  "cost": "{5}",
+  "rank": 24833,
+  "text": "Trample\n{3}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)\n{3}: Attacking creatures banded with this creature gain trample until end of turn.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:pump",
+   "grants:banding",
+   "kw:banding",
+   "kw:trample",
+   "rec:partial",
+   "sub:juggernaut",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Candlegrove Witch",
+  "type": "Creature — Human Warlock",
+  "cost": "{1}{W}",
+  "rank": 24835,
+  "text": "Coven — At the beginning of combat on your turn, if you control three or more creatures with different powers, this creature gains flying until end of turn.",
+  "facets": [
+   "cares:power",
+   "eff:pump",
+   "grants:flying",
+   "kw:coven",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Green Ward",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 24836,
+  "text": "Enchant creature\nEnchanted creature has protection from green. This effect doesn't remove this Aura.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:creature",
+   "grants:protection",
+   "kw:enchant",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Heartstabber Mosquito",
+  "type": "Creature — Insect",
+  "cost": "{3}{B}",
+  "rank": 24839,
+  "text": "Kicker {2}{B} (You may pay an additional {2}{B} as you cast this spell.)\nFlying\nWhen this creature enters, if it was kicked, destroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:flying",
+   "kw:kicker",
+   "rec:partial",
+   "sub:insect",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kytheon's Irregulars",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}{W}",
+  "rank": 24841,
+  "text": "Renown 1 (When this creature deals combat damage to a player, if it isn't renowned, put a +1/+1 counter on it and it becomes renowned.)\n{W}{W}: Tap target creature.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:tap",
+   "kw:renown",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ }
+]

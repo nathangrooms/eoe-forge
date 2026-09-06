@@ -1,0 +1,823 @@
+[
+ {
+  "name": "Opal Gargoyle",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 30369,
+  "text": "When an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 2/2 Gargoyle creature with flying.",
+  "facets": [
+   "cares:sub:gargoyle",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:animate",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-opponent",
+   "trig:cast:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Spineless Thug",
+  "type": "Creature — Phyrexian Zombie Mercenary",
+  "cost": "{1}{B}",
+  "rank": 30370,
+  "text": "This creature can't block.",
+  "facets": [
+   "mv:cheap",
+   "rec:full",
+   "sub:mercenary",
+   "sub:phyrexian",
+   "sub:phyrexian zombie mercenary",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dross Prowler",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 30371,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "kw:fear",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Squire",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 30373,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zombie Assassin",
+  "type": "Creature — Zombie Assassin",
+  "cost": "{4}{B}",
+  "rank": 30378,
+  "text": "{T}, Exile two cards from your graveyard and this creature: Destroy target nonblack creature. It can't be regenerated.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "cost:exile-self",
+   "cost:tap",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "sub:assassin",
+   "sub:zombie",
+   "sub:zombie assassin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deathcurse Ogre",
+  "type": "Creature — Ogre Warrior",
+  "cost": "{5}{B}",
+  "rank": 30383,
+  "text": "When this creature dies, each player loses 3 life.",
+  "facets": [
+   "eff:lose-life",
+   "mv:big",
+   "rec:full",
+   "sub:ogre",
+   "sub:ogre warrior",
+   "sub:warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hallowed Ground",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 30384,
+  "text": "{W}{W}: Return target nonsnow land you control to its owner's hand.",
+  "facets": [
+   "acost:2",
+   "cares:type:land",
+   "cares:zone:hand",
+   "eff:move-zone",
+   "mv:cheap",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Supply Caravan",
+  "type": "Creature — Camel",
+  "cost": "{4}{W}",
+  "rank": 30388,
+  "text": "When this creature enters, if you control a tapped creature, create a 1/1 white Warrior creature token with vigilance.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "rec:full",
+   "sub:camel",
+   "tok:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Self-Inflicted Wound",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 30389,
+  "text": "Target opponent sacrifices a green or white creature of their choice. If that player does, they lose 2 life.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Eightfold Maze",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 30390,
+  "text": "Cast this spell only during the declare attackers step and only if you've been attacked this step.\nDestroy target attacking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kolaghan Skirmisher",
+  "type": "Creature — Human Warrior",
+  "cost": "{1}{B}",
+  "rank": 30392,
+  "text": "Dash {2}{B} (You may cast this spell for its dash cost. If you do, it gains haste, and it's returned from the battlefield to its owner's hand at the beginning of the next end step.)",
+  "facets": [
+   "cares:zone:hand",
+   "eff:move-zone",
+   "grants:haste",
+   "kw:dash",
+   "kw:haste",
+   "mv:cheap",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rashka the Slayer",
+  "type": "Legendary Creature — Human Archer",
+  "cost": "{3}{W}{W}",
+  "rank": 30393,
+  "text": "Reach (This creature can block creatures with flying.)\nWhenever Rashka blocks one or more black creatures, Rashka gets +1/+2 until end of turn.",
+  "facets": [
+   "kw:reach",
+   "rec:partial",
+   "sub:archer",
+   "sub:human",
+   "sub:human archer",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Prowling Pangolin",
+  "type": "Creature — Pangolin Beast",
+  "cost": "{3}{B}{B}",
+  "rank": 30395,
+  "text": "When this creature enters, any player may sacrifice two creatures of their choice. If a player does, sacrifice this creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "pt:big",
+   "rec:partial",
+   "sub:beast",
+   "sub:pangolin",
+   "sub:pangolin beast",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Goblin War Wagon",
+  "type": "Artifact Creature — Juggernaut",
+  "cost": "{4}",
+  "rank": 30400,
+  "text": "This creature doesn't untap during your untap step.\nAt the beginning of your upkeep, you may pay {2}. If you do, untap this creature.",
+  "facets": [
+   "col:none",
+   "eff:untap",
+   "rec:partial",
+   "sub:juggernaut",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jade Statue",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 30410,
+  "text": "{2}: This artifact becomes a 3/6 Golem artifact creature until end of combat. Activate only during combat.",
+  "facets": [
+   "acost:2",
+   "cares:sub:golem",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Panacea",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 30412,
+  "text": "{X}{X}, {T}: Prevent the next X damage that would be dealt to any target this turn.",
+  "facets": [
+   "acost:1",
+   "acost:x",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Personal Incarnation",
+  "type": "Creature — Avatar Incarnation",
+  "cost": "{3}{W}{W}{W}",
+  "rank": 30414,
+  "text": "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to its owner instead. Only this creatures owner may activate this ability.\nWhen this creature dies, its owner loses half their life, rounded up.",
+  "facets": [
+   "acost:0",
+   "eff:redirect-damage",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:avatar",
+   "sub:avatar incarnation",
+   "sub:incarnation",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phyrexian Reaper",
+  "type": "Creature — Phyrexian Zombie",
+  "cost": "{4}{B}",
+  "rank": 30417,
+  "text": "Whenever this creature becomes blocked by a green creature, destroy that creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "sub:phyrexian",
+   "sub:phyrexian zombie",
+   "sub:zombie",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tezzeret's Strider",
+  "type": "Artifact Creature — Golem",
+  "cost": "{3}",
+  "rank": 30421,
+  "text": "As long as you control a Tezzeret planeswalker, this creature has menace. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "cares:sub:tezzeret",
+   "cares:type:planeswalker",
+   "col:none",
+   "grants:menace",
+   "kw:menace",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sigiled Contender",
+  "type": "Creature — Human Warrior",
+  "cost": "{3}{W}",
+  "rank": 30422,
+  "text": "This creature has lifelink as long as it has a +1/+1 counter on it. (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:gain-life",
+   "grants:lifelink",
+   "kw:lifelink",
+   "rec:full",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cliff Threader",
+  "type": "Creature — Kor Scout",
+  "cost": "{1}{W}",
+  "rank": 30426,
+  "text": "Mountainwalk (This creature can't be blocked as long as defending player controls a Mountain.)",
+  "facets": [
+   "eff:cant-be-blocked",
+   "kw:landwalk",
+   "kw:mountainwalk",
+   "mv:cheap",
+   "rec:full",
+   "sub:kor",
+   "sub:kor scout",
+   "sub:scout",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ebony Rhino",
+  "type": "Artifact Creature — Rhino",
+  "cost": "{7}",
+  "rank": 30429,
+  "text": "Trample",
+  "facets": [
+   "col:none",
+   "kw:trample",
+   "mv:big",
+   "rec:full",
+   "sub:rhino",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Opal Acrolith",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 30431,
+  "text": "Whenever an opponent casts a creature spell, if this permanent is an enchantment, it becomes a 2/4 Soldier creature.\n{0}: This permanent becomes an enchantment.",
+  "facets": [
+   "acost:0",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:animate",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-opponent",
+   "trig:cast:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Jade Idol",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 30432,
+  "text": "Whenever you cast a Spirit or Arcane spell, this artifact becomes a 4/4 Spirit artifact creature until end of turn.",
+  "facets": [
+   "cares:sub:arcane",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "col:none",
+   "eff:set-pt",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Neck Snap",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 30433,
+  "text": "Destroy target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Swooping Talon",
+  "type": "Creature — Bird Soldier",
+  "cost": "{4}{W}{W}",
+  "rank": 30435,
+  "text": "Flying\n{1}: This creature loses flying until end of turn.\nProvoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)",
+  "facets": [
+   "acost:1",
+   "eff:force-block",
+   "kw:flying",
+   "kw:provoke",
+   "mv:big",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ivory Gargoyle",
+  "type": "Creature — Gargoyle",
+  "cost": "{4}{W}",
+  "rank": 30439,
+  "text": "Flying\nWhen this creature dies, return it to the battlefield under its owner's control at the beginning of the next end step and you skip your next draw step.\n{4}{W}: Exile this creature.",
+  "facets": [
+   "acost:3",
+   "eff:exile-self",
+   "kw:flying",
+   "rec:partial",
+   "sub:gargoyle",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Misthoof Kirin",
+  "type": "Creature — Kirin",
+  "cost": "{2}{W}",
+  "rank": 30440,
+  "text": "Flying, vigilance\nMegamorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:flying",
+   "kw:megamorph",
+   "kw:vigilance",
+   "rec:full",
+   "sub:kirin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Necra Sanctuary",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 30441,
+  "text": "At the beginning of your upkeep, if you control a green or white permanent, target player loses 1 life. If you control a green permanent and a white permanent, that player loses 3 life instead.",
+  "facets": [
+   "eff:lose-life",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Kagemaro's Clutch",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 30444,
+  "text": "Enchant creature\nEnchanted creature gets -X/-X, where X is the number of cards in your hand.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Phyrexian Gremlins",
+  "type": "Creature — Phyrexian Gremlin",
+  "cost": "{2}{B}",
+  "rank": 30445,
+  "text": "You may choose not to untap this creature during your untap step.\n{T}: Tap target artifact. It doesn't untap during its controller's untap step for as long as this creature remains tapped.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cost:tap",
+   "eff:tap",
+   "rec:partial",
+   "sub:gremlin",
+   "sub:phyrexian",
+   "sub:phyrexian gremlin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rumbling Sentry",
+  "type": "Creature — Giant",
+  "cost": "{3}{W}{W}",
+  "rank": 30452,
+  "text": "When this creature enters, scry 1.",
+  "facets": [
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "sub:giant",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elkin Bottle",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 30453,
+  "text": "{3}, {T}: Exile the top card of your library. Until the beginning of your next upkeep, you may play that card.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Zombie Cutthroat",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}{B}",
+  "rank": 30454,
+  "text": "Morph—Pay 5 life. (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "cost:life",
+   "kw:morph",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thunder Spirit",
+  "type": "Creature — Elemental Spirit",
+  "cost": "{1}{W}{W}",
+  "rank": 30456,
+  "text": "Flying, first strike",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:elemental",
+   "sub:elemental spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Nova",
+  "type": "Instant",
+  "cost": "{3}{W}{W}",
+  "rank": 30458,
+  "text": "Exile target attacking creature and all Equipment attached to it.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:exile",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kaervek's Hex",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 30459,
+  "text": "Kaervek's Hex deals 1 damage to each nonblack creature and an additional 1 damage to each green creature.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:damage",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Alert Shu Infantry",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 30464,
+  "text": "Vigilance",
+  "facets": [
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Iron-Heart Chimera",
+  "type": "Artifact Creature — Chimera",
+  "cost": "{4}",
+  "rank": 30470,
+  "text": "Vigilance\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains vigilance. (This effect lasts indefinitely.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:chimera",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "ctr:+2/+2",
+   "eff:add-counters",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "sub:chimera",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lead-Belly Chimera",
+  "type": "Artifact Creature — Chimera",
+  "cost": "{4}",
+  "rank": 30472,
+  "text": "Trample\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains trample. (This effect lasts indefinitely.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:chimera",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "ctr:+2/+2",
+   "eff:add-counters",
+   "eff:pump",
+   "grants:trample",
+   "kw:trample",
+   "rec:full",
+   "sub:chimera",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Quagmire Lamprey",
+  "type": "Creature — Fish",
+  "cost": "{2}{B}",
+  "rank": 30473,
+  "text": "Whenever this creature becomes blocked by a creature, put a -1/-1 counter on that creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "sub:fish",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Greater Werewolf",
+  "type": "Creature — Werewolf",
+  "cost": "{4}{B}",
+  "rank": 30478,
+  "text": "At end of combat, put a -0/-2 counter on each creature blocking or blocked by this creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:shrink",
+   "sub:werewolf",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tin-Wing Chimera",
+  "type": "Artifact Creature — Chimera",
+  "cost": "{4}",
+  "rank": 30479,
+  "text": "Flying\nSacrifice this creature: Put a +2/+2 counter on target Chimera creature. It gains flying. (This effect lasts indefinitely.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:chimera",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "ctr:+2/+2",
+   "eff:add-counters",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:chimera",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bold Defense",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 30480,
+  "text": "Kicker {3}{W} (You may pay an additional {3}{W} as you cast this spell.)\nCreatures you control get +1/+1 until end of turn. If this spell was kicked, instead creatures you control get +2/+2 and gain first strike until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:kicker",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Starlight",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 30481,
+  "text": "You gain 3 life for each black creature target opponent controls.",
+  "facets": [
+   "eff:gain-life",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Nath's Buffoon",
+  "type": "Creature — Goblin Rogue",
+  "cost": "{1}{B}",
+  "rank": 30484,
+  "text": "Protection from Elves",
+  "facets": [
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:goblin",
+   "sub:goblin rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Champion Lancer",
+  "type": "Creature — Human Knight",
+  "cost": "{4}{W}{W}",
+  "rank": 30486,
+  "text": "Prevent all damage that would be dealt to this creature by creatures.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:big",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fetid Horror",
+  "type": "Creature — Shade Horror",
+  "cost": "{3}{B}",
+  "rank": 30492,
+  "text": "{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:full",
+   "sub:horror",
+   "sub:shade",
+   "sub:shade horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pit Imp",
+  "type": "Creature — Imp",
+  "cost": "{B}",
+  "rank": 30493,
+  "text": "Flying\n{B}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kiln Walker",
+  "type": "Artifact Creature — Phyrexian Construct",
+  "cost": "{3}",
+  "rank": 30494,
+  "text": "Whenever this creature attacks, it gets +3/+0 until end of turn.",
+  "facets": [
+   "col:none",
+   "eff:pump",
+   "rec:full",
+   "sub:construct",
+   "sub:phyrexian",
+   "sub:phyrexian construct",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ }
+]

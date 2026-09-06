@@ -1,0 +1,867 @@
+[
+ {
+  "name": "Sheoldred's Restoration",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 21742,
+  "text": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nReturn target creature card from your graveyard to the battlefield. If this spell was kicked, you gain life equal to that card's mana value. Otherwise, you lose that much life.\nExile Sheoldred's Restoration.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:exile-self",
+   "eff:gain-life",
+   "eff:return-from",
+   "kw:kicker",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gnarlbark Elm",
+  "type": "Creature — Treefolk Warlock",
+  "cost": "{2}{B}",
+  "rank": 21743,
+  "text": "This creature enters with two -1/-1 counters on it.\n{2}{B}, Remove two counters from this creature: Target creature gets -2/-2 until end of turn. Activate only as a sorcery.",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "rec:partial",
+   "sub:treefolk",
+   "sub:treefolk warlock",
+   "sub:warlock",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Orzhov Guildmage",
+  "type": "Creature — Human Wizard",
+  "cost": "{W/B}{W/B}",
+  "rank": 21748,
+  "text": "{2}{W}: Target player gains 1 life.\n{2}{B}: Each player loses 1 life.",
+  "facets": [
+   "acost:3",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Emeria Captain",
+  "type": "Creature — Angel Warrior",
+  "cost": "{3}{W}",
+  "rank": 21751,
+  "text": "Flying, vigilance\nWhen this creature enters, put a +1/+1 counter on it for each creature in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scour the Desert",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 21755,
+  "text": "Exile target creature card from your graveyard. Create X 1/1 white Bird creature tokens with flying, where X is the exiled card's toughness.",
+  "facets": [
+   "cares:sub:bird",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Join the Ranks",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 21759,
+  "text": "Create two 1/1 white Soldier Ally creature tokens.",
+  "facets": [
+   "eff:create-token",
+   "rec:full",
+   "tok:ally",
+   "tok:soldier",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Animate Wall",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 21761,
+  "text": "Enchant Wall\nEnchanted Wall can attack as though it didn't have defender.",
+  "facets": [
+   "cares:sub:wall",
+   "grants:defender",
+   "kw:defender",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Akroma's Devoted",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 21762,
+  "text": "Cleric creatures have vigilance.",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:type:creature",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunmane Pegasus",
+  "type": "Creature — Pegasus",
+  "cost": "{3}{W}",
+  "rank": 21766,
+  "text": "Flying\n{1}{W}: This creature gains vigilance and lifelink until end of turn. (Attacking doesn't cause it to tap. Damage dealt by it also causes you to gain that much life.)",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "grants:lifelink",
+   "grants:vigilance",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:vigilance",
+   "rec:full",
+   "sub:pegasus",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pianna, Nomad Captain",
+  "type": "Legendary Creature — Human Nomad",
+  "cost": "{1}{W}{W}",
+  "rank": 21767,
+  "text": "Whenever Pianna attacks, attacking creatures get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Lens Flare",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 21768,
+  "text": "Affinity for artifacts (This spell costs {1} less to cast for each artifact you control.)\nLens Flare deals 5 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:damage",
+   "kw:affinity",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Abundant Maw",
+  "type": "Creature — Eldrazi Leech",
+  "cost": "{8}",
+  "rank": 21770,
+  "text": "Emerge {6}{B} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, target opponent loses 3 life and you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:emerge",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "sub:eldrazi leech",
+   "sub:leech",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hand of Cruelty",
+  "type": "Creature — Human Samurai",
+  "cost": "{B}{B}",
+  "rank": 21775,
+  "text": "Protection from white\nBushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)",
+  "facets": [
+   "cares:color:w",
+   "eff:pump",
+   "kw:bushido",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human samurai",
+   "sub:samurai",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cement Shoes",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 21782,
+  "text": "Equipped creature gets +3/+3 and has \"At the beginning of your end step, tap this creature.\"\nEquipped creature doesn't untap during its controller's untap step.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Stand Up for Yourself",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 21783,
+  "text": "Destroy target creature with power 3 or greater.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mothrider Samurai",
+  "type": "Creature — Human Samurai",
+  "cost": "{3}{W}",
+  "rank": 21787,
+  "text": "Flying\nBushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)",
+  "facets": [
+   "eff:pump",
+   "kw:bushido",
+   "kw:flying",
+   "rec:full",
+   "sub:human",
+   "sub:human samurai",
+   "sub:samurai",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Friendly Ghost",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 21792,
+  "text": "Flying\nWhen this creature enters, target creature gets +2/+4 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Earsplitting Rats",
+  "type": "Creature — Rat",
+  "cost": "{3}{B}",
+  "rank": 21795,
+  "text": "When this creature enters, each player discards a card.\nDiscard a card: Regenerate this creature.",
+  "facets": [
+   "eff:discard",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:rat",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mana Cylix",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 21796,
+  "text": "{1}, {T}: Add one mana of any color.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cold Storage",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 21797,
+  "text": "{3}: Exile target creature you control.\nSacrifice this artifact: Return each creature card exiled with this artifact to the battlefield under your control.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:exile",
+   "eff:exile-own",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Festering Newt",
+  "type": "Creature — Salamander",
+  "cost": "{B}",
+  "rank": 21798,
+  "text": "When this creature dies, target creature an opponent controls gets -1/-1 until end of turn. That creature gets -4/-4 instead if you control a creature named Bogbrew Witch.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:partial",
+   "sub:salamander",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gurmag Angler",
+  "type": "Creature — Zombie Fish",
+  "cost": "{6}{B}",
+  "rank": 21799,
+  "text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:delve",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:fish",
+   "sub:zombie",
+   "sub:zombie fish",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arm the Cathars",
+  "type": "Sorcery",
+  "cost": "{1}{W}{W}",
+  "rank": 21800,
+  "text": "Until end of turn, target creature gets +3/+3, up to one other target creature gets +2/+2, and up to one other target creature gets +1/+1. Those creatures gain vigilance until end of turn.",
+  "facets": [
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Pretending Poxbearers",
+  "type": "Creature — Human Citizen Ally",
+  "cost": "{1}{W/B}",
+  "rank": 21801,
+  "text": "When this creature dies, create a 1/1 white Ally creature token.",
+  "facets": [
+   "cares:sub:ally",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:ally",
+   "sub:citizen",
+   "sub:human",
+   "sub:human citizen ally",
+   "tok:ally",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arashin Cleric",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 21802,
+  "text": "When this creature enters, you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Peregrine Mask",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 21803,
+  "text": "Equipped creature has defender, flying, and first strike.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "grants:defender",
+   "grants:first strike",
+   "grants:flying",
+   "kw:defender",
+   "kw:equip",
+   "kw:first strike",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Killing Glare",
+  "type": "Instant",
+  "cost": "{X}{B}",
+  "rank": 21805,
+  "text": "Destroy target creature with power X or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Violet Pall",
+  "type": "Kindred Instant — Faerie",
+  "cost": "{4}{B}",
+  "rank": 21807,
+  "text": "Destroy target nonblack creature. Create a 1/1 black Faerie Rogue creature token with flying.",
+  "facets": [
+   "cares:sub:faerie",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "rec:full",
+   "sub:faerie",
+   "tok:faerie",
+   "tok:rogue",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Consul's Lieutenant",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}{W}",
+  "rank": 21811,
+  "text": "First strike\nRenown 1 (When this creature deals combat damage to a player, if it isn't renowned, put a +1/+1 counter on it and it becomes renowned.)\nWhenever this creature attacks, if it's renowned, other attacking creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:pump",
+   "kw:first strike",
+   "kw:renown",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stitcher's Graft",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 21812,
+  "text": "Equipped creature gets +3/+3.\nWhenever equipped creature attacks, it doesn't untap during its controller's next untap step.\nWhenever this Equipment becomes unattached from a permanent, sacrifice that permanent.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Quicksand Whirlpool",
+  "type": "Instant",
+  "cost": "{5}{W}",
+  "rank": 21816,
+  "text": "This spell costs {3} less to cast if it targets a tapped creature.\nExile target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "mv:big",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Conceited Witch // Price of Beauty",
+  "type": "Creature — Human Warlock // Sorcery — Adventure",
+  "cost": "{2}{B} // {B}",
+  "rank": 21818,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\n//\nCreate a Wicked Role token attached to target creature you control. (Then exile this card. You may cast the creature later from exile.)",
+  "facets": [
+   "eff:lose-life",
+   "kw:menace",
+   "kw:role token",
+   "rec:partial",
+   "sub:adventure",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Spike Cannibal",
+  "type": "Creature — Spike",
+  "cost": "{1}{B}{B}",
+  "rank": 21819,
+  "text": "This creature enters with a +1/+1 counter on it.\nWhen this creature enters, move all +1/+1 counters from all creatures onto it.",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:remove-counters",
+   "rec:partial",
+   "sub:spike",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Streaking Oilgorger",
+  "type": "Creature — Vampire",
+  "cost": "{4}{B}",
+  "rank": 21820,
+  "text": "Flying, haste\nStart your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\nMax speed — This creature has lifelink.",
+  "facets": [
+   "eff:gain-life",
+   "grants:lifelink",
+   "kw:flying",
+   "kw:haste",
+   "kw:lifelink",
+   "kw:max speed",
+   "kw:start your engines!",
+   "rec:full",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shriveling Rot",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 21826,
+  "text": "Choose one —\n• Until end of turn, whenever a creature is dealt damage, destroy it.\n• Until end of turn, whenever a creature dies, that creature's controller loses life equal to its toughness.\nEntwine {2}{B} (Choose both if you pay the entwine cost.)",
+  "facets": [
+   "eff:lose-life",
+   "kw:entwine",
+   "rec:partial",
+   "trig:dies",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Hair-Strung Koto",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 21827,
+  "text": "Tap an untapped creature you control: Target player mills a card.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap-others",
+   "eff:mill",
+   "kw:mill",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ancestor's Prophet",
+  "type": "Creature — Human Cleric",
+  "cost": "{4}{W}",
+  "rank": 21832,
+  "text": "Tap five untapped Clerics you control: You gain 10 life.",
+  "facets": [
+   "acost:0",
+   "cares:sub:cleric",
+   "cost:tap-others",
+   "eff:gain-life",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bilbo, Unexpected Adventurer",
+  "type": "Legendary Creature — Halfling Rogue",
+  "cost": "{3}{W}",
+  "rank": 21833,
+  "text": "Bilbo can't be blocked by creatures with power 3 or greater.\nWhenever Bilbo deals combat damage to a player or battle, put up to one target nonland permanent card with mana value 3 or less from a graveyard onto the battlefield under its owner's control.",
+  "facets": [
+   "cares:type:battle",
+   "cares:zone:graveyard",
+   "eff:cant-be-blocked",
+   "eff:return-from",
+   "sub:halfling",
+   "sub:halfling rogue",
+   "sub:rogue",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Circle of Protection: Blue",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 21834,
+  "text": "{1}: The next time a blue source of your choice would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:1",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bile Urchin",
+  "type": "Creature — Spirit",
+  "cost": "{B}",
+  "rank": 21838,
+  "text": "Sacrifice this creature: Target player loses 1 life.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wall of Resurgence",
+  "type": "Creature — Wall",
+  "cost": "{2}{W}",
+  "rank": 21839,
+  "text": "Defender\nWhen this creature enters, you may put three +1/+1 counters on target land you control. If you do, that land becomes a 0/0 Elemental creature with haste that's still a land.",
+  "facets": [
+   "cares:sub:elemental",
+   "cares:type:land",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:defender",
+   "rec:partial",
+   "sub:wall",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nantuko Shade",
+  "type": "Creature — Insect Shade",
+  "cost": "{B}{B}",
+  "rank": 21844,
+  "text": "{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:insect",
+   "sub:insect shade",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carom",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 21849,
+  "text": "The next 1 damage that would be dealt to target creature this turn is dealt to another target creature instead.\nDraw a card.",
+  "facets": [
+   "eff:draw",
+   "eff:redirect-damage",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Testament Bearer",
+  "type": "Creature — Phyrexian Warrior",
+  "cost": "{3}{B}",
+  "rank": 21851,
+  "text": "When this creature dies, look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.",
+  "facets": [
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "rec:full",
+   "sub:phyrexian",
+   "sub:phyrexian warrior",
+   "sub:warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Muck Rats",
+  "type": "Creature — Rat",
+  "cost": "{B}",
+  "rank": 21853,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:rat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elephant-Rat",
+  "type": "Creature — Elephant Rat",
+  "cost": "{1}{B}",
+  "rank": 21854,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)",
+  "facets": [
+   "kw:menace",
+   "mv:cheap",
+   "rec:full",
+   "sub:elephant",
+   "sub:elephant rat",
+   "sub:rat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dregscape Zombie",
+  "type": "Creature — Zombie",
+  "cost": "{1}{B}",
+  "rank": 21855,
+  "text": "Unearth {B} ({B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "eff:return-from",
+   "grants:haste",
+   "kw:haste",
+   "kw:unearth",
+   "mv:cheap",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dauthi Jackal",
+  "type": "Creature — Dauthi Jackal",
+  "cost": "{2}{B}",
+  "rank": 21857,
+  "text": "Shadow (This creature can block or be blocked by only creatures with shadow.)\n{B}{B}, Sacrifice this creature: Destroy target blocking creature.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "kw:shadow",
+   "rec:full",
+   "sub:dauthi",
+   "sub:dauthi jackal",
+   "sub:jackal",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gideon's Reproach",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 21858,
+  "text": "Gideon's Reproach deals 4 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rot Farm Mortipede",
+  "type": "Creature — Insect",
+  "cost": "{3}{B}",
+  "rank": 21859,
+  "text": "Whenever one or more creature cards leave your graveyard, this creature gets +1/+0 and gains menace and lifelink until end of turn.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:gain-life",
+   "kw:lifelink",
+   "kw:menace",
+   "sub:insect",
+   "type:creature"
+  ]
+ }
+]

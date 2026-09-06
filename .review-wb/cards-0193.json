@@ -1,0 +1,851 @@
+[
+ {
+  "name": "Skirsdag Flayer",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{B}",
+  "rank": 24592,
+  "text": "{3}{B}, {T}, Sacrifice a Human: Destroy target creature.",
+  "facets": [
+   "acost:3",
+   "cares:sub:human",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Magnanimous Magistrate",
+  "type": "Creature — Human Advisor",
+  "cost": "{5}{W}",
+  "rank": 24595,
+  "text": "This creature enters with five reprieve counters on it.\nWhenever another nontoken creature you control dies, if its mana value was 1 or greater, you may remove that many reprieve counters from this creature. If you do, return that card to the battlefield under its owner's control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "ctr:reprieve",
+   "eff:add-counters",
+   "eff:return-from",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angry Mob",
+  "type": "Creature — Human",
+  "cost": "{2}{W}{W}",
+  "rank": 24596,
+  "text": "Trample\nDuring your turn, Angry Mob's power and toughness are each equal to 2 plus the number of Swamps your opponents control. During turns other than yours, Angry Mob's power and toughness are each 2.",
+  "facets": [
+   "cares:sub:swamp",
+   "eff:pump",
+   "kw:trample",
+   "rec:full",
+   "sub:human",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Galvanic Juggernaut",
+  "type": "Artifact Creature — Juggernaut",
+  "cost": "{4}",
+  "rank": 24597,
+  "text": "This creature attacks each combat if able.\nThis creature doesn't untap during your untap step.\nWhenever another creature dies, untap this creature.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:untap",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:juggernaut",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boneclad Necromancer",
+  "type": "Creature — Human Wizard",
+  "cost": "{3}{B}{B}",
+  "rank": 24602,
+  "text": "When this creature enters, you may exile target creature card from a graveyard. If you do, create a 2/2 black Zombie creature token.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:exile-graveyard",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "tok:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Steward of Solidarity",
+  "type": "Creature — Human Warrior",
+  "cost": "{1}{W}",
+  "rank": 24603,
+  "text": "{T}, Exert this creature: Create a 1/1 white Warrior creature token with vigilance. (An exerted creature won't untap during your next untap step.)",
+  "facets": [
+   "cares:sub:warrior",
+   "eff:create-token",
+   "kw:exert",
+   "mv:cheap",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sultai Runemark",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 24604,
+  "text": "Enchant creature\nEnchanted creature gets +2/+2.\nEnchanted creature has deathtouch as long as you control a green or blue permanent. (Any amount of damage it deals to a creature is enough to destroy it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Baron Sengir",
+  "type": "Legendary Creature — Vampire Noble",
+  "cost": "{5}{B}{B}{B}",
+  "rank": 24607,
+  "text": "Flying\nWhenever a creature dealt damage by Baron Sengir this turn dies, put a +2/+2 counter on Baron Sengir.\n{T}: Regenerate another target Vampire.",
+  "facets": [
+   "acost:1",
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:flying",
+   "kw:regenerate",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:noble",
+   "sub:vampire",
+   "sub:vampire noble",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Skyblade of the Legion",
+  "type": "Creature — Vampire Soldier",
+  "cost": "{1}{W}",
+  "rank": 24608,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:soldier",
+   "sub:vampire",
+   "sub:vampire soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Murderer's Axe",
+  "type": "Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 24611,
+  "text": "Equipped creature gets +2/+2.\nEquip—Discard a card.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "col:none",
+   "cost:discard",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Clandestine Meddler",
+  "type": "Creature — Vampire Rogue",
+  "cost": "{2}{B}",
+  "rank": 24614,
+  "text": "When this creature enters, suspect up to one other target creature you control. (A suspected creature has menace and can't block.)\nWhenever one or more suspected creatures you control attack, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "facets": [
+   "kw:surveil",
+   "kw:suspect",
+   "rec:partial",
+   "sub:rogue",
+   "sub:vampire",
+   "sub:vampire rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battle Brawler",
+  "type": "Creature — Orc Warrior",
+  "cost": "{1}{B}",
+  "rank": 24616,
+  "text": "As long as you control a red or white permanent, this creature gets +1/+0 and has first strike.",
+  "facets": [
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:orc",
+   "sub:orc warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dawnfeather Eagle",
+  "type": "Creature — Bird",
+  "cost": "{4}{W}",
+  "rank": 24618,
+  "text": "Flying\nWhen this creature enters, creatures you control get +1/+1 and gain vigilance until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:bird",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Graven Abomination",
+  "type": "Artifact Creature — Horror",
+  "cost": "{3}",
+  "rank": 24619,
+  "text": "Whenever this creature attacks, exile target card from defending player's graveyard.",
+  "facets": [
+   "col:none",
+   "rec:partial",
+   "sub:horror",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fleshless Gladiator",
+  "type": "Creature — Phyrexian Skeleton",
+  "cost": "{1}{B}",
+  "rank": 24621,
+  "text": "Corrupted — {2}{B}: Return this card from your graveyard to the battlefield tapped. You lose 1 life. Activate only if an opponent has three or more poison counters.",
+  "facets": [
+   "acost:3",
+   "cares:zone:graveyard",
+   "eff:lose-life",
+   "eff:recur-self",
+   "kw:corrupted",
+   "mv:cheap",
+   "rec:partial",
+   "sub:phyrexian",
+   "sub:phyrexian skeleton",
+   "sub:skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rain of Daggers",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 24622,
+  "text": "Destroy all creatures target opponent controls. You lose 2 life for each creature destroyed this way.",
+  "facets": [
+   "cares:type:creature",
+   "cost:life",
+   "eff:destroy",
+   "mv:big",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Park Bleater",
+  "type": "Creature — Goat Employee",
+  "cost": "{2}{W}",
+  "rank": 24624,
+  "text": "Whenever another creature you own enters, you get {TK}.\n{W}, {T}: You may put a sticker on a creature you own that entered this turn.",
+  "facets": [
+   "acost:2",
+   "sub:employee",
+   "sub:goat",
+   "sub:goat employee",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sol Grail",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 24625,
+  "text": "As this artifact enters, choose a color.\n{T}: Add one mana of the chosen color.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:add-mana",
+   "eff:choose",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Makindi Shieldmate",
+  "type": "Creature — Kor Soldier Ally",
+  "cost": "{2}{W}",
+  "rank": 24626,
+  "text": "Defender\nWhenever this creature or another Ally you control enters, you may put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:sub:ally",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:defender",
+   "rec:full",
+   "scope:all",
+   "sub:ally",
+   "sub:kor",
+   "sub:kor soldier ally",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shield Mate",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 24628,
+  "text": "Sacrifice this creature: Target creature gets +0/+4 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Certain Death",
+  "type": "Sorcery",
+  "cost": "{5}{B}",
+  "rank": 24629,
+  "text": "Destroy target creature. Its controller loses 2 life and you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:big",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Red Ward",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 24631,
+  "text": "Enchant creature\nEnchanted creature has protection from red. This effect doesn't remove this Aura.",
+  "facets": [
+   "cares:color:r",
+   "cares:sub:aura",
+   "cares:type:creature",
+   "grants:protection",
+   "kw:enchant",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sentinel",
+  "type": "Artifact Creature — Shapeshifter",
+  "cost": "{4}",
+  "rank": 24635,
+  "text": "{0}: Change this creature's base toughness to 1 plus the power of target creature blocking or blocked by this creature. (This effect lasts indefinitely.)",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "sub:shapeshifter",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghoul's Feast",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 24641,
+  "text": "Target creature gets +X/+0 until end of turn, where X is the number of creature cards in your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Tombstalker",
+  "type": "Creature — Demon",
+  "cost": "{6}{B}{B}",
+  "rank": 24645,
+  "text": "Flying\nDelve (Each card you exile from your graveyard while casting this spell pays for {1}.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:delve",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:demon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ekundu Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}",
+  "rank": 24648,
+  "text": "Flying, first strike",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razor Barrier",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24649,
+  "text": "Target permanent you control gains protection from artifacts or from the color of your choice until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Academic Probation",
+  "type": "Sorcery — Lesson",
+  "cost": "{1}{W}",
+  "rank": 24654,
+  "text": "Choose one —\n• Choose a nonland card name. Opponents can't cast spells with the chosen name until your next turn.\n• Choose target nonland permanent. Until your next turn, it can't attack or block, and its activated abilities can't be activated.",
+  "facets": [
+   "eff:cant-cast",
+   "mv:cheap",
+   "sub:lesson",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Evangelize",
+  "type": "Sorcery",
+  "cost": "{4}{W}",
+  "rank": 24655,
+  "text": "Buyback {2}{W}{W} (You may pay an additional {2}{W}{W} as you cast this spell. If you do, put this card into your hand as it resolves.)\nGain control of target creature of an opponent's choice they control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-control",
+   "kw:buyback",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Benediction of Moons",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 24656,
+  "text": "You gain 1 life for each player.\nHaunt (When this spell card is put into a graveyard after resolving, exile it haunting target creature.)\nWhen the creature this card haunts dies, you gain 1 life for each player.",
+  "facets": [
+   "eff:gain-life",
+   "kw:haunt",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Coalition Flag",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 24659,
+  "text": "Enchant creature you control\nEnchanted creature is a Flagbearer.\nWhile an opponent is choosing targets as part of casting a spell they control or activating an ability they control, that player must choose at least one Flagbearer on the battlefield if able.",
+  "facets": [
+   "cares:sub:flagbearer",
+   "cares:type:creature",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Blister Beetle",
+  "type": "Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 24662,
+  "text": "When this creature enters, target creature gets -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "sub:insect",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blessed Wind",
+  "type": "Sorcery",
+  "cost": "{7}{W}{W}",
+  "rank": 24663,
+  "text": "Target player's life total becomes 20.",
+  "facets": [
+   "eff:set-life",
+   "mv:big",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Rehearsed Debater",
+  "type": "Creature — Djinn Bard",
+  "cost": "{2}{W}",
+  "rank": 24664,
+  "text": "Vigilance\nRepartee — Whenever you cast an instant or sorcery spell that targets a creature, this creature gets +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:stack",
+   "eff:pump",
+   "kw:repartee",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:bard",
+   "sub:djinn",
+   "sub:djinn bard",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:instant",
+   "trig:cast:sorcery",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Liliana's Defeat",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 24666,
+  "text": "Destroy target black creature or black planeswalker. If that permanent was a Liliana planeswalker, her controller loses 3 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gallant Pie-Wielder",
+  "type": "Creature — Dwarf Knight",
+  "cost": "{2}{W}",
+  "rank": 24667,
+  "text": "First strike\nCelebration — This creature has double strike as long as two or more nonland permanents entered the battlefield under your control this turn.",
+  "facets": [
+   "kw:celebration",
+   "kw:double strike",
+   "kw:first strike",
+   "rec:partial",
+   "sub:dwarf",
+   "sub:dwarf knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "In Oketra's Name",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24668,
+  "text": "Zombies you control get +2/+1 until end of turn. Other creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Paupers' Cage",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 24670,
+  "text": "At the beginning of each opponent's upkeep, if that player has two or fewer cards in hand, this artifact deals 2 damage to that player.",
+  "facets": [
+   "col:none",
+   "eff:damage",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Jötun Grunt",
+  "type": "Creature — Giant Soldier",
+  "cost": "{1}{W}",
+  "rank": 24672,
+  "text": "Cumulative upkeep—Put two cards from a single graveyard on the bottom of their owner's library. (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:exile-graveyard",
+   "eff:move-zone",
+   "kw:cumulative upkeep",
+   "mv:cheap",
+   "sub:giant",
+   "sub:giant soldier",
+   "sub:soldier",
+   "trig:step",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Polluted Dead",
+  "type": "Creature — Zombie",
+  "cost": "{4}{B}",
+  "rank": 24674,
+  "text": "When this creature dies, destroy target land.",
+  "facets": [
+   "cares:type:land",
+   "eff:destroy",
+   "rec:full",
+   "sub:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Serene Offering",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24681,
+  "text": "Destroy target enchantment. You gain life equal to its mana value.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ray of Ruin",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 24683,
+  "text": "Exile target creature, Vehicle, or nonbasic land. Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:exile",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Odylic Wraith",
+  "type": "Creature — Wraith",
+  "cost": "{3}{B}",
+  "rank": 24684,
+  "text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nWhenever this creature deals damage to a player, that player discards a card.",
+  "facets": [
+   "eff:discard",
+   "kw:landwalk",
+   "kw:swampwalk",
+   "rec:partial",
+   "sub:wraith",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aegis Automaton",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 24688,
+  "text": "{4}{W}: Return another target creature you control to its owner's hand.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "mv:cheap",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Keeper of the Dead",
+  "type": "Creature — Human Wizard",
+  "cost": "{B}{B}",
+  "rank": 24689,
+  "text": "{B}, {T}: Choose target opponent who has at least two fewer creature cards in their graveyard than you do as you activate this ability. Destroy target nonblack creature that player controls.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Honorable Passage",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24693,
+  "text": "The next time a source of your choice would deal damage to any target this turn, prevent that damage. If damage from a red source is prevented this way, Honorable Passage deals that much damage to the source's controller.",
+  "facets": [
+   "cares:color:r",
+   "eff:damage",
+   "eff:redirect-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Phalanx Formation",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 24694,
+  "text": "Strive — This spell costs {1}{W} more to cast for each target beyond the first.\nAny number of target creatures each gain double strike until end of turn. (They deal both first-strike and regular combat damage.)",
+  "facets": [
+   "grants:double strike",
+   "kw:strive",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Hand of Silumgar",
+  "type": "Creature — Human Warrior",
+  "cost": "{1}{B}",
+  "rank": 24695,
+  "text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "facets": [
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Charmed Clothier",
+  "type": "Creature — Faerie Advisor",
+  "cost": "{4}{W}",
+  "rank": 24696,
+  "text": "Flying\nWhen this creature enters, create a Royal Role token attached to another target creature you control. (If you control another Role on it, put that one into the graveyard. Enchanted creature gets +1/+1 and has ward {1}.)",
+  "facets": [
+   "cares:sub:role",
+   "kw:flying",
+   "kw:role token",
+   "rec:partial",
+   "sub:advisor",
+   "sub:faerie",
+   "sub:faerie advisor",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Noble Elephant",
+  "type": "Creature — Elephant",
+  "cost": "{3}{W}",
+  "rank": 24703,
+  "text": "Trample; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "kw:banding",
+   "kw:trample",
+   "sub:elephant",
+   "type:creature"
+  ]
+ }
+]

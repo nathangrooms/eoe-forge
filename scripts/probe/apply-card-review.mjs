@@ -31,11 +31,15 @@ const vocab = new Set(JSON.parse(readFileSync('scratch/judge-vocab.json', 'utf8'
 
 /* Every exported card, so a remove can be checked against what it really has. */
 const cardFacets = new Map();
-for (const f of readdirSync('.review')) {
+for (const dirName of ['.review', '.review-wb']) {
+ let files = [];
+ try { files = readdirSync(dirName); } catch { continue; }
+ for (const f of files) {
   if (!f.endsWith('.json')) continue;
-  for (const c of JSON.parse(readFileSync(`.review/${f}`, 'utf8'))) {
-    cardFacets.set(c.name, new Set(c.facets ?? []));
+  for (const c of JSON.parse(readFileSync(`${dirName}/${f}`, 'utf8'))) {
+    if (!cardFacets.has(c.name)) cardFacets.set(c.name, new Set(c.facets ?? []));
   }
+ }
 }
 
 function* walk(o) {

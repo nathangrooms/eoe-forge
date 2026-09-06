@@ -1,0 +1,832 @@
+[
+ {
+  "name": "Waking Nightmare",
+  "type": "Sorcery — Arcane",
+  "cost": "{2}{B}",
+  "rank": 25071,
+  "text": "Target player discards two cards.",
+  "facets": [
+   "eff:discard",
+   "rec:full",
+   "sub:arcane",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Leo's Guidance",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 25076,
+  "text": "Put a +1/+1 counter on each of up to three target creatures. Untap them.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:untap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Warden of the Wall",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 25079,
+  "text": "This artifact enters tapped.\n{T}: Add {C}.\nDuring turns other than yours, this artifact is a 2/3 Gargoyle artifact creature with flying.",
+  "facets": [
+   "acost:0",
+   "cares:sub:gargoyle",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Benalish Cavalry",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 25080,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+  "facets": [
+   "kw:flanking",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Benalish Trapper",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 25081,
+  "text": "{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battering Ram",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 25083,
+  "text": "At the beginning of combat on your turn, this creature gains banding until end of combat. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's blocking.)\nWhenever this creature becomes blocked by a Wall, destroy that Wall at end of combat.",
+  "facets": [
+   "cares:sub:wall",
+   "cares:type:creature",
+   "col:none",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "sub:construct",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sadistic Slash",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 25085,
+  "text": "Target creature gets -5/-5 until end of turn.\nMayhem {1}{B} (You may cast this card from your graveyard for {1}{B} if you discarded it this turn.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:mayhem",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dancing Scimitar",
+  "type": "Artifact Creature — Spirit",
+  "cost": "{4}",
+  "rank": 25086,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+  "facets": [
+   "col:none",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Harmless Assault",
+  "type": "Instant",
+  "cost": "{2}{W}{W}",
+  "rank": 25088,
+  "text": "Prevent all combat damage that would be dealt this turn by attacking creatures.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Visionary Augmenter",
+  "type": "Creature — Dwarf Artificer",
+  "cost": "{2}{W}{W}",
+  "rank": 25093,
+  "text": "Fabricate 2 (When this creature enters, put two +1/+1 counters on it or create two 1/1 colorless Servo artifact creature tokens.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:fabricate",
+   "rec:full",
+   "sub:artificer",
+   "sub:dwarf",
+   "sub:dwarf artificer",
+   "tok:servo",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Forbidden Ritual",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 25094,
+  "text": "Sacrifice a nontoken permanent. If you do, target opponent loses 2 life unless that player sacrifices a permanent of their choice or discards a card. You may repeat this process any number of times.",
+  "facets": [
+   "eff:lose-life",
+   "eff:sacrifice",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Plague Witch",
+  "type": "Creature — Elf Spellshaper",
+  "cost": "{1}{B}",
+  "rank": 25096,
+  "text": "{B}, {T}, Discard a card: Target creature gets -1/-1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:discard",
+   "cost:tap",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "sub:elf",
+   "sub:elf spellshaper",
+   "sub:spellshaper",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Volrath's Dungeon",
+  "type": "Enchantment",
+  "cost": "{2}{B}{B}",
+  "rank": 25097,
+  "text": "Pay 5 life: Destroy this enchantment. Any player may activate this ability but only during their turn.\nDiscard a card: Target player puts a card from their hand on top of their library. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "eff:destroy-own",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Brave Brawler",
+  "type": "Creature — Human Warrior Hero",
+  "cost": "{1}{W}",
+  "rank": 25099,
+  "text": "Lifelink\nPower-up — {4}{W}: Put two +1/+1 counters on this creature. (Activate each power-up ability only once. Reduce the cost by its mana cost if it entered this turn.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:gain-life",
+   "kw:lifelink",
+   "kw:power-up",
+   "mv:cheap",
+   "rec:partial",
+   "sub:hero",
+   "sub:human",
+   "sub:human warrior hero",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elder Cathar",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 25100,
+  "text": "When this creature dies, put a +1/+1 counter on target creature you control. If that creature is a Human, put two +1/+1 counters on it instead.",
+  "facets": [
+   "cares:sub:human",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunweb",
+  "type": "Creature — Wall",
+  "cost": "{3}{W}",
+  "rank": 25101,
+  "text": "Defender (This creature can't attack.)\nFlying\nThis creature can't block creatures with power 2 or less.",
+  "facets": [
+   "eff:cant-block-self",
+   "kw:defender",
+   "kw:flying",
+   "pt:big",
+   "rec:partial",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Echoing Decay",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 25103,
+  "text": "Target creature and all other creatures with the same name as that creature get -2/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Illusionary Mask",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 25104,
+  "text": "{X}: You may choose a creature card in your hand whose mana cost could be paid by some amount of, or all of, the mana you spent on {X}. If you do, you may cast that card face down as a 2/2 creature spell without paying its mana cost. If the creature that spell becomes as it resolves has not been turned face up and would assign or deal damage, be dealt damage, or become tapped, instead it's turned face up and assigns or deals damage, is dealt damage, or becomes tapped. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "col:none",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Rotting Mastodon",
+  "type": "Creature — Zombie Elephant",
+  "cost": "{4}{B}",
+  "rank": 25105,
+  "text": "",
+  "facets": [
+   "sub:elephant",
+   "sub:zombie",
+   "sub:zombie elephant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dukhara Scavenger",
+  "type": "Creature — Crocodile",
+  "cost": "{5}{B}",
+  "rank": 25106,
+  "text": "When this creature enters, you may put target artifact or creature card from your graveyard on top of your library.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:move-zone",
+   "mv:big",
+   "rec:full",
+   "sub:crocodile",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zhang Fei, Fierce Warrior",
+  "type": "Legendary Creature — Human Soldier Warrior",
+  "cost": "{4}{W}{W}",
+  "rank": 25108,
+  "text": "Vigilance; horsemanship (This creature can't be blocked except by creatures with horsemanship.)",
+  "facets": [
+   "kw:horsemanship",
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier warrior",
+   "sub:soldier",
+   "sub:warrior",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Auriok Bladewarden",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 25109,
+  "text": "{T}: Target creature gets +X/+X until end of turn, where X is this creature's power.",
+  "facets": [
+   "acost:0",
+   "cares:power",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wall of Corpses",
+  "type": "Creature — Wall",
+  "cost": "{1}{B}",
+  "rank": 25110,
+  "text": "Defender (This creature can't attack.)\n{B}, Sacrifice this creature: Destroy target creature this creature is blocking.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hideous Visage",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 25111,
+  "text": "Creatures you control gain intimidate until end of turn. (Each of those creatures can't be blocked except by artifact creatures and/or creatures that share a color with it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:intimidate",
+   "kw:intimidate",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Horn of Plenty",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 25113,
+  "text": "Whenever a player casts a spell, they may pay {1}. If the player does, they draw a card at the beginning of the next end step.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Mishra's Helix",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 25115,
+  "text": "{X}, {T}: Tap X target lands.",
+  "facets": [
+   "acost:1",
+   "acost:x",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Demonic Hordes",
+  "type": "Creature — Demon",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 25116,
+  "text": "{T}: Destroy target land.\nAt the beginning of your upkeep, unless you pay {B}{B}{B}, tap this creature and sacrifice a land of an opponent's choice.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cost:tap",
+   "eff:destroy",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hawkeye, Bowslinger",
+  "type": "Legendary Creature — Human Archer Hero",
+  "cost": "{2}{W}",
+  "rank": 25117,
+  "text": "Reach, vigilance\nWhenever you cast a spell that targets a creature, put a +1/+1 counter on Hawkeye. Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:scry",
+   "kw:reach",
+   "kw:scry",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:archer",
+   "sub:hero",
+   "sub:human",
+   "sub:human archer hero",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Eternal Isolation",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 25118,
+  "text": "Put target creature with power 4 or greater on the bottom of its owner's library.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:library",
+   "eff:move-zone",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Stern Judge",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 25123,
+  "text": "{T}: Each player loses 1 life for each Swamp they control.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:lose-life",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cruel Feeding",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 25127,
+  "text": "Strive — This spell costs {2}{B} more to cast for each target beyond the first.\nAny number of target creatures each get +1/+0 and gain lifelink until end of turn. (Damage dealt by a creature with lifelink also causes its controller to gain that much life.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:lifelink",
+   "kw:lifelink",
+   "kw:strive",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Disturbing Plot",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 25128,
+  "text": "Return target creature card from a graveyard to its owner's hand.\nConspire (As you cast this spell, you may tap two untapped creatures you control that share a color with it. When you do, copy it and you may choose a new target for the copy.)",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:copy",
+   "eff:move-zone",
+   "eff:return-from",
+   "kw:conspire",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Guardian Beast",
+  "type": "Creature — Beast",
+  "cost": "{3}{B}",
+  "rank": 25130,
+  "text": "As long as this creature is untapped, noncreature artifacts you control can't be enchanted, they have indestructible, and other players can't gain control of them. This effect doesn't remove Auras already attached to those artifacts.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "grants:indestructible",
+   "kw:indestructible",
+   "scope:all",
+   "sub:beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phyrexian Ironfoot",
+  "type": "Snow Artifact Creature — Phyrexian Construct",
+  "cost": "{3}",
+  "rank": 25131,
+  "text": "This creature doesn't untap during your untap step.\n{1}{S}: Untap this creature. ({S} can be paid with one mana from a snow source.)",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:untap",
+   "rec:full",
+   "sub:construct",
+   "sub:phyrexian",
+   "sub:phyrexian construct",
+   "type:artifact",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Thirsting Shade",
+  "type": "Creature — Shade",
+  "cost": "{B}",
+  "rank": 25132,
+  "text": "Lifelink\n{2}{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "eff:pump",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pit Trap",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 25135,
+  "text": "{2}, {T}, Sacrifice this artifact: Destroy target attacking creature without flying. It can't be regenerated.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Kitesail Apprentice",
+  "type": "Creature — Kor Soldier",
+  "cost": "{W}",
+  "rank": 25136,
+  "text": "As long as this creature is equipped, it gets +1/+1 and has flying.",
+  "facets": [
+   "cares:type:artifact",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "sub:kor",
+   "sub:kor soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Transmogrifying Licid",
+  "type": "Artifact Creature — Licid",
+  "cost": "{3}",
+  "rank": 25137,
+  "text": "{1}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {1} to end this effect.\nEnchanted creature gets +1/+1 and is an artifact in addition to its other types.",
+  "facets": [
+   "acost:2",
+   "cares:sub:aura",
+   "cares:type:artifact",
+   "col:none",
+   "sub:licid",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Net",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 25140,
+  "text": "Whenever a creature dies, you may pay {1}. If you do, you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:do-if-cost-paid",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:dies",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Regal Unicorn",
+  "type": "Creature — Unicorn",
+  "cost": "{2}{W}",
+  "rank": 25145,
+  "text": "",
+  "facets": [
+   "sub:unicorn",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gloom Pangolin",
+  "type": "Creature — Nightmare Pangolin",
+  "cost": "{2}{B}",
+  "rank": 25146,
+  "text": "",
+  "facets": [
+   "sub:nightmare",
+   "sub:nightmare pangolin",
+   "sub:pangolin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Whipgrass Entangler",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 25147,
+  "text": "{1}{W}: Until end of turn, target creature gains \"This creature can't attack or block unless its controller pays {1} for each Cleric on the battlefield.\"",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:type:creature",
+   "eff:unless-pays",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Moonlit Strider",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 25149,
+  "text": "Sacrifice this creature: Target creature you control gains protection from the color of your choice until end of turn.\nSoulshift 3 (When this creature dies, you may return target Spirit card with mana value 3 or less from your graveyard to your hand.)",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice-self",
+   "eff:choose",
+   "eff:pump",
+   "eff:return-from",
+   "grants:protection",
+   "kw:protection",
+   "kw:soulshift",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Capashen Standard",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 25151,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1.\n{2}, Sacrifice this Aura: Draw a card.",
+  "facets": [
+   "acost:2",
+   "cares:sub:aura",
+   "cost:sacrifice-self",
+   "eff:draw",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Syphon Life",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 25152,
+  "text": "Target player loses 2 life and you gain 2 life.\nRetrace (You may cast this card from your graveyard by discarding a land card in addition to paying its other costs.)",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:retrace",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Order of the Stars",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 25153,
+  "text": "Defender (This creature can't attack.)\nAs this creature enters, choose a color.\nThis creature has protection from the chosen color.",
+  "facets": [
+   "eff:choose",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Armored Pegasus",
+  "type": "Creature — Pegasus",
+  "cost": "{1}{W}",
+  "rank": 25154,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:pegasus",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cursed Land",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}{B}",
+  "rank": 25157,
+  "text": "Enchant land\nAt the beginning of the upkeep of enchanted land's controller, this Aura deals 1 damage to that player.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:damage",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Famine",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 25158,
+  "text": "Famine deals 3 damage to each creature and each player.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "When We Were Young",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 25160,
+  "text": "Up to two target creatures each get +2/+2 until end of turn. If you control an artifact and an enchantment, those creatures also gain lifelink until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:pump",
+   "grants:lifelink",
+   "kw:lifelink",
+   "type:instant"
+  ]
+ }
+]

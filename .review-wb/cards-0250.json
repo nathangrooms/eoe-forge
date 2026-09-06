@@ -1,0 +1,823 @@
+[
+ {
+  "name": "Whisper Squad",
+  "type": "Creature — Human Soldier",
+  "cost": "{B}",
+  "rank": 31546,
+  "text": "{1}{B}: Search your library for a card named Whisper Squad, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "acost:2",
+   "eff:search-library",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marble Priest",
+  "type": "Artifact Creature — Cleric",
+  "cost": "{5}",
+  "rank": 31549,
+  "text": "All Walls able to block this creature do so.\nPrevent all combat damage that would be dealt to this creature by Walls.",
+  "facets": [
+   "cares:sub:wall",
+   "col:none",
+   "eff:force-block",
+   "eff:prevent-damage",
+   "sub:cleric",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hint of Insanity",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 31554,
+  "text": "Target player reveals their hand. That player discards all nonland cards with the same name as another card in their hand.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Skittering Horror",
+  "type": "Creature — Phyrexian Horror",
+  "cost": "{2}{B}",
+  "rank": 31555,
+  "text": "When you cast a creature spell, sacrifice this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:sacrifice",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:creature",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skulking Fugitive",
+  "type": "Creature — Horror Mercenary",
+  "cost": "{2}{B}",
+  "rank": 31557,
+  "text": "When this creature becomes the target of a spell or ability, sacrifice it.",
+  "facets": [
+   "sub:horror",
+   "sub:horror mercenary",
+   "sub:mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elite Javelineer",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 31559,
+  "text": "Whenever this creature blocks, it deals 1 damage to target attacking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Opal Avenger",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 31563,
+  "text": "When you have 10 or less life, if this permanent is an enchantment, it becomes a 3/5 Soldier creature.",
+  "facets": [
+   "cares:sub:soldier",
+   "eff:animate",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rusted Sentinel",
+  "type": "Artifact Creature — Golem",
+  "cost": "{4}",
+  "rank": 31565,
+  "text": "This creature enters tapped.",
+  "facets": [
+   "col:none",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lucent Liminid",
+  "type": "Enchantment Creature — Elemental",
+  "cost": "{3}{W}{W}",
+  "rank": 31566,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:elemental",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Quill-Slinger Boggart",
+  "type": "Creature — Goblin Warrior",
+  "cost": "{3}{B}",
+  "rank": 31570,
+  "text": "Whenever a player casts a Kithkin spell, you may have target player lose 1 life.",
+  "facets": [
+   "cares:sub:kithkin",
+   "cares:zone:stack",
+   "eff:lose-life",
+   "rec:full",
+   "scope:all",
+   "sub:goblin",
+   "sub:goblin warrior",
+   "sub:warrior",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fallen Cleric",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{4}{B}",
+  "rank": 31571,
+  "text": "Protection from Clerics\nMorph {4}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "kw:morph",
+   "kw:protection",
+   "rec:full",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Temple Elder",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 31573,
+  "text": "{T}: You gain 1 life. Activate only during your turn, before attackers are declared.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:gain-life",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Howling Fury",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 31576,
+  "text": "Target creature gets +4/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Grassland Crusader",
+  "type": "Creature — Human Cleric Soldier",
+  "cost": "{5}{W}",
+  "rank": 31584,
+  "text": "{T}: Target Elf or Soldier creature gets +2/+2 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:elf",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "mv:big",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Steamclaw",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 31597,
+  "text": "{3}, {T}: Exile target card from a graveyard.\n{1}, Sacrifice this artifact: Exile target card from a graveyard.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nim Replica",
+  "type": "Artifact Creature — Zombie",
+  "cost": "{3}",
+  "rank": 31602,
+  "text": "{2}{B}, Sacrifice this creature: Target creature gets -1/-1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:shrink",
+   "rec:full",
+   "sub:zombie",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hollow Warrior",
+  "type": "Artifact Creature — Golem Warrior",
+  "cost": "{4}",
+  "rank": 31615,
+  "text": "This creature can't attack or block unless you tap an untapped creature you control not declared as an attacking or blocking creature this combat. (This cost is paid as attackers or blockers are declared.)",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "cost:tap-others",
+   "eff:cant-attack-self",
+   "eff:cant-block-self",
+   "sub:golem",
+   "sub:golem warrior",
+   "sub:warrior",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Master of Arms",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 31617,
+  "text": "First strike\n{1}{W}: Tap target creature blocking this creature.",
+  "facets": [
+   "acost:2",
+   "eff:tap",
+   "kw:first strike",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gathering Throng",
+  "type": "Creature — Human Citizen",
+  "cost": "{2}{W}",
+  "rank": 31618,
+  "text": "When this creature enters, you may search your library for any number of cards named Gathering Throng, reveal them, put them into your hand, then shuffle.",
+  "facets": [
+   "eff:search-library",
+   "rec:partial",
+   "sub:citizen",
+   "sub:human",
+   "sub:human citizen",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Icatian Lieutenant",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}{W}",
+  "rank": 31620,
+  "text": "{1}{W}: Target Soldier creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Foul Spirit",
+  "type": "Creature — Spirit",
+  "cost": "{2}{B}",
+  "rank": 31621,
+  "text": "Flying\nWhen this creature enters, sacrifice a land.",
+  "facets": [
+   "cares:type:land",
+   "eff:sacrifice",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rank and File",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}{B}",
+  "rank": 31625,
+  "text": "When this creature enters, green creatures get -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fatal Mutation",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 31628,
+  "text": "Enchant creature\nWhen enchanted creature is turned face up, destroy it. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Aven Soulgazer",
+  "type": "Creature — Bird Cleric",
+  "cost": "{3}{W}{W}",
+  "rank": 31634,
+  "text": "Flying\n{2}{W}: Look at target face-down creature.",
+  "facets": [
+   "acost:3",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird cleric",
+   "sub:cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Undying Beast",
+  "type": "Creature — Beast",
+  "cost": "{3}{B}",
+  "rank": 31635,
+  "text": "When this creature dies, put it on top of its owner's library.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:move-zone",
+   "rec:partial",
+   "sub:beast",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kjeldoran Outrider",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 31639,
+  "text": "{W}: This creature gets +0/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scavenging Scarab",
+  "type": "Creature — Insect",
+  "cost": "{3}{B}",
+  "rank": 31644,
+  "text": "This creature can't block.",
+  "facets": [
+   "rec:full",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gravel Slinger",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 31648,
+  "text": "{T}: This creature deals 1 damage to target attacking or blocking creature.\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:damage",
+   "kw:morph",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mire Shade",
+  "type": "Creature — Shade",
+  "cost": "{1}{B}",
+  "rank": 31649,
+  "text": "{B}, Sacrifice a Swamp: Put a +1/+1 counter on this creature. Activate only as a sorcery.",
+  "facets": [
+   "acost:1",
+   "cares:sub:swamp",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warrior's Charge",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 31656,
+  "text": "Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Martyrs of Korlis",
+  "type": "Creature — Human",
+  "cost": "{3}{W}{W}",
+  "rank": 31660,
+  "text": "As long as this creature is untapped, all damage that would be dealt to you by artifacts is dealt to this creature instead.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:prevent-damage",
+   "sub:human",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Welkin Hawk",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 31661,
+  "text": "Flying\nWhen this creature dies, you may search your library for a card named Welkin Hawk, reveal that card, put it into your hand, then shuffle.",
+  "facets": [
+   "eff:search-library",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Forethought Amulet",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 31668,
+  "text": "At the beginning of your upkeep, sacrifice this artifact unless you pay {3}.\nIf an instant or sorcery source would deal 3 or more damage to you, it deals 2 damage to you instead.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "col:none",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Flowstone Armor",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 31671,
+  "text": "You may choose not to untap this artifact during your untap step.\n{3}, {T}: Target creature gets +1/-1 for as long as this artifact remains tapped.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lurking Nightstalker",
+  "type": "Creature — Nightstalker",
+  "cost": "{B}{B}",
+  "rank": 31674,
+  "text": "Whenever this creature attacks, it gets +2/+0 until end of turn.",
+  "facets": [
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:nightstalker",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fledgling Imp",
+  "type": "Creature — Imp",
+  "cost": "{2}{B}",
+  "rank": 31679,
+  "text": "{B}, Discard a card: This creature gains flying until end of turn.",
+  "facets": [
+   "acost:1",
+   "cost:discard",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Putrid Cyclops",
+  "type": "Creature — Zombie Cyclops",
+  "cost": "{2}{B}",
+  "rank": 31683,
+  "text": "When this creature enters, scry 1, then reveal the top card of your library. This creature gets -X/-X until end of turn, where X is that card's mana value. (To scry 1, look at the top card of your library, then you may put that card on the bottom.)",
+  "facets": [
+   "cares:zone:library",
+   "eff:scry",
+   "kw:scry",
+   "rec:partial",
+   "sub:cyclops",
+   "sub:zombie",
+   "sub:zombie cyclops",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sandstorm Charger",
+  "type": "Creature — Beast",
+  "cost": "{4}{W}",
+  "rank": 31684,
+  "text": "Megamorph {4}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:megamorph",
+   "rec:full",
+   "sub:beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Whipstitched Zombie",
+  "type": "Creature — Zombie",
+  "cost": "{1}{B}",
+  "rank": 31690,
+  "text": "At the beginning of your upkeep, sacrifice this creature unless you pay {B}.",
+  "facets": [
+   "mv:cheap",
+   "rec:partial",
+   "sub:zombie",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Luminous Guardian",
+  "type": "Creature — Human Nomad",
+  "cost": "{3}{W}",
+  "rank": 31692,
+  "text": "{W}: This creature gets +0/+1 until end of turn.\n{2}: This creature can block an additional creature this turn.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "eff:pump",
+   "rec:partial",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tribal Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{6}",
+  "rank": 31694,
+  "text": "This creature has trample as long as you control a Beast, haste as long as you control a Goblin, first strike as long as you control a Soldier, flying as long as you control a Wizard, and \"{B}: Regenerate this creature\" as long as you control a Zombie.",
+  "facets": [
+   "cares:sub:beast",
+   "cares:sub:goblin",
+   "cares:sub:soldier",
+   "cares:sub:wizard",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "grants:first strike",
+   "grants:flying",
+   "grants:haste",
+   "grants:trample",
+   "kw:first strike",
+   "kw:flying",
+   "kw:haste",
+   "kw:regenerate",
+   "kw:trample",
+   "mv:big",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wirecat",
+  "type": "Artifact Creature — Cat",
+  "cost": "{4}",
+  "rank": 31698,
+  "text": "This creature can't attack or block if an enchantment is on the battlefield.",
+  "facets": [
+   "col:none",
+   "eff:cant-attack-self",
+   "eff:cant-block-self",
+   "sub:cat",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stonewise Fortifier",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 31701,
+  "text": "{4}{W}: Prevent all damage that would be dealt to this creature by target creature this turn.",
+  "facets": [
+   "acost:3",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fen Stalker",
+  "type": "Creature — Nightstalker",
+  "cost": "{3}{B}",
+  "rank": 31709,
+  "text": "This creature has fear as long as you control no untapped lands. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "cares:type:land",
+   "grants:fear",
+   "kw:fear",
+   "rec:full",
+   "sub:nightstalker",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Teroh's Vanguard",
+  "type": "Creature — Human Nomad",
+  "cost": "{3}{W}",
+  "rank": 31711,
+  "text": "Flash\nThreshold — As long as there are seven or more cards in your graveyard, this creature has \"When this creature enters, creatures you control gain protection from black until end of turn.\"",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:protect",
+   "grants:protection",
+   "kw:flash",
+   "kw:protection",
+   "kw:threshold",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battle Hurda",
+  "type": "Creature — Giant",
+  "cost": "{4}{W}",
+  "rank": 31713,
+  "text": "First strike",
+  "facets": [
+   "kw:first strike",
+   "rec:full",
+   "sub:giant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zealots en-Dal",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 31718,
+  "text": "At the beginning of your upkeep, if all nonland permanents you control are white, you gain 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hate Weaver",
+  "type": "Creature — Zombie Wizard",
+  "cost": "{1}{B}",
+  "rank": 31724,
+  "text": "{2}: Target blue or red creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:wizard",
+   "sub:zombie",
+   "sub:zombie wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ivory Guardians",
+  "type": "Creature — Giant Cleric",
+  "cost": "{4}{W}{W}",
+  "rank": 31729,
+  "text": "Protection from red\nCreatures named Ivory Guardians get +1/+1 as long as an opponent controls a nontoken red permanent.",
+  "facets": [
+   "cares:color:r",
+   "kw:protection",
+   "mv:big",
+   "rec:partial",
+   "sub:cleric",
+   "sub:giant",
+   "sub:giant cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shoreline Salvager",
+  "type": "Creature — Surrakar",
+  "cost": "{3}{B}",
+  "rank": 31730,
+  "text": "Whenever this creature deals combat damage to a player, if you control an Island, you may draw a card.",
+  "facets": [
+   "cares:sub:island",
+   "eff:draw",
+   "rec:full",
+   "sub:surrakar",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ }
+]

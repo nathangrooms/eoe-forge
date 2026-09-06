@@ -1,0 +1,865 @@
+[
+ {
+  "name": "Ebony Charm",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 19173,
+  "text": "Choose one —\n• Target opponent loses 1 life and you gain 1 life.\n• Exile up to three target cards from a single graveyard.\n• Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "eff:exile",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:pump",
+   "grants:fear",
+   "kw:fear",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nightmare's Thirst",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 19174,
+  "text": "You gain 1 life. Target creature gets -X/-X until end of turn, where X is the amount of life you gained this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Archery Training",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 19175,
+  "text": "Enchant creature\nAt the beginning of your upkeep, you may put an arrow counter on this Aura.\nEnchanted creature has \"{T}: This creature deals X damage to target attacking or blocking creature, where X is the number of arrow counters on Archery Training.\"",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:creature",
+   "ctr:arrow-self",
+   "eff:add-counters-self",
+   "eff:damage",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "S.H.I.E.L.D. Spy Kit",
+  "type": "Artifact — Equipment",
+  "cost": "{W}",
+  "rank": 19179,
+  "text": "Equipped creature gets +1/+1.\nWhenever equipped creature attacks alone, untap it and scry 1. (Look at the top card of your library. You may put that card on the bottom.)\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "eff:scry",
+   "eff:untap",
+   "kw:equip",
+   "kw:scry",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Avacyn's Collar",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 19180,
+  "text": "Equipped creature gets +1/+0 and has vigilance.\nWhenever equipped creature dies, if it was a Human, create a 1/1 white Spirit creature token with flying.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:human",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "tok:spirit",
+   "trig:dies",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Pollen Lullaby",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19184,
+  "text": "Prevent all combat damage that would be dealt this turn. Clash with an opponent. If you win, creatures that player controls don't untap during the player's next untap step. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:library",
+   "eff:prevent-damage",
+   "kw:clash",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Raven Wings",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 19185,
+  "text": "Equipped creature gets +1/+0, has flying, and is a Bird in addition to its other types.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:bird",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Riverguard's Reflexes",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19186,
+  "text": "Target creature gets +2/+2 and gains first strike until end of turn. Untap it.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:untap",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Bound in Silence",
+  "type": "Kindred Enchantment — Rebel Aura",
+  "cost": "{2}{W}",
+  "rank": 19187,
+  "text": "Enchant creature\nEnchanted creature can't attack or block.",
+  "facets": [
+   "cares:type:creature",
+   "eff:cant-attack",
+   "eff:cant-block",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "sub:rebel",
+   "sub:rebel aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Keening Apparition",
+  "type": "Creature — Spirit",
+  "cost": "{1}{W}",
+  "rank": 19188,
+  "text": "Sacrifice this creature: Destroy target enchantment.",
+  "facets": [
+   "acost:0",
+   "cares:type:enchantment",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arden Angel",
+  "type": "Creature — Angel",
+  "cost": "{4}{W}{W}",
+  "rank": 19189,
+  "text": "Flying\nAt the beginning of your upkeep, if Arden Angel is in your graveyard, roll a four-sided die. If the result is 1, return Arden Angel from your graveyard to the battlefield.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:angel",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wight",
+  "type": "Creature — Zombie Soldier",
+  "cost": "{1}{B}",
+  "rank": 19193,
+  "text": "This creature enters tapped.\nLife Drain — Whenever a creature dealt damage by this creature this turn dies, create a tapped 2/2 black Zombie creature token and exile that card.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "eff:create-token",
+   "kw:life drain",
+   "mv:cheap",
+   "rec:partial",
+   "sub:soldier",
+   "sub:zombie",
+   "sub:zombie soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Candlelight Vigil",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{W}",
+  "rank": 19199,
+  "text": "Enchant creature\nEnchanted creature gets +3/+2 and has vigilance.",
+  "facets": [
+   "eff:pump",
+   "grants:vigilance",
+   "kw:enchant",
+   "kw:vigilance",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Digsite Conservator",
+  "type": "Artifact Creature — Gnome",
+  "cost": "{2}",
+  "rank": 19200,
+  "text": "Sacrifice this creature: Exile up to four target cards from a single graveyard. Activate only as a sorcery.\nWhen this creature dies, you may pay {4}. If you do, discover 4. (Exile cards from the top of your library until you exile a nonland card with mana value 4 or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "facets": [
+   "col:none",
+   "kw:discover",
+   "mv:cheap",
+   "rec:partial",
+   "sub:gnome",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunset Saboteur",
+  "type": "Creature — Human Rogue",
+  "cost": "{1}{B}",
+  "rank": 19203,
+  "text": "Menace\nWard—Discard a card.\nWhenever this creature attacks, put a +1/+1 counter on target creature an opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:discard",
+   "kw:menace",
+   "kw:ward",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Imperial Ceratops",
+  "type": "Creature — Dinosaur",
+  "cost": "{4}{W}",
+  "rank": 19205,
+  "text": "Enrage — Whenever this creature is dealt damage, you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:enrage",
+   "rec:full",
+   "sub:dinosaur",
+   "trig:dealt-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pentarch Paladin",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}{W}{W}",
+  "rank": 19209,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nAs this creature enters, choose a color.\n{W}{W}, {T}: Destroy target permanent of the chosen color.",
+  "facets": [
+   "acost:3",
+   "eff:choose",
+   "eff:destroy",
+   "kw:flanking",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gixian Skullflayer",
+  "type": "Creature — Phyrexian Human Assassin",
+  "cost": "{2}{B}",
+  "rank": 19222,
+  "text": "At the beginning of your upkeep, if there are three or more creature cards in your graveyard, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "sub:assassin",
+   "sub:human",
+   "sub:phyrexian",
+   "sub:phyrexian human assassin",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boros Elite",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 19223,
+  "text": "Battalion — Whenever this creature and at least two other creatures attack, this creature gets +2/+2 until end of turn.",
+  "facets": [
+   "kw:battalion",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Guul Draz Specter",
+  "type": "Creature — Specter",
+  "cost": "{2}{B}{B}",
+  "rank": 19226,
+  "text": "Flying\nThis creature gets +3/+3 as long as an opponent has no cards in hand.\nWhenever this creature deals combat damage to a player, that player discards a card.",
+  "facets": [
+   "eff:discard",
+   "kw:flying",
+   "rec:partial",
+   "sub:specter",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Taken by Nightmares",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 19227,
+  "text": "Exile target creature. If you control an enchantment, scry 2.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:exile",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Spiritcall Enthusiast // Scrollboost",
+  "type": "Creature — Cat Cleric // Sorcery",
+  "cost": "{2}{W} // {1}{W}",
+  "rank": 19231,
+  "text": "Whenever one or more tokens you control enter, this creature becomes prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\n//\nOne or two target creatures each get +2/+2 until end of turn.",
+  "facets": [
+   "kw:prepared",
+   "sub:cat",
+   "sub:cat cleric",
+   "sub:cleric",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blood Servitor",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 19233,
+  "text": "When this creature enters, create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "col:none",
+   "eff:create-token",
+   "rec:full",
+   "sub:construct",
+   "tok:blood",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grim Reaper's Scythe",
+  "type": "Legendary Artifact",
+  "cost": "{2}{B}",
+  "rank": 19236,
+  "text": "Whenever one or more creature cards leave your graveyard, create a 2/2 black Zombie creature token.\n{3}{B}, {T}, Sacrifice two creatures: Return target creature card from your graveyard to the battlefield with a finality counter on it. Activate only as a sorcery. (If a creature with a finality counter on it would die, exile it instead.)",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "eff:create-token",
+   "eff:return-from",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Swamp Mosquito",
+  "type": "Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 19237,
+  "text": "Flying\nWhenever this creature attacks and isn't blocked, defending player gets a poison counter. (A player with ten or more poison counters loses the game.)",
+  "facets": [
+   "eff:poison",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:insect",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Might of the Ancestors",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 19240,
+  "text": "At the beginning of combat on your turn, target creature you control gets +2/+0 and gains vigilance until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mighty Leap",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19242,
+  "text": "Target creature gets +2/+2 and gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Word of Command",
+  "type": "Instant",
+  "cost": "{B}{B}",
+  "rank": 19249,
+  "text": "Look at target opponent's hand and choose a card from it. You control that player until Word of Command finishes resolving. The player plays that card if able. While doing so, the player can activate mana abilities only if they're from lands that player controls and only if mana they produce is spent to activate other mana abilities of lands the player controls and/or to play that card. If the chosen card is cast as a spell, you control the player while that spell is resolving.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:gain-control",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Revenant",
+  "type": "Creature — Spirit",
+  "cost": "{4}{B}",
+  "rank": 19251,
+  "text": "Flying\nRevenant's power and toughness are each equal to the number of creature cards in your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:set-pt",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Patron of the Kitsune",
+  "type": "Legendary Creature — Spirit",
+  "cost": "{4}{W}{W}",
+  "rank": 19253,
+  "text": "Fox offering (You may cast this spell any time you could cast an instant by sacrificing a Fox and paying the difference in mana costs between this and the sacrificed Fox. Mana cost includes color.)\nWhenever a creature attacks, you may gain 1 life.",
+  "facets": [
+   "cares:sub:fox",
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:offering",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:spirit",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Agonizing Syphon",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 19255,
+  "text": "Agonizing Syphon deals 3 damage to any target and you gain 3 life.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Misinformation",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 19258,
+  "text": "Put up to three target cards from an opponent's graveyard on top of their library in any order.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:move-zone",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dragon's Disciple",
+  "type": "Creature — Human Monk",
+  "cost": "{1}{W}",
+  "rank": 19263,
+  "text": "As this creature enters, you may reveal a Dragon card from your hand. If you do or if you control a Dragon, this creature enters with a +1/+1 counter on it.\nDragons you control have ward {1}. (Whenever a Dragon you control becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)",
+  "facets": [
+   "cares:sub:dragon",
+   "cares:type:creature",
+   "eff:add-counters-self",
+   "eff:protect",
+   "mv:cheap",
+   "scope:all",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mind Shatter",
+  "type": "Sorcery",
+  "cost": "{X}{B}{B}",
+  "rank": 19264,
+  "text": "Target player discards X cards at random.",
+  "facets": [
+   "eff:discard",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Skymarch Bloodletter",
+  "type": "Creature — Vampire Soldier",
+  "cost": "{2}{B}",
+  "rank": 19266,
+  "text": "Flying\nWhen this creature enters, target opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:flying",
+   "rec:full",
+   "sub:soldier",
+   "sub:vampire",
+   "sub:vampire soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Traumatic Revelation",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 19269,
+  "text": "Target opponent reveals their hand. You may choose a creature or battle card from it. If you do, that player discards that card. If you don't, incubate 3. (Create an Incubator token with three +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)",
+  "facets": [
+   "cares:zone:hand",
+   "eff:create-token",
+   "eff:discard",
+   "kw:incubate",
+   "kw:transform",
+   "mv:cheap",
+   "tok:incubator",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Prowling Caracal",
+  "type": "Creature — Cat",
+  "cost": "{1}{W}",
+  "rank": 19272,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dream Spoilers",
+  "type": "Creature — Faerie Warlock",
+  "cost": "{3}{B}",
+  "rank": 19273,
+  "text": "Flying\nWhenever you cast a spell during an opponent's turn, up to one target creature an opponent controls gets -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:flying",
+   "rec:partial",
+   "sub:faerie",
+   "sub:faerie warlock",
+   "sub:warlock",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cauldron's Gift",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 19274,
+  "text": "Adamant — If at least three black mana was spent to cast this spell, mill four cards.\nYou may choose a creature card in your graveyard. If you do, return it to the battlefield with an additional +1/+1 counter on it.",
+  "facets": [
+   "cares:mana-spent",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:mill",
+   "eff:return-from",
+   "kw:adamant",
+   "kw:mill",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ajani's Influence",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}",
+  "rank": 19276,
+  "text": "Put two +1/+1 counters on target creature.\nLook at the top five cards of your library. You may reveal a white card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "cares:zone:library",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gutsplitter Gang",
+  "type": "Creature — Goblin Berserker",
+  "cost": "{3}{B}",
+  "rank": 19278,
+  "text": "At the beginning of your first main phase, you may blight 2. If you don't, you lose 3 life. (To blight 2, put two -1/-1 counters on a creature you control.)",
+  "facets": [
+   "kw:blight",
+   "pt:big",
+   "rec:partial",
+   "sub:berserker",
+   "sub:goblin",
+   "sub:goblin berserker",
+   "trig:step",
+   "trig:step:precombat-main",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scepter of Empires",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 19281,
+  "text": "{T}: This artifact deals 1 damage to target player or planeswalker. It deals 3 damage instead if you control artifacts named Crown of Empires and Throne of Empires.",
+  "facets": [
+   "acost:1",
+   "cares:type:planeswalker",
+   "col:none",
+   "eff:damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Camera Launcher",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 19303,
+  "text": "Exhaust — {3}: Put a +1/+1 counter on this creature. Create a 1/1 colorless Thopter artifact creature token with flying. (Activate each exhaust ability only once.)",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:exhaust",
+   "rec:full",
+   "sub:construct",
+   "tok:thopter",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mycologist",
+  "type": "Creature — Human Druid",
+  "cost": "{1}{W}",
+  "rank": 19304,
+  "text": "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: You gain 2 life.",
+  "facets": [
+   "acost:0",
+   "cares:sub:saproling",
+   "cost:remove-counters",
+   "cost:sacrifice",
+   "ctr:spore-self",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:druid",
+   "sub:human",
+   "sub:human druid",
+   "tok:saproling",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cathedral Sanctifier",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 19305,
+  "text": "When this creature enters, you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skull of Orm",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 19308,
+  "text": "{5}, {T}: Return target enchantment card from your graveyard to your hand.",
+  "facets": [
+   "acost:3",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:tap",
+   "eff:return-from",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bog Rats",
+  "type": "Creature — Rat",
+  "cost": "{B}",
+  "rank": 19309,
+  "text": "This creature can't be blocked by Walls.",
+  "facets": [
+   "mv:cheap",
+   "sub:rat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cho-Manno, Revolutionary",
+  "type": "Legendary Creature — Human Rebel",
+  "cost": "{2}{W}{W}",
+  "rank": 19313,
+  "text": "Prevent all damage that would be dealt to Cho-Manno.",
+  "facets": [
+   "eff:prevent-damage",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Colfenor's Plans",
+  "type": "Enchantment",
+  "cost": "{2}{B}{B}",
+  "rank": 19314,
+  "text": "When this enchantment enters, exile the top seven cards of your library face down.\nYou may look at the cards exiled with this enchantment, and you may play lands and cast spells from among those cards.\nSkip your draw step.\nYou can't cast more than one spell each turn.",
+  "facets": [
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Abzan Runemark",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 19317,
+  "text": "Enchant creature\nEnchanted creature gets +2/+2.\nEnchanted creature has vigilance as long as you control a black or green permanent.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:enchant",
+   "kw:vigilance",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ }
+]

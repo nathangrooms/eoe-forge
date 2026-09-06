@@ -1,0 +1,824 @@
+[
+ {
+  "name": "Lost Soul",
+  "type": "Creature — Spirit Minion",
+  "cost": "{1}{B}{B}",
+  "rank": 27081,
+  "text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)",
+  "facets": [
+   "eff:cant-be-blocked",
+   "kw:landwalk",
+   "kw:swampwalk",
+   "rec:full",
+   "sub:minion",
+   "sub:spirit",
+   "sub:spirit minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Endure",
+  "type": "Instant",
+  "cost": "{3}{W}{W}",
+  "rank": 27085,
+  "text": "Prevent all damage that would be dealt to you and permanents you control this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Shieldmage Elder",
+  "type": "Creature — Human Cleric Wizard",
+  "cost": "{5}{W}",
+  "rank": 27086,
+  "text": "Tap two untapped Clerics you control: Prevent all damage target creature would deal this turn.\nTap two untapped Wizards you control: Prevent all damage target spell would deal this turn.",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:sub:wizard",
+   "cares:type:creature",
+   "cost:tap-others",
+   "eff:prevent-damage",
+   "mv:big",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hyalopterous Lemure",
+  "type": "Creature — Spirit",
+  "cost": "{4}{B}",
+  "rank": 27087,
+  "text": "{0}: This creature gets -1/-0 and gains flying until end of turn.",
+  "facets": [
+   "acost:0",
+   "eff:shrink",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tomb Hex",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 27091,
+  "text": "Target creature gets -2/-2 until end of turn.\nLandfall — If you had a land enter the battlefield under your control this turn, that creature gets -4/-4 until end of turn instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:landfall",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Golden-Scale Aeronaut",
+  "type": "Creature — Dwarf Pilot",
+  "cost": "{4}{W}",
+  "rank": 27100,
+  "text": "Backup 1 (When this creature enters, put a +1/+1 counter on target creature. If that's another creature, it gains the following ability until end of turn.)\nFlying",
+  "facets": [
+   "eff:add-counters",
+   "grants:flying",
+   "kw:backup",
+   "kw:flying",
+   "rec:full",
+   "sub:dwarf",
+   "sub:dwarf pilot",
+   "sub:pilot",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slimy Dualleech",
+  "type": "Creature — Leech",
+  "cost": "{3}{B}",
+  "rank": 27101,
+  "text": "At the beginning of combat on your turn, target creature you control with power 2 or less gets +1/+0 and gains deathtouch until end of turn.",
+  "facets": [
+   "rec:partial",
+   "sub:leech",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Borrowed Grace",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 27103,
+  "text": "Escalate {1}{W} (Pay this cost for each mode chosen beyond the first.)\nChoose one or both —\n• Creatures you control get +2/+0 until end of turn.\n• Creatures you control get +0/+2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:escalate",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Sever Soul",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 27104,
+  "text": "Destroy target nonblack creature. It can't be regenerated. You gain life equal to its toughness.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gustcloak Harrier",
+  "type": "Creature — Bird Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 27108,
+  "text": "Flying\nWhenever this creature becomes blocked, you may untap it and remove it from combat.",
+  "facets": [
+   "eff:untap",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "trig:becomes-blocked",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razor Hippogriff",
+  "type": "Creature — Hippogriff",
+  "cost": "{3}{W}{W}",
+  "rank": 27109,
+  "text": "Flying\nWhen this creature enters, return target artifact card from your graveyard to your hand. You gain life equal to that card's mana value.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:gain-life",
+   "eff:return-from",
+   "kw:flying",
+   "rec:full",
+   "sub:hippogriff",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pteron Ghost",
+  "type": "Creature — Dinosaur Spirit",
+  "cost": "{1}{W}",
+  "rank": 27110,
+  "text": "Flying\nSacrifice this creature: Regenerate target artifact.",
+  "facets": [
+   "cares:type:artifact",
+   "cost:sacrifice-self",
+   "kw:flying",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dinosaur",
+   "sub:dinosaur spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Providence",
+  "type": "Sorcery",
+  "cost": "{5}{W}{W}",
+  "rank": 27111,
+  "text": "You may reveal this card from your opening hand. If you do, at the beginning of the first upkeep, your life total becomes 26.\nYour life total becomes 26.",
+  "facets": [
+   "eff:set-life",
+   "mv:big",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Razorfield Rhino",
+  "type": "Artifact Creature — Rhino",
+  "cost": "{6}",
+  "rank": 27112,
+  "text": "Metalcraft — This creature gets +2/+2 as long as you control three or more artifacts.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "eff:pump",
+   "kw:metalcraft",
+   "mv:big",
+   "rec:full",
+   "sub:rhino",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Khabál Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 27114,
+  "text": "At the beginning of each end step, put a +1/+1 counter on this creature for each creature that died this turn.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "sub:zombie",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Piety Charm",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 27115,
+  "text": "Choose one —\n• Destroy target Aura attached to a creature.\n• Target Soldier creature gets +2/+2 until end of turn.\n• Creatures you control gain vigilance until end of turn.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Elite Skirmisher",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 27116,
+  "text": "Heroic — Whenever you cast a spell that targets this creature, you may tap target creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:tap",
+   "kw:heroic",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Walking Desecration",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 27122,
+  "text": "{B}, {T}: Creatures of the creature type of your choice attack this turn if able.",
+  "facets": [
+   "acost:2",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Drill-Skimmer",
+  "type": "Artifact Creature — Thopter",
+  "cost": "{4}",
+  "rank": 27126,
+  "text": "Flying\nThis creature has shroud as long as you control another artifact creature. (It can't be the target of spells or abilities.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "grants:shroud",
+   "kw:flying",
+   "kw:shroud",
+   "rec:full",
+   "sub:thopter",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lake-town Toymaker",
+  "type": "Creature — Human Artificer",
+  "cost": "{3}{W}",
+  "rank": 27127,
+  "text": "At the beginning of combat on your turn, if you've drawn two or more cards this turn, another target creature you control gets +3/+0 and gains first strike until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "rec:partial",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Purge the Profane",
+  "type": "Sorcery",
+  "cost": "{2}{W}{B}",
+  "rank": 27134,
+  "text": "Target opponent discards two cards and you gain 2 life.",
+  "facets": [
+   "eff:discard",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Hollowsage",
+  "type": "Creature — Merfolk Wizard",
+  "cost": "{3}{B}",
+  "rank": 27135,
+  "text": "Whenever this creature becomes untapped, you may have target player discard a card.",
+  "facets": [
+   "eff:discard",
+   "rec:partial",
+   "sub:merfolk",
+   "sub:merfolk wizard",
+   "sub:wizard",
+   "trig:untapped",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rhystic Circle",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 27136,
+  "text": "{1}: Any player may pay {1}. If no one does, the next time a source of your choice would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:1",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Steadfast Armasaur",
+  "type": "Creature — Dinosaur",
+  "cost": "{3}{W}",
+  "rank": 27138,
+  "text": "Vigilance\n{1}{W}, {T}: This creature deals damage equal to its toughness to target creature blocking or blocked by it.",
+  "facets": [
+   "acost:3",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:dinosaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Damping Field",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 27140,
+  "text": "Players can't untap more than one artifact during their untap steps.",
+  "facets": [
+   "cares:type:artifact",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Arctic Foxes",
+  "type": "Creature — Fox",
+  "cost": "{1}{W}",
+  "rank": 27143,
+  "text": "This creature can't be blocked by creatures with power 2 or greater as long as defending player controls a snow land.",
+  "facets": [
+   "cares:type:snow",
+   "mv:cheap",
+   "sub:fox",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Master of Diversion",
+  "type": "Creature — Human Scout",
+  "cost": "{2}{W}",
+  "rank": 27144,
+  "text": "Whenever this creature attacks, tap target creature defending player controls.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "rec:full",
+   "sub:human",
+   "sub:human scout",
+   "sub:scout",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon's Presence",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 27146,
+  "text": "Dragon's Presence deals 5 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Murderous Spoils",
+  "type": "Instant",
+  "cost": "{5}{B}",
+  "rank": 27149,
+  "text": "Destroy target nonblack creature. It can't be regenerated. You gain control of all Equipment that were attached to it. (This effect lasts indefinitely.)",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:big",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Drudge Reavers",
+  "type": "Creature — Skeleton",
+  "cost": "{3}{B}",
+  "rank": 27153,
+  "text": "Flash (You may cast this spell any time you could cast an instant.)\n{B}: Regenerate this creature.",
+  "facets": [
+   "acost:1",
+   "kw:flash",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "A Good Day to Pie",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 27154,
+  "text": "Tap up to two target creatures.\nWhenever you put a name sticker on a creature, you may return this card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "eff:tap",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Night Market Guard",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 27159,
+  "text": "This creature can block an additional creature each combat.",
+  "facets": [
+   "col:none",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Entropic Specter",
+  "type": "Creature — Specter Spirit",
+  "cost": "{3}{B}{B}",
+  "rank": 27163,
+  "text": "Flying\nAs this creature enters, choose an opponent.\nEntropic Specter's power and toughness are each equal to the number of cards in the chosen player's hand.\nWhenever this creature deals damage to a player, that player discards a card.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:choose",
+   "eff:discard",
+   "kw:flying",
+   "rec:partial",
+   "sub:specter",
+   "sub:specter spirit",
+   "sub:spirit",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rathi Intimidator",
+  "type": "Creature — Phyrexian Horror Mercenary",
+  "cost": "{1}{B}{B}",
+  "rank": 27167,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\n{2}, {T}: Search your library for a Mercenary permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:2",
+   "cares:sub:mercenary",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:search-library",
+   "kw:fear",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:mercenary",
+   "sub:phyrexian",
+   "sub:phyrexian horror mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razormane Masticore",
+  "type": "Artifact Creature — Masticore",
+  "cost": "{5}",
+  "rank": 27168,
+  "text": "First strike (This creature deals combat damage before creatures without first strike.)\nAt the beginning of your upkeep, sacrifice this creature unless you discard a card.\nAt the beginning of your draw step, you may have this creature deal 3 damage to target creature.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:damage",
+   "kw:first strike",
+   "pt:big",
+   "rec:partial",
+   "sub:masticore",
+   "trig:step",
+   "trig:step:draw",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Knockout Blow",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 27169,
+  "text": "This spell costs {2} less to cast if it targets a red creature.\nKnockout Blow deals 4 damage to target attacking or blocking creature and you gain 2 life.",
+  "facets": [
+   "cares:color:r",
+   "eff:gain-life",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Insatiable Harpy",
+  "type": "Creature — Harpy",
+  "cost": "{2}{B}{B}",
+  "rank": 27173,
+  "text": "Flying, lifelink",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "kw:lifelink",
+   "rec:full",
+   "sub:harpy",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slaughter Drone",
+  "type": "Creature — Eldrazi Drone",
+  "cost": "{1}{B}",
+  "rank": 27176,
+  "text": "Devoid (This card has no color.)\n{C}: This creature gains deathtouch until end of turn. (Any amount of damage it deals to a creature is enough to destroy it. {C} represents colorless mana.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:devoid",
+   "mv:cheap",
+   "rec:full",
+   "sub:drone",
+   "sub:eldrazi",
+   "sub:eldrazi drone",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Demon's Grasp",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 27177,
+  "text": "Target creature gets -5/-5 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dutiful Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}{W}",
+  "rank": 27180,
+  "text": "Flying\n{2}{W}, Sacrifice two enchantments: Return this card from your graveyard to your hand.",
+  "facets": [
+   "acost:3",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "eff:return-from",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jabari's Banner",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 27183,
+  "text": "{1}, {T}: Target creature gains flanking until end of turn. (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "grants:flanking",
+   "kw:flanking",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Throwing Knife",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 27185,
+  "text": "Equipped creature gets +2/+0.\nWhenever equipped creature attacks, you may sacrifice this Equipment. If you do, this Equipment deals 2 damage to any target.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:damage",
+   "eff:pump",
+   "eff:sacrifice",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Even the Odds",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 27186,
+  "text": "Cast this spell only if you control fewer creatures than each opponent.\nCreate three 1/1 white Soldier creature tokens.",
+  "facets": [
+   "eff:create-token",
+   "rec:partial",
+   "tok:soldier",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Scampire",
+  "type": "Creature — Vampire Employee",
+  "cost": "{2}{B}",
+  "rank": 27190,
+  "text": "When Scampire enters, you get {TK}, then you may put a sticker on a creature card in your graveyard.\n{3}{B}: Return target creature card with a sticker on it from your graveyard to the battlefield. That creature gains haste. Exile it at the beginning of the next end step. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "sub:employee",
+   "sub:vampire",
+   "sub:vampire employee",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Terrus Wurm",
+  "type": "Creature — Zombie Wurm",
+  "cost": "{6}{B}",
+  "rank": 27192,
+  "text": "Scavenge {6}{B} ({6}{B}, Exile this card from your graveyard: Put a number of +1/+1 counters equal to this card's power on target creature. Scavenge only as a sorcery.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "cost:exile-self",
+   "eff:add-counters",
+   "kw:scavenge",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:wurm",
+   "sub:zombie",
+   "sub:zombie wurm",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vessel of Ephemera",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 27193,
+  "text": "{2}{W}, Sacrifice this enchantment: Create two 1/1 white Spirit creature tokens with flying.",
+  "facets": [
+   "acost:3",
+   "cost:sacrifice-self",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "tok:spirit",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Infinite Obliteration",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 27195,
+  "text": "Choose a creature card name. Search target opponent's graveyard, hand, and library for any number of cards with that name and exile them. Then that player shuffles.",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:exile-graveyard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Haunted Guardian",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 27196,
+  "text": "Defender, first strike",
+  "facets": [
+   "col:none",
+   "kw:defender",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elgaud Inquisitor",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 27198,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhen this creature dies, create a 1/1 white Spirit creature token with flying.",
+  "facets": [
+   "eff:create-token",
+   "kw:lifelink",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "tok:spirit",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hagra Crocodile",
+  "type": "Creature — Crocodile",
+  "cost": "{3}{B}",
+  "rank": 27199,
+  "text": "This creature can't block.\nLandfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:land",
+   "eff:pump",
+   "kw:landfall",
+   "rec:full",
+   "scope:all",
+   "sub:crocodile",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ }
+]

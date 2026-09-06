@@ -1,0 +1,1021 @@
+[
+ {
+  "name": "Guiltfeeder",
+  "type": "Creature — Horror",
+  "cost": "{3}{B}{B}",
+  "rank": 6808,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhenever this creature attacks and isn't blocked, defending player loses 1 life for each card in their graveyard.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:lose-life",
+   "kw:fear",
+   "rec:partial",
+   "sub:horror",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Circle of Loyalty",
+  "type": "Legendary Artifact",
+  "cost": "{4}{W}{W}",
+  "rank": 6809,
+  "text": "Affinity for Knights (This spell costs {1} less to cast for each Knight you control.)\nCreatures you control get +1/+1.\nWhenever you cast a legendary spell, create a 2/2 white Knight creature token with vigilance.\n{3}{W}, {T}: Create a 2/2 white Knight creature token with vigilance.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "cost:tap",
+   "eff:create-token",
+   "eff:pump",
+   "kw:affinity",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "tok:knight",
+   "trig:cast",
+   "trig:cast-own",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Resentful Revelation",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 6818,
+  "text": "Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.\nFlashback {6}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "kw:flashback",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Adorned Pouncer",
+  "type": "Creature — Cat",
+  "cost": "{1}{W}",
+  "rank": 6827,
+  "text": "Double strike\nEternalize {3}{W}{W} ({3}{W}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Cat with no mana cost. Eternalize only as a sorcery.)",
+  "facets": [
+   "eff:copy",
+   "eff:create-token",
+   "kw:double strike",
+   "kw:eternalize",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eagles of the North",
+  "type": "Creature — Bird Soldier",
+  "cost": "{5}{W}",
+  "rank": 6830,
+  "text": "Flying\nWhen this creature enters, creatures you control get +1/+0 and gain first strike until end of turn.\nPlainscycling {1} ({1}, Discard this card: Search your library for a Plains card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:pump",
+   "eff:search-library",
+   "grants:first strike",
+   "kw:cycling",
+   "kw:first strike",
+   "kw:flying",
+   "kw:landcycling",
+   "kw:plainscycling",
+   "kw:typecycling",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Iron Mastiff",
+  "type": "Artifact Creature — Dog",
+  "cost": "{4}",
+  "rank": 6832,
+  "text": "Whenever this creature attacks, roll a d20 for each player being attacked and ignore all but the highest roll.\n1—9 | This creature deals damage equal to its power to you.\n10—19 | This creature deals damage equal to its power to defending player.\n20 | This creature deals damage equal to its power to each opponent.",
+  "facets": [
+   "cares:power",
+   "col:none",
+   "eff:damage",
+   "eff:random",
+   "rec:partial",
+   "sub:dog",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Candy Trail",
+  "type": "Artifact — Food Clue",
+  "cost": "{1}",
+  "rank": 6834,
+  "text": "When this artifact enters, scry 2.\n{2}, {T}, Sacrifice this artifact: You gain 3 life and draw a card.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:scry",
+   "kw:scry",
+   "mv:cheap",
+   "rec:full",
+   "sub:clue",
+   "sub:food",
+   "sub:food clue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Voldaren Bloodcaster // Bloodbat Summoner",
+  "type": "Creature — Vampire Wizard // Creature — Vampire Wizard",
+  "cost": "",
+  "rank": 6838,
+  "text": "Flying\nWhenever this creature or another nontoken creature you control dies, create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\nWhenever you create a Blood token, if you control five or more Blood tokens, transform this creature.\n//\nFlying\nAt the beginning of combat on your turn, up to one target Blood token you control becomes a 2/2 black Bat creature with flying and haste in addition to its other types.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:create-token",
+   "kw:flying",
+   "kw:transform",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:vampire",
+   "sub:vampire wizard",
+   "sub:wizard",
+   "tok:blood",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gleaming Barrier",
+  "type": "Artifact Creature — Wall",
+  "cost": "{2}",
+  "rank": 6841,
+  "text": "Defender\nWhen this creature dies, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "col:none",
+   "eff:create-token",
+   "kw:defender",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:full",
+   "sub:wall",
+   "tok:treasure",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Adelbert Steiner",
+  "type": "Legendary Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 6843,
+  "text": "Lifelink\nAdelbert Steiner gets +1/+1 for each Equipment you control.",
+  "facets": [
+   "cares:sub:equipment",
+   "eff:pump",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Sigarda's Splendor",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 6844,
+  "text": "As this enchantment enters, note your life total.\nAt the beginning of your upkeep, draw a card if your life total is greater than or equal to the last noted life total for this enchantment. Then note your life total.\nWhenever you cast a white spell, you gain 1 life.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:gain-life",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Leonin Shikari",
+  "type": "Creature — Cat Soldier",
+  "cost": "{1}{W}",
+  "rank": 6845,
+  "text": "You may activate equip abilities any time you could cast an instant.",
+  "facets": [
+   "cares:type:artifact",
+   "mv:cheap",
+   "sub:cat",
+   "sub:cat soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thraben Inspector",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 6846,
+  "text": "When this creature enters, investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "eff:create-token",
+   "eff:draw",
+   "kw:investigate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:clue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Underdark Rift",
+  "type": "Land",
+  "cost": "",
+  "rank": 6848,
+  "text": "{T}: Add {C}.\n{5}, {T}, Exile this land: Roll a d10. Put target artifact, creature, or planeswalker into its owner's library just beneath the top X cards of that library, where X is the result. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Cacophony Unleashed",
+  "type": "Enchantment",
+  "cost": "{5}{B}{B}",
+  "rank": 6850,
+  "text": "When this enchantment enters, if you cast it, destroy all nonenchantment creatures.\nWhenever this enchantment or another enchantment you control enters, until end of turn, this enchantment becomes a legendary 6/6 Nightmare God creature with menace and deathtouch. It's still an enchantment.",
+  "facets": [
+   "cares:sub:god",
+   "cares:sub:nightmare",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Dawn-Blessed Pennant",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 6851,
+  "text": "As this artifact enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk.\nWhenever a permanent you control of the chosen type enters, you gain 1 life.\n{2}, {T}, Sacrifice this artifact: Return target card of the chosen type from your graveyard to your hand.",
+  "facets": [
+   "cares:sub:elemental",
+   "cares:sub:elf",
+   "cares:sub:faerie",
+   "cares:sub:giant",
+   "cares:sub:goblin",
+   "cares:sub:kithkin",
+   "cares:sub:merfolk",
+   "cares:sub:treefolk",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:gain-life",
+   "eff:return-from",
+   "mv:cheap",
+   "trig:enters",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Steelburr Champion",
+  "type": "Creature — Mouse Soldier",
+  "cost": "{2}{W}",
+  "rank": 6852,
+  "text": "Offspring {1}{W} (You may pay an additional {1}{W} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nVigilance\nWhenever an opponent casts a noncreature spell, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:copy",
+   "eff:create-token",
+   "kw:offspring",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:mouse",
+   "sub:mouse soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ebondeath, Dracolich",
+  "type": "Legendary Creature — Zombie Dragon",
+  "cost": "{2}{B}{B}",
+  "rank": 6854,
+  "text": "Flash\nFlying\nEbondeath enters tapped.\nYou may cast this card from your graveyard if a creature not named Ebondeath, Dracolich died this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "kw:flash",
+   "kw:flying",
+   "pt:big",
+   "rec:partial",
+   "sub:dragon",
+   "sub:zombie",
+   "sub:zombie dragon",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Ring of Xathrid",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 6857,
+  "text": "{2}: Regenerate equipped creature. (The next time that creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)\nAt the beginning of your upkeep, put a +1/+1 counter on equipped creature if it's black.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:color:b",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:attach",
+   "kw:equip",
+   "kw:heal",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cryptic Trilobite",
+  "type": "Creature — Trilobite",
+  "cost": "{X}{X}",
+  "rank": 6858,
+  "text": "This creature enters with X +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: Add {C}{C}. Spend this mana only to activate abilities.\n{1}, {T}: Put a +1/+1 counter on this creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "ctr:+1/+1",
+   "ctr:+1/+1-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "mv:cheap",
+   "rec:partial",
+   "sub:trilobite",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skullport Merchant",
+  "type": "Creature — Dwarf Citizen",
+  "cost": "{2}{B}",
+  "rank": 6859,
+  "text": "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")\n{1}{B}, Sacrifice another creature or a Treasure: Draw a card.",
+  "facets": [
+   "eff:create-token",
+   "kw:treasure",
+   "rec:partial",
+   "sub:citizen",
+   "sub:dwarf",
+   "sub:dwarf citizen",
+   "tok:treasure",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Summon: Primal Garuda",
+  "type": "Enchantment Creature — Saga Harpy",
+  "cost": "{3}{W}",
+  "rank": 6860,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Aerial Blast — This creature deals 4 damage to target tapped creature an opponent controls.\nII, III — Slipstream — Another target creature you control gets +1/+0 and gains flying until end of turn.\nFlying",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "grants:flying",
+   "kw:flying",
+   "rec:partial",
+   "sub:harpy",
+   "sub:saga",
+   "sub:saga harpy",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Black Cat, Cunning Thief",
+  "type": "Legendary Creature — Human Rogue Villain",
+  "cost": "{3}{B}{B}",
+  "rank": 6862,
+  "text": "When Black Cat enters, look at the top nine cards of target opponent's library, exile two of them face down, then put the rest on the bottom of their library in a random order. You may play the exiled cards for as long as they remain exiled. Mana of any type can be spent to cast spells this way.",
+  "facets": [
+   "rec:partial",
+   "sub:human",
+   "sub:human rogue villain",
+   "sub:rogue",
+   "sub:villain",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Coveted Prize",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 6865,
+  "text": "This spell costs {1} less to cast for each creature in your party. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)\nSearch your library for a card, put it into your hand, then shuffle. If you have a full party, you may cast a spell with mana value 4 or less from your hand without paying its mana cost.",
+  "facets": [
+   "cares:zone:library",
+   "eff:search-library",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Francisco, Fowl Marauder",
+  "type": "Legendary Creature — Bird Pirate",
+  "cost": "{1}{B}",
+  "rank": 6866,
+  "text": "Flying\nFrancisco can't block.\nWhenever one or more Pirates you control deal damage to a player, Francisco explores.\nPartner (You can have two commanders if both have partner.)",
+  "facets": [
+   "cares:sub:pirate",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:surveil",
+   "kw:explore",
+   "kw:flying",
+   "kw:partner",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird pirate",
+   "sub:pirate",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Shattered Angel",
+  "type": "Creature — Phyrexian Angel",
+  "cost": "{3}{W}{W}",
+  "rank": 6870,
+  "text": "Flying\nWhenever a land an opponent controls enters, you may gain 3 life.",
+  "facets": [
+   "cares:type:land",
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "sub:phyrexian",
+   "sub:phyrexian angel",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Werefox Bodyguard",
+  "type": "Creature — Elf Fox Knight",
+  "cost": "{1}{W}{W}",
+  "rank": 6871,
+  "text": "Flash\nWhen this creature enters, exile up to one other target non-Fox creature until this creature leaves the battlefield.\n{1}{W}, Sacrifice this creature: You gain 2 life.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:exile",
+   "eff:gain-life",
+   "kw:flash",
+   "rec:partial",
+   "sub:elf",
+   "sub:elf fox knight",
+   "sub:fox",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tombstone, Career Criminal",
+  "type": "Legendary Creature — Human Villain",
+  "cost": "{2}{B}",
+  "rank": 6874,
+  "text": "When Tombstone enters, return target Villain card from your graveyard to your hand.\nVillain spells you cast cost {1} less to cast.",
+  "facets": [
+   "cares:sub:villain",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:reduce-cost",
+   "eff:return-from",
+   "rec:full",
+   "sub:human",
+   "sub:human villain",
+   "sub:villain",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Glistening Oil",
+  "type": "Enchantment — Aura",
+  "cost": "{B}{B}",
+  "rank": 6875,
+  "text": "Enchant creature\nEnchanted creature has infect.\nAt the beginning of your upkeep, put a -1/-1 counter on enchanted creature.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:zone:hand",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "eff:move-zone",
+   "grants:infect",
+   "kw:enchant",
+   "kw:infect",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "trig:dies",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Changing Loyalty",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 6876,
+  "text": "Flash\nReplicate {2} (When you cast this spell, copy it for each time you paid its replicate cost. You may choose new targets for the copies. Copies become tokens.)\nEnchant creature\nWhen enchanted creature dies, return it to the battlefield under your control.",
+  "facets": [
+   "eff:copy",
+   "kw:enchant",
+   "kw:flash",
+   "kw:replicate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Lotus Vale",
+  "type": "Land",
+  "cost": "",
+  "rank": 6877,
+  "text": "If this land would enter, sacrifice two untapped lands instead. If you do, put this land onto the battlefield. If you don't, put it into its owner's graveyard.\n{T}: Add three mana of any one color.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:3",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Myr Turbine",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 6879,
+  "text": "{T}: Create a 1/1 colorless Myr artifact creature token.\n{T}, Tap five untapped Myr you control: Search your library for a Myr creature card, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:0",
+   "cares:sub:myr",
+   "cares:type:creature",
+   "cares:zone:library",
+   "col:none",
+   "cost:tap",
+   "cost:tap-others",
+   "eff:create-token",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "tok:myr",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Taborax, Hope's Demise",
+  "type": "Legendary Creature — Demon Cleric",
+  "cost": "{2}{B}",
+  "rank": 6880,
+  "text": "Flying\nTaborax has lifelink as long as it has five or more +1/+1 counters on it.\nWhenever another nontoken creature you control dies, put a +1/+1 counter on Taborax. If that creature was a Cleric, you may draw a card. If you do, you lose 1 life.",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "grants:lifelink",
+   "kw:flying",
+   "kw:lifelink",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:demon",
+   "sub:demon cleric",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Slagwurm Armor",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 6883,
+  "text": "Equipped creature gets +0/+6.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery. This card enters unattached and stays on the battlefield if the creature leaves.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Scheming Aspirant",
+  "type": "Creature — Phyrexian Advisor",
+  "cost": "{1}{B}",
+  "rank": 6884,
+  "text": "Whenever you proliferate, each opponent loses 2 life and you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:proliferate",
+   "mv:cheap",
+   "sub:advisor",
+   "sub:phyrexian",
+   "sub:phyrexian advisor",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Roshan, Hidden Magister",
+  "type": "Legendary Creature — Human Assassin",
+  "cost": "{3}{B}",
+  "rank": 6885,
+  "text": "Other creatures you control are Assassins in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.\nFace-down creatures you control have menace.\nWhenever a permanent you control is turned face up, you draw a card and you lose 1 life.",
+  "facets": [
+   "cares:sub:assassin",
+   "cares:type:creature",
+   "eff:draw",
+   "grants:menace",
+   "scope:all",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Mystifying Maze",
+  "type": "Land",
+  "cost": "",
+  "rank": 6888,
+  "text": "{T}: Add {C}.\n{4}, {T}: Exile target attacking creature an opponent controls. At the beginning of the next end step, return it to the battlefield tapped under its owner's control.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:exile",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:exile",
+   "eff:return-from",
+   "eff:tap",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Aegis Angel",
+  "type": "Creature — Angel",
+  "cost": "{4}{W}{W}",
+  "rank": 6892,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature enters, another target permanent gains indestructible for as long as you control this creature. (Effects that say \"destroy\" don't destroy it. A creature with indestructible can't be destroyed by damage.)",
+  "facets": [
+   "grants:indestructible",
+   "kw:flying",
+   "kw:indestructible",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Honor",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 6893,
+  "text": "Put a +1/+1 counter on target creature.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:draw",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Memorial to Glory",
+  "type": "Land",
+  "cost": "",
+  "rank": 6899,
+  "text": "This land enters tapped.\n{T}: Add {W}.\n{3}{W}, {T}, Sacrifice this land: Create two 1/1 white Soldier creature tokens.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "mana:1",
+   "rec:full",
+   "tok:soldier",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Inquisitorial Rosette",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 6901,
+  "text": "Inquisition Agents — Whenever equipped creature attacks, create a 2/2 white Astartes Warrior creature token with vigilance that's attacking. Then attacking creatures gain menace until end of turn.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:astartes",
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "grants:menace",
+   "kw:equip",
+   "kw:inquisition agents",
+   "kw:menace",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:equipment",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sigarda's Summons",
+  "type": "Enchantment",
+  "cost": "{4}{W}{W}",
+  "rank": 6904,
+  "text": "Creatures you control with +1/+1 counters on them have base power and toughness 4/4, have flying, and are Angels in addition to their other types.",
+  "facets": [
+   "cares:sub:angel",
+   "ctr:+1/+1",
+   "eff:set-pt",
+   "grants:flying",
+   "kw:flying",
+   "mv:big",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Dawnhand Dissident",
+  "type": "Creature — Elf Warlock",
+  "cost": "{B}",
+  "rank": 6907,
+  "text": "{T}, Blight 1: Surveil 1.\n{T}, Blight 2: Exile target card from a graveyard.\nDuring your turn, you may cast creature spells from among cards you own exiled with this creature by removing three counters from among creatures you control in addition to paying their other costs.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:exile-graveyard",
+   "eff:return-from",
+   "eff:surveil",
+   "kw:blight",
+   "kw:surveil",
+   "mv:cheap",
+   "sub:elf",
+   "sub:elf warlock",
+   "sub:warlock",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Radiant Solar",
+  "type": "Creature — Angel",
+  "cost": "{5}{W}",
+  "rank": 6908,
+  "text": "Flying, lifelink\nWhenever this creature or another nontoken creature you control enters, venture into the dungeon. (Enter the first room or advance to the next room.)\n{W}, Discard this card: Venture into the dungeon and you gain 3 life.",
+  "facets": [
+   "cares:type:creature",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:venture into the dungeon",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sram's Expertise",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}",
+  "rank": 6909,
+  "text": "Create three 1/1 colorless Servo artifact creature tokens.\nYou may cast a spell with mana value 3 or less from your hand without paying its mana cost.",
+  "facets": [
+   "eff:create-token",
+   "rec:partial",
+   "tok:servo",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sokka's Charge",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 6910,
+  "text": "During your turn, Allies you control have double strike and lifelink.",
+  "facets": [
+   "cares:sub:ally",
+   "grants:double strike",
+   "grants:lifelink",
+   "kw:double strike",
+   "kw:lifelink",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ravenous Amulet",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 6914,
+  "text": "{1}, {T}, Sacrifice a creature: Draw a card and put a soul counter on this artifact. Activate only as a sorcery.\n{4}, {T}, Sacrifice this artifact: Each opponent loses life equal to the number of soul counters on this artifact.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "ctr:soul-self",
+   "eff:add-counters-self",
+   "eff:draw",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Haakon, Stromgald Scourge",
+  "type": "Legendary Creature — Zombie Knight",
+  "cost": "{1}{B}{B}",
+  "rank": 6916,
+  "text": "You may cast this card from your graveyard, but not from anywhere else.\nAs long as Haakon is on the battlefield, you may cast Knight spells from your graveyard.\nWhen Haakon dies, you lose 2 life.",
+  "facets": [
+   "cares:sub:knight",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:lose-life",
+   "eff:recur-self",
+   "eff:return-from",
+   "rec:partial",
+   "sub:knight",
+   "sub:zombie",
+   "sub:zombie knight",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Myr Sire",
+  "type": "Artifact Creature — Phyrexian Myr",
+  "cost": "{2}",
+  "rank": 6917,
+  "text": "When this creature dies, create a 1/1 colorless Phyrexian Myr artifact creature token.",
+  "facets": [
+   "cares:sub:myr",
+   "cares:sub:phyrexian",
+   "col:none",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:myr",
+   "sub:phyrexian",
+   "sub:phyrexian myr",
+   "tok:myr",
+   "tok:phyrexian",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Summon: Choco/Mog",
+  "type": "Enchantment Creature — Saga Bird Moogle",
+  "cost": "{2}{W}",
+  "rank": 6918,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II, III, IV — Stampede! — Other creatures you control get +1/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "scope:all",
+   "sub:bird",
+   "sub:moogle",
+   "sub:saga",
+   "sub:saga bird moogle",
+   "type:creature",
+   "type:enchantment"
+  ]
+ }
+]

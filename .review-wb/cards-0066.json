@@ -1,0 +1,951 @@
+[
+ {
+  "name": "Voltaic Construct",
+  "type": "Artifact Creature — Golem Construct",
+  "cost": "{4}",
+  "rank": 8331,
+  "text": "{2}: Untap target artifact creature.",
+  "facets": [
+   "acost:2",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "eff:untap",
+   "rec:full",
+   "sub:construct",
+   "sub:golem",
+   "sub:golem construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Iron Maiden",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 8333,
+  "text": "At the beginning of each opponent's upkeep, this artifact deals X damage to that player, where X is the number of cards in their hand minus 4.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "eff:damage",
+   "rec:full",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ruin-Lurker Bat",
+  "type": "Creature — Bat",
+  "cost": "{W}",
+  "rank": 8336,
+  "text": "Flying, lifelink\nAt the beginning of your end step, if you descended this turn, scry 1. (You descended if a permanent card was put into your graveyard from anywhere.)",
+  "facets": [
+   "eff:scry",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:scry",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bat",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unstable Glyphbridge // Sandswirl Wanderglyph",
+  "type": "Artifact // Artifact Creature — Golem",
+  "cost": "",
+  "rank": 8337,
+  "text": "When this artifact enters, if you cast it, for each player, choose a creature with power 2 or less that player controls. Then destroy all creatures except creatures chosen this way.\nCraft with artifact {3}{W}{W} ({3}{W}{W}, Exile this artifact, Exile another artifact you control or an artifact card from your graveyard: Return this card transformed under its owner's control. Craft only as a sorcery.)\n//\nFlying\nWhenever an opponent casts a spell during their turn, they can't attack you or planeswalkers you control this turn.\nEach opponent who attacked you or a planeswalker you control this turn can't cast spells.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:cant-cast",
+   "eff:destroy",
+   "kw:craft",
+   "kw:flying",
+   "kw:transform",
+   "rec:partial",
+   "sub:golem",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nalia de'Arnise",
+  "type": "Legendary Creature — Human Rogue",
+  "cost": "{1}{W}{B}",
+  "rank": 8340,
+  "text": "You may look at the top card of your library any time.\nYou may cast Cleric, Rogue, Warrior, and Wizard spells from the top of your library.\nAt the beginning of combat on your turn, if you have a full party, put a +1/+1 counter on each creature you control and those creatures gain deathtouch until end of turn.",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:sub:rogue",
+   "cares:sub:warrior",
+   "cares:sub:wizard",
+   "cares:type:creature",
+   "cares:zone:library",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "rec:partial",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "General Leo Cristophe",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 8343,
+  "text": "When General Leo Cristophe enters, return up to one target creature card with mana value 3 or less from your graveyard to the battlefield. Then put a +1/+1 counter on General Leo Cristophe for each creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:return-from",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bloodflow Connoisseur",
+  "type": "Creature — Vampire",
+  "cost": "{2}{B}",
+  "rank": 8345,
+  "text": "Sacrifice a creature: Put a +1/+1 counter on this creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "scope:all",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "From the Catacombs",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 8348,
+  "text": "Put target creature card from a graveyard onto the battlefield under your control with a corpse counter on it. You take the initiative. If that creature would leave the battlefield, exile it instead of putting it anywhere else.\nEscape—{3}{B}{B}, Exile five other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:return-from",
+   "kw:escape",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Scarecrone",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{3}",
+  "rank": 8352,
+  "text": "{1}, Sacrifice a Scarecrow: Draw a card.\n{4}, {T}: Return target artifact creature card from your graveyard to the battlefield.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:sub:scarecrow",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:draw",
+   "eff:return-from",
+   "rec:full",
+   "scope:all",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elixir",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 8355,
+  "text": "This artifact enters tapped.\n{5}, {T}, Exile this artifact: Shuffle all nonland cards from your graveyard into your library. You gain life equal to the number of cards shuffled into your library this way.",
+  "facets": [
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Doom Weaver",
+  "type": "Creature — Spider Horror",
+  "cost": "{4}{B}{B}",
+  "rank": 8356,
+  "text": "Reach\nSoulbond (You may pair this creature with another unpaired creature when either enters. They remain paired for as long as you control both of them.)\nAs long as Doom Weaver is paired with another creature, each of those creatures has \"When this creature dies, draw cards equal to its power.\"",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:draw",
+   "kw:reach",
+   "kw:soulbond",
+   "mv:big",
+   "rec:partial",
+   "sub:horror",
+   "sub:spider",
+   "sub:spider horror",
+   "trig:dies",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Firja's Retribution",
+  "type": "Enchantment — Saga",
+  "cost": "{1}{W}{W}{B}",
+  "rank": 8357,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Create a 4/4 white Angel Warrior creature token with flying and vigilance.\nII — Until end of turn, Angels you control gain \"{T}: Destroy target creature with power less than this creature's power.\"\nIII — Angels you control gain double strike until end of turn.",
+  "facets": [
+   "cares:power",
+   "cares:sub:angel",
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "eff:destroy",
+   "grants:double strike",
+   "kw:iii",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Phyrexian Rager",
+  "type": "Creature — Phyrexian Horror",
+  "cost": "{2}{B}",
+  "rank": 8360,
+  "text": "When this creature enters, you draw a card and you lose 1 life.",
+  "facets": [
+   "eff:draw",
+   "eff:lose-life",
+   "rec:full",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slice from the Shadows",
+  "type": "Instant",
+  "cost": "{X}{B}",
+  "rank": 8361,
+  "text": "This spell can't be countered. (This includes by the ward ability.)\nTarget creature gets -X/-X until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Sphere of Resistance",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 8363,
+  "text": "Spells cost {1} more to cast.",
+  "facets": [
+   "col:none",
+   "eff:increase-cost",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Siege Veteran",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 8364,
+  "text": "At the beginning of combat on your turn, put a +1/+1 counter on target creature you control.\nWhenever another nontoken Soldier you control dies, create a 1/1 colorless Soldier artifact creature token.",
+  "facets": [
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:create-token",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:soldier",
+   "trig:dies",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cryptic Gateway",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 8365,
+  "text": "Tap two untapped creatures you control: You may put a creature card from your hand that shares a creature type with each creature tapped this way onto the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "cost:tap-others",
+   "eff:move-zone",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Fallen Ideal",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 8368,
+  "text": "Enchant creature\nEnchanted creature has flying and \"Sacrifice a creature: This creature gets +2/+1 until end of turn.\"\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:move-zone",
+   "eff:pump",
+   "eff:return-from",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Blitzwing, Cruel Tormentor // Blitzwing, Adaptive Assailant",
+  "type": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "cost": "",
+  "rank": 8370,
+  "text": "More Than Meets the Eye {3}{B} (You may cast this card converted for {3}{B}.)\nAt the beginning of your end step, target opponent loses life equal to the life that player lost this turn. If no life is lost this way, convert Blitzwing.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nAt the beginning of combat on your turn, choose flying or indestructible at random. Blitzwing gains that ability until end of turn.\nWhenever Blitzwing deals combat damage to a player, convert it.",
+  "facets": [
+   "eff:lose-life",
+   "kw:convert",
+   "kw:living metal",
+   "kw:more than meets the eye",
+   "mv:big",
+   "rec:partial",
+   "sub:robot",
+   "sub:vehicle",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Scuttlemutt",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{3}",
+  "rank": 8372,
+  "text": "{T}: Add one mana of any color.\n{T}: Target creature becomes the color or colors of your choice until end of turn.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "What Must Be Done",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 8373,
+  "text": "Choose one —\n• Let the World Burn — Destroy all artifacts and creatures.\n• Release Juno — Return target historic permanent card from your graveyard to the battlefield. It enters with two additional +1/+1 counters on it if it's a creature. (Artifacts, legendaries, and Sagas are historic.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:destroy",
+   "kw:let the world burn",
+   "kw:release juno",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Oasis Gardener",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{3}",
+  "rank": 8378,
+  "text": "When this creature enters, you gain 2 life.\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "sub:scarecrow",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Honored Heirloom",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 8379,
+  "text": "{T}: Add one mana of any color.\n{2}, {T}: Exile target card from a graveyard.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:exile-graveyard",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Grave Endeavor",
+  "type": "Instant",
+  "cost": "{5}{B}{B}",
+  "rank": 8380,
+  "text": "Roll two d10 and choose one result. Return a creature card from your graveyard to the battlefield with a number of +1/+1 counters on it equal to that result. Then each opponent loses X life and you gain X life, where X is the other result.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:return-from",
+   "mv:big",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rejoin the Fight",
+  "type": "Sorcery",
+  "cost": "{5}{B}",
+  "rank": 8382,
+  "text": "Mill three cards. Then starting with the next opponent in turn order, each opponent chooses a creature card in your graveyard that hasn't been chosen. Return each card chosen this way to the battlefield under your control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:mill",
+   "eff:return-from",
+   "kw:mill",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Arguel's Blood Fast // Temple of Aclazotz",
+  "type": "Legendary Enchantment // Legendary Land",
+  "cost": "",
+  "rank": 8389,
+  "text": "{1}{B}, Pay 2 life: Draw a card.\nAt the beginning of your upkeep, if you have 5 or less life, you may transform Arguel's Blood Fast.\n//\n(Transforms from Arguel's Blood Fast.)\n{T}: Add {B}.\n{T}, Sacrifice a creature: You gain life equal to the sacrificed creature's toughness.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cost:life",
+   "eff:draw",
+   "kw:transform",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Essence of Orthodoxy",
+  "type": "Creature — Phyrexian",
+  "cost": "{3}{W}{W}",
+  "rank": 8390,
+  "text": "Flying\nWhenever this creature or another Phyrexian you control enters, incubate 2. (Create an Incubator token with two +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)",
+  "facets": [
+   "cares:sub:phyrexian",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:create-token",
+   "kw:flying",
+   "kw:incubate",
+   "kw:transform",
+   "rec:partial",
+   "scope:all",
+   "sub:phyrexian",
+   "tok:incubator",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Worthy Knight",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 8391,
+  "text": "Whenever you cast a Knight spell, create a 1/1 white Human creature token.",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:knight",
+   "cares:zone:stack",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "tok:human",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angelic Sell-Sword",
+  "type": "Creature — Angel Mercenary",
+  "cost": "{4}{W}",
+  "rank": 8394,
+  "text": "Flying, vigilance\nWhenever this creature or another nontoken creature you control enters, create a 1/1 red Mercenary creature token with \"{T}: Target creature you control gets +1/+0 until end of turn. Activate only as a sorcery.\"\nWhenever this creature attacks, if its power is 6 or greater, draw a card.",
+  "facets": [
+   "cares:sub:mercenary",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:draw",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:partial",
+   "scope:all",
+   "sub:angel",
+   "sub:angel mercenary",
+   "sub:mercenary",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arcbound Mouser",
+  "type": "Artifact Creature — Cat",
+  "cost": "{W}",
+  "rank": 8397,
+  "text": "Lifelink\nModular 1 (This creature enters with a +1/+1 counter on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:gain-life",
+   "kw:lifelink",
+   "kw:modular",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "trig:dies",
+   "trig:leaves",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slagstone Refinery",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 8398,
+  "text": "Whenever this artifact or another nontoken artifact you control is put into a graveyard from the battlefield or is put into exile from the battlefield, create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "facets": [
+   "cares:sub:powerstone",
+   "cares:type:artifact",
+   "col:none",
+   "eff:add-mana",
+   "trig:dies",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sublime Archangel",
+  "type": "Creature — Angel",
+  "cost": "{2}{W}{W}",
+  "rank": 8399,
+  "text": "Flying\nExalted (Whenever a creature you control attacks alone, that creature gets +1/+1 until end of turn.)\nOther creatures you control have exalted. (If a creature has multiple instances of exalted, each triggers separately.)",
+  "facets": [
+   "cares:type:creature",
+   "grants:exalted",
+   "kw:exalted",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Adrestia",
+  "type": "Legendary Artifact — Vehicle",
+  "cost": "{3}",
+  "rank": 8408,
+  "text": "Islandwalk (This creature can't be blocked as long as defending player controls an Island.)\nWhenever Adrestia attacks, if an Assassin crewed it this turn, draw a card. Adrestia becomes an Assassin in addition to its other types until end of turn.\nCrew 1",
+  "facets": [
+   "cares:sub:assassin",
+   "col:none",
+   "eff:draw",
+   "kw:crew",
+   "kw:islandwalk",
+   "kw:landwalk",
+   "rec:partial",
+   "sub:vehicle",
+   "trig:attacks",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Strata Scythe",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 8411,
+  "text": "Imprint — When this Equipment enters, search your library for a land card, exile it, then shuffle.\nEquipped creature gets +1/+1 for each land on the battlefield with the same name as the exiled card.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "kw:imprint",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Decree of Justice",
+  "type": "Sorcery",
+  "cost": "{X}{X}{2}{W}{W}",
+  "rank": 8413,
+  "text": "Create X 4/4 white Angel creature tokens with flying.\nCycling {2}{W} ({2}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, you may pay {X}. If you do, create X 1/1 white Soldier creature tokens.",
+  "facets": [
+   "acost:3",
+   "cares:sub:soldier",
+   "cost:discard-self",
+   "eff:create-token",
+   "eff:draw",
+   "kw:cycling",
+   "rec:partial",
+   "tok:angel",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Salvation Swan",
+  "type": "Creature — Bird Cleric",
+  "cost": "{3}{W}",
+  "rank": 8414,
+  "text": "Flash\nFlying\nWhenever this creature or another Bird you control enters, exile up to one target creature you control without flying. Return it to the battlefield under its owner's control with a flying counter on it at the beginning of the next end step.",
+  "facets": [
+   "cares:sub:bird",
+   "kw:flash",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:bird",
+   "sub:bird cleric",
+   "sub:cleric",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gempalm Polluter",
+  "type": "Creature — Zombie",
+  "cost": "{5}{B}",
+  "rank": 8416,
+  "text": "Cycling {B}{B} ({B}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have target player lose life equal to the number of Zombies on the battlefield.",
+  "facets": [
+   "acost:2",
+   "cares:sub:zombie",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:lose-life",
+   "kw:cycling",
+   "mv:big",
+   "rec:partial",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tax Collector",
+  "type": "Creature — Human Advisor",
+  "cost": "{1}{W}",
+  "rank": 8417,
+  "text": "When this creature enters, choose one —\n• Tax — Until your next turn, spells your opponents cast cost {1} more to cast.\n• Arrest — Detain target creature an opponent controls. (Until your next turn, that creature can't attack or block and its activated abilities can't be activated.)",
+  "facets": [
+   "kw:arrest",
+   "kw:detain",
+   "kw:tax",
+   "mv:cheap",
+   "rec:partial",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Indebted Spirit",
+  "type": "Enchantment Creature — Spirit",
+  "cost": "{W}",
+  "rank": 8419,
+  "text": "Bestow {2}{W} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nAfterlife 1 (When this permanent is put into a graveyard from the battlefield, create a 1/1 white and black Spirit creature token with flying.)\nEnchanted creature gets +1/+1 and has afterlife 1.",
+  "facets": [
+   "eff:create-token",
+   "kw:afterlife",
+   "kw:bestow",
+   "mv:cheap",
+   "rec:partial",
+   "sub:spirit",
+   "tok:spirit",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mind Rake",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 8421,
+  "text": "Target player discards two cards.\nOverload {1}{B} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "facets": [
+   "eff:discard",
+   "kw:overload",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Doc Ock's Tentacles",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 8426,
+  "text": "Whenever a creature you control with mana value 5 or greater enters, you may attach this Equipment to it.\nEquipped creature gets +4/+4.\nEquip {5}",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Leonin Abunas",
+  "type": "Creature — Cat Cleric",
+  "cost": "{3}{W}",
+  "rank": 8428,
+  "text": "Artifacts you control have hexproof. (They can't be the targets of spells or abilities your opponents control.)",
+  "facets": [
+   "cares:type:artifact",
+   "grants:hexproof",
+   "kw:hexproof",
+   "rec:full",
+   "scope:all",
+   "sub:cat",
+   "sub:cat cleric",
+   "sub:cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Quick-Draw Katana",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 8430,
+  "text": "During your turn, equipped creature gets +2/+0 and has first strike. (It deals combat damage before creatures without first strike.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:first strike",
+   "kw:equip",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Solitary Sanctuary",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 8431,
+  "text": "When this enchantment enters, tap target creature an opponent controls and put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)\nWhenever you tap an untapped creature an opponent controls, put a +1/+1 counter on target creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:tap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Surgical Suite // Hospital Room",
+  "type": "Enchantment — Room // Enchantment — Room",
+  "cost": "{1}{W} // {3}{W}",
+  "rank": 8433,
+  "text": "When you unlock this door, return target creature card with mana value 3 or less from your graveyard to the battlefield.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)\n//\nWhenever you attack, put a +1/+1 counter on target attacking creature.\n(You may cast either half. That door unlocks on the battlefield. As a sorcery, you may pay the mana cost of a locked door to unlock it.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:return-from",
+   "mv:big",
+   "sub:room",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Phoenix Down",
+  "type": "Artifact",
+  "cost": "{W}",
+  "rank": 8441,
+  "text": "{1}{W}, {T}, Exile this artifact: Choose one —\n• Return target creature card with mana value 4 or less from your graveyard to the battlefield tapped.\n• Exile target Skeleton, Spirit, or Zombie.",
+  "facets": [
+   "cares:sub:skeleton",
+   "cares:sub:spirit",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:exile",
+   "eff:return-from",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Moonshadow",
+  "type": "Creature — Elemental",
+  "cost": "{B}",
+  "rank": 8442,
+  "text": "Menace\nThis creature enters with six -1/-1 counters on it.\nWhenever one or more permanent cards are put into your graveyard from anywhere while this creature has a -1/-1 counter on it, remove a -1/-1 counter from this creature.",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "kw:menace",
+   "mv:cheap",
+   "pt:big",
+   "rec:partial",
+   "sub:elemental",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wake the Dead",
+  "type": "Instant",
+  "cost": "{X}{B}{B}",
+  "rank": 8444,
+  "text": "Cast this spell only during combat on an opponent's turn.\nReturn X target creature cards from your graveyard to the battlefield. Sacrifice those creatures at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Worst Fears",
+  "type": "Sorcery",
+  "cost": "{7}{B}",
+  "rank": 8446,
+  "text": "You control target player during that player's next turn. Exile Worst Fears. (You see all cards that player could see and make all decisions for them.)",
+  "facets": [
+   "eff:exile-self",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Meteor Sword",
+  "type": "Artifact — Equipment",
+  "cost": "{7}",
+  "rank": 8449,
+  "text": "When this Equipment enters, destroy target permanent.\nEquipped creature gets +3/+3.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:destroy",
+   "eff:pump",
+   "kw:equip",
+   "mv:big",
+   "rec:full",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ }
+]

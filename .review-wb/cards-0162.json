@@ -1,0 +1,886 @@
+[
+ {
+  "name": "Kin-Tree Nurturer",
+  "type": "Creature — Human Druid",
+  "cost": "{2}{B}",
+  "rank": 20741,
+  "text": "Lifelink\nWhen this creature enters, it endures 1. (Put a +1/+1 counter on it or create a 1/1 white Spirit creature token.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:endure",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:druid",
+   "sub:human",
+   "sub:human druid",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lightform",
+  "type": "Enchantment",
+  "cost": "{1}{W}{W}",
+  "rank": 20743,
+  "text": "When this enchantment enters, it becomes an Aura with enchant creature. Manifest the top card of your library and attach this enchantment to it. (To manifest a card, put it onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)\nEnchanted creature has flying and lifelink.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:create-token",
+   "grants:flying",
+   "grants:lifelink",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:manifest",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Snake Cult Initiation",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 20746,
+  "text": "Enchant creature\nEnchanted creature has poisonous 3. (Whenever it deals combat damage to a player, that player gets three poison counters. A player with ten or more poison counters loses the game.)",
+  "facets": [
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:deals-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ronin, Shadow Stalker",
+  "type": "Legendary Creature — Human Rogue Hero",
+  "cost": "{2}{B}",
+  "rank": 20747,
+  "text": "Pay 2 life: Add two mana of any one color. Spend this mana only to cast Equipment spells or activate equip abilities. Activate only once each turn.\n{T}, Sacrifice an Equipment attached to Ronin: Target creature gets -4/-4 until end of turn. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:sub:equipment",
+   "cost:life",
+   "eff:add-mana",
+   "mana:2",
+   "rec:partial",
+   "sub:hero",
+   "sub:human",
+   "sub:human rogue hero",
+   "sub:rogue",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Gideon's Intervention",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 20749,
+  "text": "As this enchantment enters, choose a card name.\nYour opponents can't cast spells with the chosen name.\nPrevent all damage that would be dealt to you and permanents you control by sources with the chosen name.",
+  "facets": [
+   "eff:cant-cast",
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shatter the Oath",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 20750,
+  "text": "Destroy target creature or enchantment. Create a Wicked Role token attached to up to one target creature you control. (If you control another Role on it, put that one into the graveyard. Enchanted creature gets +1/+1. When this token is put into a graveyard, each opponent loses 1 life.)",
+  "facets": [
+   "cares:sub:role",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:lose-life",
+   "kw:role token",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mutual Destruction",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 20751,
+  "text": "This spell has flash as long as you control a permanent with flash.\nAs an additional cost to cast this spell, sacrifice a creature.\nDestroy target creature.",
+  "facets": [
+   "cares:kw:flash",
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:destroy",
+   "grants:flash",
+   "kw:flash",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Vanquish the Weak",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 20752,
+  "text": "Destroy target creature with power 3 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Suspension Field",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 20754,
+  "text": "When this enchantment enters, you may exile target creature with toughness 3 or greater until this enchantment leaves the battlefield. (That creature returns under its owner's control.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Encircling Fissure",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 20760,
+  "text": "Prevent all combat damage that would be dealt this turn by creatures target opponent controls.\nAwaken 2—{4}{W} (If you cast this spell for {4}{W}, also put two +1/+1 counters on target land you control and it becomes a 0/0 Elemental creature with haste. It's still a land.)",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:awaken",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Henchbots",
+  "type": "Artifact Creature — Robot",
+  "cost": "{4}",
+  "rank": 20763,
+  "text": "When this creature enters, exile target tapped creature an opponent controls until this creature leaves the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:exile",
+   "rec:partial",
+   "sub:robot",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wire Surgeons",
+  "type": "Creature — Human Artificer",
+  "cost": "{4}{B}{B}",
+  "rank": 20765,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nEach artifact creature card in your graveyard has encore. Its encore cost is equal to its mana cost. (Exile it and pay its mana cost: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:token",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:create-token",
+   "kw:fear",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vampiric Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{3}{B}",
+  "rank": 20770,
+  "text": "All Sliver creatures have \"Whenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.\"",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "eff:add-counters",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dauntless Aven",
+  "type": "Creature — Bird Warrior",
+  "cost": "{2}{W}",
+  "rank": 20773,
+  "text": "Flying\nWhenever this creature attacks, untap target creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:untap",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:bird warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon Blood",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 20777,
+  "text": "{3}, {T}: Put a +1/+1 counter on target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Deepwood Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 20778,
+  "text": "Pay 2 life: Regenerate this creature.",
+  "facets": [
+   "cost:life",
+   "kw:regenerate",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ultimo, Civilization's End",
+  "type": "Legendary Artifact Creature — Robot Villain",
+  "cost": "{4}{B}{B}",
+  "rank": 20781,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen Ultimo enters, each opponent sacrifices a creature of their choice.\n{2}{B}, Discard this card: Each opponent sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:menace",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:robot",
+   "sub:robot villain",
+   "sub:villain",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Seedpod Caretaker",
+  "type": "Creature — Phyrexian Cleric",
+  "cost": "{2}{W}",
+  "rank": 20784,
+  "text": "When this creature enters, choose one —\n• Put a +1/+1 counter on target artifact or creature you control.\n• Transform target Incubator token you control.",
+  "facets": [
+   "cares:sub:incubator",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:transform",
+   "rec:partial",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Acquisitions Expert",
+  "type": "Creature — Human Rogue",
+  "cost": "{1}{B}",
+  "rank": 20790,
+  "text": "When this creature enters, target opponent reveals a number of cards from their hand equal to the number of creatures in your party. You choose one of those cards. That player discards that card. (Your party consists of up to one each of Cleric, Rogue, Warrior, and Wizard.)",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kor Outfitter",
+  "type": "Creature — Kor Soldier",
+  "cost": "{W}{W}",
+  "rank": 20793,
+  "text": "When this creature enters, you may attach target Equipment you control to target creature you control.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "eff:attach",
+   "mv:cheap",
+   "rec:partial",
+   "sub:kor",
+   "sub:kor soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Burdened Stoneback",
+  "type": "Creature — Giant Warrior",
+  "cost": "{1}{W}",
+  "rank": 20794,
+  "text": "This creature enters with two -1/-1 counters on it.\n{1}{W}, Remove a counter from this creature: Target creature gains indestructible until end of turn. Activate only as a sorcery. (Damage and effects that say \"destroy\" don't destroy it. If its toughness is 0 or less, it still dies.)",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "sub:giant",
+   "sub:giant warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Herald of Anafenza",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 20798,
+  "text": "Outlast {2}{W} ({2}{W}, {T}: Put a +1/+1 counter on this creature. Outlast only as a sorcery.)\nWhenever you activate this creature's outlast ability, create a 1/1 white Warrior creature token.",
+  "facets": [
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:outlast",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Raffine's Informant",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 20801,
+  "text": "When this creature enters, it connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on this creature.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:connive",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sudden Disappearance",
+  "type": "Sorcery",
+  "cost": "{5}{W}",
+  "rank": 20802,
+  "text": "Exile all nonland permanents target player controls. Return the exiled cards to the battlefield under their owner's control at the beginning of the next end step.",
+  "facets": [
+   "cares:zone:exile",
+   "eff:exile",
+   "eff:return-from",
+   "mv:big",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Vitality Hunter",
+  "type": "Creature — Nightmare",
+  "cost": "{3}{W}",
+  "rank": 20807,
+  "text": "Lifelink\n{X}{W}{W}: Monstrosity X. (If this creature isn't monstrous, put X +1/+1 counters on it and it becomes monstrous.)\nWhen this creature becomes monstrous, put a lifelink counter on each of up to X target creatures.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "kw:lifelink",
+   "kw:monstrosity",
+   "rec:partial",
+   "sub:nightmare",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Devour Intellect",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 20810,
+  "text": "Target opponent discards a card. If mana from a Treasure was spent to cast this spell, instead that player reveals their hand, you choose a nonland card from it, then that player discards that card.",
+  "facets": [
+   "cares:sub:treasure",
+   "cares:zone:hand",
+   "eff:discard",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Live Fast",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 20811,
+  "text": "You draw two cards, lose 2 life, and get {E}{E} (two energy counters).",
+  "facets": [
+   "ctr:energy",
+   "eff:draw",
+   "eff:lose-life",
+   "eff:player-counter",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Trusty Machete",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 20815,
+  "text": "Equipped creature gets +2/+1.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Innocent Traveler // Malicious Invader",
+  "type": "Creature — Human // Creature — Vampire",
+  "cost": "",
+  "rank": 20819,
+  "text": "At the beginning of your upkeep, any opponent may sacrifice a creature of their choice. If no one does, transform this creature.\n//\nFlying\nThis creature gets +2/+0 as long as an opponent controls a Human.",
+  "facets": [
+   "kw:flying",
+   "kw:transform",
+   "rec:partial",
+   "sub:human",
+   "sub:vampire",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Myr Quadropod",
+  "type": "Artifact Creature — Myr",
+  "cost": "{4}",
+  "rank": 20821,
+  "text": "{3}: Switch this creature's power and toughness until end of turn.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "sub:myr",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "God-Pharaoh's Faithful",
+  "type": "Creature — Human Wizard",
+  "cost": "{W}",
+  "rank": 20826,
+  "text": "Whenever you cast a blue, black, or red spell, you gain 1 life.",
+  "facets": [
+   "cares:color:b",
+   "cares:zone:stack",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Myr Adapter",
+  "type": "Artifact Creature — Myr",
+  "cost": "{3}",
+  "rank": 20827,
+  "text": "This creature gets +1/+1 for each Equipment attached to it.",
+  "facets": [
+   "cares:sub:equipment",
+   "col:none",
+   "eff:pump",
+   "sub:myr",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unified Front",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 20829,
+  "text": "Converge — Create a 1/1 white Kor Ally creature token for each color of mana spent to cast this spell.",
+  "facets": [
+   "cares:mana-spent",
+   "cares:sub:ally",
+   "cares:sub:kor",
+   "cares:type:creature",
+   "kw:converge",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Due Respect",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 20830,
+  "text": "Permanents enter tapped this turn.\nDraw a card.",
+  "facets": [
+   "eff:draw",
+   "eff:tap",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Winter Soldier, Icy Assassin",
+  "type": "Legendary Creature — Human Assassin Villain",
+  "cost": "{W}{B}",
+  "rank": 20831,
+  "text": "Vigilance, menace\nWinter Soldier gets +2/+0 for each Equipment attached to him.\n{3}{W}{B}: Return this card from your graveyard to the battlefield with a finality counter on him. Then you may attach an Equipment you control to him. (If a creature with a finality counter on it would die, exile it instead.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "eff:attach",
+   "eff:recur-self",
+   "kw:menace",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin villain",
+   "sub:villain",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Exosuit Savior",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 20833,
+  "text": "Flying\nWhen this creature enters, return up to one other target permanent you control to its owner's hand.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "kw:flying",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dramatist's Puppet",
+  "type": "Artifact Creature — Construct",
+  "cost": "{4}",
+  "rank": 20835,
+  "text": "When this creature enters, for each kind of counter on target permanent, put another counter of that kind on it or remove one from it.",
+  "facets": [
+   "col:none",
+   "eff:remove-counters",
+   "rec:partial",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Loyal Sentry",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 20839,
+  "text": "When this creature blocks a creature, destroy that creature and this creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eidolon of Obstruction",
+  "type": "Enchantment Creature — Spirit",
+  "cost": "{1}{W}",
+  "rank": 20842,
+  "text": "First strike\nLoyalty abilities of planeswalkers your opponents control cost {1} more to activate.",
+  "facets": [
+   "cares:type:planeswalker",
+   "eff:increase-cost",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:partial",
+   "sub:spirit",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Helldozer",
+  "type": "Creature — Zombie Giant",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 20843,
+  "text": "{B}{B}{B}, {T}: Destroy target land. If that land was nonbasic, untap this creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:land",
+   "cost:tap",
+   "eff:destroy",
+   "eff:untap",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:giant",
+   "sub:zombie",
+   "sub:zombie giant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Morkrut Behemoth",
+  "type": "Creature — Zombie Giant",
+  "cost": "{4}{B}",
+  "rank": 20844,
+  "text": "As an additional cost to cast this spell, sacrifice a creature or pay {1}{B}.\nMenace (This creature can't be blocked except by two or more creatures.)",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "kw:menace",
+   "pt:big",
+   "rec:partial",
+   "sub:giant",
+   "sub:zombie",
+   "sub:zombie giant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "On the Job",
+  "type": "Instant",
+  "cost": "{2}{W}{W}",
+  "rank": 20855,
+  "text": "Creatures you control get +2/+1 until end of turn. Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:draw",
+   "eff:pump",
+   "kw:investigate",
+   "rec:partial",
+   "scope:all",
+   "tok:clue",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cryptex",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 20861,
+  "text": "{T}, Collect evidence 3: Add one mana of any color. Put an unlock counter on this artifact. (To collect evidence 3, exile cards with total mana value 3 or greater from your graveyard.)\nSacrifice this artifact: Surveil 3, then draw three cards. Activate only if this artifact has five or more unlock counters on it.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:surveil",
+   "kw:collect evidence",
+   "kw:surveil",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Vigilant Martyr",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 20863,
+  "text": "Sacrifice this creature: Regenerate target creature.\n{W}{W}, {T}, Sacrifice this creature: Counter target spell that targets an enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "cost:sacrifice-self",
+   "eff:protect",
+   "kw:regenerate",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boneknitter",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{1}{B}",
+  "rank": 20868,
+  "text": "{1}{B}: Regenerate target Zombie.\nMorph {2}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:zombie",
+   "kw:morph",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Holy Strength",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 20871,
+  "text": "Enchant creature\nEnchanted creature gets +1/+2.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Topple the Statue",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 20872,
+  "text": "Tap target permanent. If it's an artifact, destroy it.\nDraw a card.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:destroy",
+   "eff:draw",
+   "eff:tap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Scrapwork Rager",
+  "type": "Artifact Creature — Phyrexian Horror",
+  "cost": "{4}",
+  "rank": 20876,
+  "text": "When this creature enters, you draw a card and you lose 1 life.\nUnearth {3}{B} ({3}{B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:draw",
+   "eff:lose-life",
+   "eff:recur-self",
+   "eff:return-from",
+   "kw:unearth",
+   "rec:full",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Augur il-Vec",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 20877,
+  "text": "Shadow (This creature can block or be blocked by only creatures with shadow.)\nSacrifice this creature: You gain 4 life. Activate only during your upkeep.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "eff:gain-life",
+   "kw:shadow",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Corpsehatch",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 20879,
+  "text": "Destroy target nonblack creature. Create two 0/1 colorless Eldrazi Spawn creature tokens. They have \"Sacrifice this token: Add {C}.\"",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "rec:partial",
+   "tok:eldrazi",
+   "tok:spawn",
+   "type:sorcery"
+  ]
+ }
+]

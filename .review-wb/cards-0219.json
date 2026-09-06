@@ -1,0 +1,814 @@
+[
+ {
+  "name": "Dawning Purist",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 27678,
+  "text": "Whenever this creature deals combat damage to a player, you may destroy target enchantment that player controls.\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "kw:morph",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Disempower",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 27680,
+  "text": "Put target artifact or enchantment on top of its owner's library.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:zone:library",
+   "eff:move-zone",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Slash of Talons",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 27681,
+  "text": "Slash of Talons deals 2 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Emissary of Hope",
+  "type": "Creature — Spirit",
+  "cost": "{1}{W}{W}",
+  "rank": 27682,
+  "text": "Flying\nWhenever this creature deals combat damage to a player, you gain 1 life for each artifact that player controls.",
+  "facets": [
+   "cares:type:artifact",
+   "kw:flying",
+   "rec:partial",
+   "sub:spirit",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ironfist Crusher",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 27683,
+  "text": "This creature can block any number of creatures.\nMorph {3}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "kw:morph",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arrogant Poet",
+  "type": "Creature — Human Warlock",
+  "cost": "{1}{B}",
+  "rank": 27687,
+  "text": "Whenever this creature attacks, you may pay 2 life. If you do, it gains flying until end of turn.",
+  "facets": [
+   "eff:do-if-cost-paid",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ogre Jailbreaker",
+  "type": "Creature — Ogre Rogue",
+  "cost": "{3}{B}",
+  "rank": 27688,
+  "text": "Defender\nThis creature can attack as though it didn't have defender as long as you control a Gate.",
+  "facets": [
+   "cares:sub:gate",
+   "kw:defender",
+   "rec:partial",
+   "sub:ogre",
+   "sub:ogre rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Snow Hound",
+  "type": "Creature — Dog",
+  "cost": "{2}{W}",
+  "rank": 27690,
+  "text": "{1}, {T}: Return this creature and target green or blue creature you control to their owner's hand.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cost:tap",
+   "eff:bounce-own",
+   "rec:full",
+   "sub:dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battershield Warrior",
+  "type": "Creature — Human Warrior",
+  "cost": "{2}{W}",
+  "rank": 27694,
+  "text": "Boast — {1}{W}: Creatures you control get +1/+1 until end of turn. (Activate only if this creature attacked this turn and only once each turn.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:pump",
+   "kw:boast",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vampire Champion",
+  "type": "Creature — Vampire Soldier",
+  "cost": "{3}{B}",
+  "rank": 27695,
+  "text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "facets": [
+   "kw:deathtouch",
+   "rec:full",
+   "sub:soldier",
+   "sub:vampire",
+   "sub:vampire soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Midnight Covenant",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 27696,
+  "text": "Enchant creature\nEnchanted creature has \"{B}: This creature gets +1/+1 until end of turn.\"",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Frozen Shade",
+  "type": "Creature — Shade",
+  "cost": "{2}{B}",
+  "rank": 27697,
+  "text": "{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:full",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shu Elite Companions",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 27698,
+  "text": "Horsemanship (This creature can't be blocked except by creatures with horsemanship.)",
+  "facets": [
+   "kw:horsemanship",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cavalry Drillmaster",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 27701,
+  "text": "When this creature enters, target creature gets +2/+0 and gains first strike until end of turn. (It deals combat damage before creatures without first strike.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Haunted Cadaver",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 27704,
+  "text": "Whenever this creature deals combat damage to a player, you may sacrifice it. If you do, that player discards three cards.\nMorph {1}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "eff:discard",
+   "kw:morph",
+   "rec:partial",
+   "sub:zombie",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pentagram of the Ages",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 27705,
+  "text": "{4}, {T}: The next time a source of your choice would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Solitary Camel",
+  "type": "Creature — Camel",
+  "cost": "{2}{W}",
+  "rank": 27707,
+  "text": "This creature has lifelink as long as you control a Desert or there is a Desert card in your graveyard. (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "cares:sub:desert",
+   "cares:zone:graveyard",
+   "eff:gain-life",
+   "kw:lifelink",
+   "sub:camel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wring Flesh",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 27710,
+  "text": "Target creature gets -3/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Obelisk of Undoing",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 27712,
+  "text": "{6}, {T}: Return target permanent you both own and control to your hand.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Saheeli's Silverwing",
+  "type": "Artifact Creature — Drake",
+  "cost": "{4}",
+  "rank": 27713,
+  "text": "Flying\nWhen this creature enters, look at the top card of target opponent's library.",
+  "facets": [
+   "col:none",
+   "kw:flying",
+   "rec:partial",
+   "sub:drake",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scuttling Death",
+  "type": "Creature — Spirit",
+  "cost": "{4}{B}",
+  "rank": 27714,
+  "text": "Sacrifice this creature: Target creature gets -1/-1 until end of turn.\nSoulshift 4 (When this creature dies, you may return target Spirit card with mana value 4 or less from your graveyard to your hand.)",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice-self",
+   "eff:return-from",
+   "eff:shrink",
+   "kw:soulshift",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Barrow Witches",
+  "type": "Creature — Human Warlock",
+  "cost": "{4}{B}",
+  "rank": 27718,
+  "text": "When this creature enters, return target Knight card from your graveyard to your hand.",
+  "facets": [
+   "cares:sub:knight",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Caregiver",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 27719,
+  "text": "{W}, Sacrifice a creature: Prevent the next 1 damage that would be dealt to any target this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:sacrifice-self",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Excommunicate",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 27721,
+  "text": "Put target creature on top of its owner's library.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:library",
+   "eff:move-zone",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Desecrated Earth",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 27722,
+  "text": "Destroy target land. Its controller discards a card.",
+  "facets": [
+   "cares:type:land",
+   "eff:destroy",
+   "eff:discard",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Drought",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 27725,
+  "text": "At the beginning of your upkeep, sacrifice this enchantment unless you pay {W}{W}.\nSpells cost an additional \"Sacrifice a Swamp\" to cast for each black mana symbol in their mana costs.\nActivated abilities cost an additional \"Sacrifice a Swamp\" to activate for each black mana symbol in their activation costs.",
+  "facets": [
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Death Pulse",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 27727,
+  "text": "Target creature gets -4/-4 until end of turn.\nCycling {1}{B}{B} ({1}{B}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, you may have target creature get -1/-1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:shrink",
+   "kw:cycling",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Putrefaction",
+  "type": "Enchantment",
+  "cost": "{4}{B}",
+  "rank": 27729,
+  "text": "Whenever a player casts a green or white spell, that player discards a card.",
+  "facets": [
+   "cares:color:w",
+   "eff:discard",
+   "trig:cast",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Serra's Liturgy",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 27731,
+  "text": "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{W}, Sacrifice this enchantment: Destroy up to X target artifacts and/or enchantments, where X is the number of verse counters on this enchantment.",
+  "facets": [
+   "ctr:verse-self",
+   "eff:add-counters-self",
+   "eff:destroy",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Crawling Filth",
+  "type": "Creature — Spirit",
+  "cost": "{5}{B}",
+  "rank": 27738,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nSoulshift 5 (When this creature dies, you may return target Spirit card with mana value 5 or less from your graveyard to your hand.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:fear",
+   "kw:soulshift",
+   "mv:big",
+   "rec:full",
+   "sub:spirit",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tivadar's Crusade",
+  "type": "Sorcery",
+  "cost": "{1}{W}{W}",
+  "rank": 27742,
+  "text": "Destroy all Goblins.",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Robo-Piñata",
+  "type": "Artifact Creature — Clown Robot",
+  "cost": "{2}{W}",
+  "rank": 27744,
+  "text": "When Robo-Piñata dies, choose one —\n• You get {TK}{TK}.\n• You may put a sticker on a nonland permanent you own.",
+  "facets": [
+   "rec:partial",
+   "sub:clown",
+   "sub:clown robot",
+   "sub:robot",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cloud Crusader",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}{W}",
+  "rank": 27745,
+  "text": "Flying\nFirst strike (This creature deals combat damage before creatures without first strike.)",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Caribou Range",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}{W}",
+  "rank": 27746,
+  "text": "Enchant land you control\nEnchanted land has \"{W}{W}, {T}: Create a 0/1 white Caribou creature token.\"\nSacrifice a Caribou token: You gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "cost:sacrifice",
+   "eff:create-token",
+   "eff:gain-life",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Angel's Herald",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 27748,
+  "text": "{2}{W}, {T}, Sacrifice a green creature, a white creature, and a blue creature: Search your library for a card named Empyrial Archangel, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "cares:color:u",
+   "cares:color:w",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:search-library",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunlit Hoplite",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 27749,
+  "text": "During your turn, this creature has first strike.\nThis creature gets +1/+0 as long as you control an Elspeth planeswalker.",
+  "facets": [
+   "cares:sub:elspeth",
+   "cares:type:planeswalker",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Irradiate",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 27753,
+  "text": "Target creature gets -1/-1 until end of turn for each artifact you control.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Defeat",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 27756,
+  "text": "Destroy target creature with power 2 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Graceful Antelope",
+  "type": "Creature — Antelope",
+  "cost": "{2}{W}{W}",
+  "rank": 27757,
+  "text": "Plainswalk (This creature can't be blocked as long as defending player controls a Plains.)\nWhenever this creature deals combat damage to a player, you may have target land become a Plains until this creature leaves the battlefield.",
+  "facets": [
+   "cares:type:land",
+   "kw:landwalk",
+   "kw:plainswalk",
+   "rec:partial",
+   "sub:antelope",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razor Boomerang",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 27759,
+  "text": "Equipped creature has \"{T}, Unattach Razor Boomerang: It deals 1 damage to any target. Return Razor Boomerang to its owner's hand.\"\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:damage",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Trade Caravan",
+  "type": "Creature — Human Nomad",
+  "cost": "{W}",
+  "rank": 27761,
+  "text": "At the beginning of your upkeep, put a currency counter on this creature.\nRemove two currency counters from this creature: Untap target basic land. Activate only during an opponent's upkeep.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cost:remove-counters",
+   "ctr:currency-self",
+   "eff:add-counters-self",
+   "eff:untap",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Whispering Shade",
+  "type": "Creature — Shade",
+  "cost": "{3}{B}",
+  "rank": 27762,
+  "text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\n{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:landwalk",
+   "kw:swampwalk",
+   "rec:full",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bone Flute",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 27768,
+  "text": "{2}, {T}: All creatures get -1/-0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sanctified Charge",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 27771,
+  "text": "Creatures you control get +2/+1 until end of turn. White creatures you control also gain first strike until end of turn. (They deal combat damage before creatures without first strike.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Fill with Fright",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 27773,
+  "text": "Target player discards two cards. Scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+  "facets": [
+   "eff:discard",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Moonglove Winnower",
+  "type": "Creature — Elf Rogue",
+  "cost": "{3}{B}",
+  "rank": 27774,
+  "text": "Deathtouch (Any amount of damage this deals to a creature is enough to destroy it.)",
+  "facets": [
+   "kw:deathtouch",
+   "rec:full",
+   "sub:elf",
+   "sub:elf rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Encroach",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 27775,
+  "text": "Target player reveals their hand. You choose a nonbasic land card from it. That player discards that card.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:hand",
+   "eff:discard",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Worms of the Earth",
+  "type": "Enchantment",
+  "cost": "{2}{B}{B}{B}",
+  "rank": 27786,
+  "text": "Players can't play lands.\nLands can't enter the battlefield.\nAt the beginning of each upkeep, any player may sacrifice two lands of their choice or have this enchantment deal 5 damage to that player. If a player does either, destroy this enchantment.",
+  "facets": [
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Tourach's Chant",
+  "type": "Enchantment",
+  "cost": "{1}{B}{B}",
+  "rank": 27789,
+  "text": "At the beginning of your upkeep, sacrifice this enchantment unless you pay {B}.\nWhenever a player puts a Forest onto the battlefield, this enchantment deals 3 damage to that player unless they put a -1/-1 counter on a creature they control.",
+  "facets": [
+   "eff:damage",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rathi Fiend",
+  "type": "Creature — Phyrexian Horror Mercenary",
+  "cost": "{3}{B}",
+  "rank": 27790,
+  "text": "When this creature enters, each player loses 3 life.\n{3}, {T}: Search your library for a Mercenary permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:mercenary",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:lose-life",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:mercenary",
+   "sub:phyrexian",
+   "sub:phyrexian horror mercenary",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ }
+]

@@ -1,0 +1,944 @@
+[
+ {
+  "name": "Moira, Urborg Haunt",
+  "type": "Legendary Creature — Spirit Wizard",
+  "cost": "{2}{B}",
+  "rank": 15153,
+  "text": "Menace\nWhenever Moira deals combat damage to a player, return to the battlefield target creature card in your graveyard that was put there from the battlefield this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:menace",
+   "rec:partial",
+   "sub:spirit",
+   "sub:spirit wizard",
+   "sub:wizard",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Fetid Gargantua",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}",
+  "rank": 15157,
+  "text": "{2}{B}: Adapt 2. (If this creature has no +1/+1 counters on it, put two +1/+1 counters on it.)\nWhenever one or more +1/+1 counters are put on this creature, you may draw two cards. If you do, you lose 2 life.",
+  "facets": [
+   "acost:3",
+   "ctr:+1/+1",
+   "eff:add-counters-self",
+   "kw:adapt",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Imposing Vantasaur",
+  "type": "Creature — Dinosaur",
+  "cost": "{5}{W}",
+  "rank": 15158,
+  "text": "Vigilance\nCycling {1} ({1}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:dinosaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Linvala, the Preserver",
+  "type": "Legendary Creature — Angel",
+  "cost": "{4}{W}{W}",
+  "rank": 15161,
+  "text": "Flying\nWhen Linvala enters, if an opponent has more life than you, you gain 5 life.\nWhen Linvala enters, if an opponent controls more creatures than you, create a 3/3 white Angel creature token with flying.",
+  "facets": [
+   "cares:sub:angel",
+   "eff:create-token",
+   "eff:gain-life",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "tok:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "The Book of Vile Darkness",
+  "type": "Legendary Artifact — Book",
+  "cost": "{B}{B}{B}",
+  "rank": 15162,
+  "text": "At the beginning of your end step, if you lost 2 or more life this turn, create a 2/2 black Zombie creature token.\n{T}, Exile The Book of Vile Darkness and artifacts you control named Eye of Vecna and Hand of Vecna: Create Vecna, a legendary 8/8 black Zombie God creature token with indestructible and all triggered abilities of the exiled cards.",
+  "facets": [
+   "cares:sub:book",
+   "cares:sub:god",
+   "eff:create-token",
+   "rec:partial",
+   "sub:book",
+   "tok:zombie",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Kaya, Ghost Assassin",
+  "type": "Legendary Planeswalker — Kaya",
+  "cost": "{2}{W}{B}",
+  "rank": 15168,
+  "text": "0: Exile Kaya or up to one target creature. Return that card to the battlefield under its owner's control at the beginning of your next upkeep. You lose 2 life.\n−1: Each opponent loses 2 life and you gain 2 life.\n−2: Each opponent discards a card and you draw a card.",
+  "facets": [
+   "acost:0",
+   "cares:sub:kaya",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:discard",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:partial",
+   "sub:kaya",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Rayblade Trooper",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 15172,
+  "text": "When this creature enters, put a +1/+1 counter on target creature you control.\nWhenever a nontoken creature you control with a +1/+1 counter on it dies, create a 1/1 white Human Soldier creature token.\nWarp {1}{W} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:create-token",
+   "kw:warp",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spoils of Blood",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 15173,
+  "text": "Create an X/X black Horror creature token, where X is the number of creatures that died this turn.",
+  "facets": [
+   "cares:sub:horror",
+   "cares:type:creature",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Three Bowls of Porridge",
+  "type": "Artifact — Food",
+  "cost": "{2}",
+  "rank": 15174,
+  "text": "{2}, {T}: Choose one that hasn't been chosen —\n• This artifact deals 2 damage to target creature.\n• Tap target creature.\n• Sacrifice this artifact. You gain 3 life.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:damage",
+   "eff:gain-life",
+   "eff:tap",
+   "mv:cheap",
+   "sub:food",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sphinx-Bone Wand",
+  "type": "Artifact",
+  "cost": "{7}",
+  "rank": 15175,
+  "text": "Whenever you cast an instant or sorcery spell, you may put a charge counter on this artifact. If you do, this artifact deals damage equal to the number of charge counters on it to any target.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:stack",
+   "col:none",
+   "ctr:charge-self",
+   "eff:add-counters-self",
+   "eff:damage",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:instant",
+   "trig:cast:sorcery",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Rally for the Throne",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 15176,
+  "text": "Create two 1/1 white Human creature tokens.\nAdamant — If at least three white mana was spent to cast this spell, you gain 1 life for each creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:gain-life",
+   "kw:adamant",
+   "rec:partial",
+   "tok:human",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Make Obsolete",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 15179,
+  "text": "Creatures your opponents control get -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kitesail",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 15183,
+  "text": "Equipped creature gets +1/+0 and has flying.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:flying",
+   "kw:equip",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Doctor Strange, Surgeon",
+  "type": "Legendary Creature — Human Doctor Hero",
+  "cost": "{4}{W}",
+  "rank": 15189,
+  "text": "Lifelink\nIf you would gain life, you gain twice that much life instead.\nAt the beginning of each combat, if you have at least 10 life more than your starting life total, creatures you control get +2/+2 and gain vigilance until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:lifelink",
+   "kw:vigilance",
+   "rec:partial",
+   "scope:all",
+   "sub:doctor",
+   "sub:hero",
+   "sub:human",
+   "sub:human doctor hero",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Sunstone",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 15190,
+  "text": "{2}, Sacrifice a snow land: Prevent all combat damage that would be dealt this turn.",
+  "facets": [
+   "cares:type:land",
+   "cares:type:snow",
+   "col:none",
+   "cost:sacrifice",
+   "eff:prevent-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Crossbones, Malicious Mercenary",
+  "type": "Legendary Creature — Human Mercenary Villain",
+  "cost": "{3}{B}",
+  "rank": 15192,
+  "text": "Deathtouch\nWhenever another Villain you control enters, put a +1/+1 counter on Crossbones. He deals 2 damage to each opponent. This ability triggers only once each turn.",
+  "facets": [
+   "cares:sub:villain",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:damage",
+   "kw:deathtouch",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human mercenary villain",
+   "sub:mercenary",
+   "sub:villain",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Rampaging Spiketail",
+  "type": "Creature — Dinosaur",
+  "cost": "{4}{B}{B}",
+  "rank": 15198,
+  "text": "When this creature enters, target creature you control gets +2/+0 and gains indestructible until end of turn.\nSwampcycling {2} ({2}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:search-library",
+   "grants:indestructible",
+   "kw:cycling",
+   "kw:indestructible",
+   "kw:landcycling",
+   "kw:swampcycling",
+   "kw:typecycling",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:dinosaur",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Taranika, Akroan Veteran",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 15203,
+  "text": "Vigilance\nWhenever Taranika attacks, untap another target creature you control. Until end of turn, that creature has base power and toughness 4/4 and gains indestructible.",
+  "facets": [
+   "cares:type:creature",
+   "eff:untap",
+   "grants:indestructible",
+   "kw:indestructible",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Aspect of Gorgon",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 15205,
+  "text": "Enchant creature\nEnchanted creature gets +1/+3 and has deathtouch. (Any amount of damage it deals to a creature is enough to destroy it.)",
+  "facets": [
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Near-Death Experience",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}{W}",
+  "rank": 15206,
+  "text": "At the beginning of your upkeep, if you have exactly 1 life, you win the game.",
+  "facets": [
+   "eff:win-game",
+   "rec:full",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Salvager of Ruin",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 15207,
+  "text": "Sacrifice this creature: Choose target permanent card in your graveyard that was put there from the battlefield this turn. Return it to your hand.",
+  "facets": [
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:return-from",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Turtle Van",
+  "type": "Artifact — Vehicle",
+  "cost": "{3}",
+  "rank": 15208,
+  "text": "Whenever this Vehicle attacks, put a +1/+1 counter on target creature that crewed it this turn. Then if that creature is a Mutant, Ninja, or Turtle, double the number of +1/+1 counters on it.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:sub:mutant",
+   "cares:sub:ninja",
+   "cares:sub:turtle",
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:crew",
+   "kw:double",
+   "rec:partial",
+   "sub:vehicle",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Palace Sentinels",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 15209,
+  "text": "When this creature enters, you become the monarch.",
+  "facets": [
+   "eff:set-monarch",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mirari",
+  "type": "Legendary Artifact",
+  "cost": "{5}",
+  "rank": 15210,
+  "text": "Whenever you cast an instant or sorcery spell, you may pay {3}. If you do, copy that spell. You may choose new targets for the copy.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:stack",
+   "col:none",
+   "eff:copy",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:instant",
+   "trig:cast:sorcery",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Suntouched Myr",
+  "type": "Artifact Creature — Myr",
+  "cost": "{3}",
+  "rank": 15211,
+  "text": "Sunburst (This creature enters with a +1/+1 counter on it for each color of mana spent to cast it.)",
+  "facets": [
+   "col:none",
+   "eff:add-counters-self",
+   "kw:sunburst",
+   "rec:full",
+   "sub:myr",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sungrace Pegasus",
+  "type": "Creature — Pegasus",
+  "cost": "{1}{W}",
+  "rank": 15212,
+  "text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:pegasus",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blink Dog",
+  "type": "Creature — Dog",
+  "cost": "{2}{W}",
+  "rank": 15217,
+  "text": "Double strike\nTeleport — {3}{W}: This creature phases out. (Treat it and anything attached to it as though they don't exist until your next turn.)",
+  "facets": [
+   "kw:double strike",
+   "kw:teleport",
+   "rec:partial",
+   "sub:dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dregs of Sorrow",
+  "type": "Sorcery",
+  "cost": "{X}{4}{B}",
+  "rank": 15223,
+  "text": "Destroy X target nonblack creatures. Draw X cards.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:draw",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gearshift Ace",
+  "type": "Creature — Dwarf Pilot",
+  "cost": "{1}{W}",
+  "rank": 15225,
+  "text": "First strike\nWhenever this creature crews a Vehicle, that Vehicle gains first strike until end of turn.",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:artifact",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dwarf",
+   "sub:dwarf pilot",
+   "sub:pilot",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vampire Spawn",
+  "type": "Creature — Vampire",
+  "cost": "{2}{B}",
+  "rank": 15234,
+  "text": "When this creature enters, each opponent loses 2 life and you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:full",
+   "sub:vampire",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Triclopean Sight",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 15237,
+  "text": "Flash\nEnchant creature\nWhen this Aura enters, untap enchanted creature.\nEnchanted creature gets +1/+1 and has vigilance.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:pump",
+   "eff:untap",
+   "grants:vigilance",
+   "kw:enchant",
+   "kw:flash",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Glimmer Seeker",
+  "type": "Creature — Human Survivor",
+  "cost": "{2}{W}",
+  "rank": 15238,
+  "text": "Survival — At the beginning of your second main phase, if this creature is tapped, draw a card if you control a Glimmer creature. If you don't control a Glimmer creature, create a 1/1 white Glimmer enchantment creature token.",
+  "facets": [
+   "cares:sub:glimmer",
+   "eff:create-token",
+   "kw:survival",
+   "rec:partial",
+   "sub:human",
+   "sub:human survivor",
+   "sub:survivor",
+   "trig:step",
+   "trig:step:postcombat-main",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ajani, Inspiring Leader",
+  "type": "Legendary Planeswalker — Ajani",
+  "cost": "{4}{W}{W}",
+  "rank": 15239,
+  "text": "+2: You gain 2 life. Put two +1/+1 counters on up to one target creature.\n−3: Exile target creature. Its controller gains 2 life.\n−10: Creatures you control gain flying and double strike until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:exile",
+   "eff:gain-life",
+   "eff:pump",
+   "grants:double strike",
+   "grants:flying",
+   "kw:double strike",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:ajani",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Farfinder",
+  "type": "Creature — Fox",
+  "cost": "{3}",
+  "rank": 15242,
+  "text": "Vigilance\nWhen this creature enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "eff:search-library",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:fox",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blood Divination",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 15243,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw three cards.",
+  "facets": [
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:draw",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Angelic Curator",
+  "type": "Creature — Angel Spirit",
+  "cost": "{1}{W}",
+  "rank": 15252,
+  "text": "Flying, protection from artifacts",
+  "facets": [
+   "cares:type:artifact",
+   "kw:flying",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:angel",
+   "sub:angel spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spark Reaper",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 15253,
+  "text": "{3}, Sacrifice a creature or planeswalker: You gain 1 life and draw a card.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "cost:sacrifice",
+   "eff:draw",
+   "eff:gain-life",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lo and Li, Twin Tutors",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{4}{B}",
+  "rank": 15258,
+  "text": "When Lo and Li enter, search your library for a Lesson or Noble card, reveal it, put it into your hand, then shuffle.\nNoble creatures you control and Lesson spells you control have lifelink.",
+  "facets": [
+   "cares:sub:lesson",
+   "cares:sub:noble",
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:search-library",
+   "grants:lifelink",
+   "kw:lifelink",
+   "scope:all",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Matt Murdock, Justice Seeker",
+  "type": "Legendary Creature — Human Advisor Hero",
+  "cost": "{1}{W}",
+  "rank": 15260,
+  "text": "At the beginning of combat on your turn, you may pay {1}. When you do, put a +1/+1 counter on target creature you control.\nEach creature you control with a counter on it has ward {1}. (Whenever it becomes the target of a spell or ability an opponent controls, counter it unless that player pays {1}.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "mv:cheap",
+   "rec:partial",
+   "sub:advisor",
+   "sub:hero",
+   "sub:human",
+   "sub:human advisor hero",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Draconian Gate-Bot",
+  "type": "Artifact Creature — Robot",
+  "cost": "{5}",
+  "rank": 15261,
+  "text": "When this creature enters, choose one —\n• Open an Attraction. (Put the top card of your Attraction deck onto the battlefield.)\n• Destroy target Attraction. (It's put into its owner's junkyard.)",
+  "facets": [
+   "col:none",
+   "kw:open an attraction",
+   "rec:partial",
+   "sub:robot",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mogis's Marauder",
+  "type": "Creature — Human Berserker",
+  "cost": "{2}{B}",
+  "rank": 15262,
+  "text": "When this creature enters, up to X target creatures each gain intimidate and haste until end of turn, where X is your devotion to black. (A creature with intimidate can't be blocked except by artifact creatures and/or creatures that share a color with it. Each {B} in the mana costs of permanents you control counts toward your devotion to black.)",
+  "facets": [
+   "cares:color:b",
+   "rec:partial",
+   "sub:berserker",
+   "sub:human",
+   "sub:human berserker",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shepherd of the Clouds",
+  "type": "Creature — Pegasus",
+  "cost": "{4}{W}",
+  "rank": 15263,
+  "text": "Flying, vigilance\nWhen this creature enters, return target permanent card with mana value 3 or less from your graveyard to your hand. Return that card to the battlefield instead if you control a Mount.",
+  "facets": [
+   "cares:sub:mount",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:pegasus",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thunderwolf Cavalry",
+  "type": "Creature — Astartes Warrior",
+  "cost": "{4}{W}",
+  "rank": 15265,
+  "text": "First strike\nCrushing Teeth — Whenever this creature deals combat damage to a player, put a +1/+1 counter on each other creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:crushing teeth",
+   "kw:first strike",
+   "rec:full",
+   "scope:all",
+   "sub:astartes",
+   "sub:astartes warrior",
+   "sub:warrior",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jack-o'-Lantern",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 15266,
+  "text": "{1}, {T}, Sacrifice this artifact: Exile up to one target card from a graveyard. Draw a card.\n{1}, Exile this card from your graveyard: Add one mana of any color.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Keep Out",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 15272,
+  "text": "Choose one —\n• Keep Out deals 4 damage to target tapped creature.\n• Destroy target enchantment.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:damage",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Macabre Reconstruction",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 15273,
+  "text": "This spell costs {2} less to cast if a creature card was put into your graveyard from anywhere this turn.\nReturn up to two target creature cards from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Demonic Collusion",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 15274,
+  "text": "Buyback—Discard two cards. (You may discard two cards in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nSearch your library for a card, put that card into your hand, then shuffle.",
+  "facets": [
+   "cares:zone:library",
+   "eff:search-library",
+   "kw:buyback",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Icatian Moneychanger",
+  "type": "Creature — Human",
+  "cost": "{W}",
+  "rank": 15275,
+  "text": "This creature enters with three credit counters on it.\nWhen this creature enters, it deals 3 damage to you.\nAt the beginning of your upkeep, put a credit counter on this creature.\nSacrifice this creature: You gain 1 life for each credit counter on this creature. Activate only during your upkeep.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "ctr:credit",
+   "ctr:credit-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:damage-self",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Minions' Murmurs",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 15276,
+  "text": "You draw X cards and you lose X life, where X is the number of creatures you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:lose-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Spellbinder",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 15277,
+  "text": "Imprint — When this Equipment enters, you may exile an instant card from your hand.\nWhenever equipped creature deals combat damage to a player, you may copy the exiled card. If you do, you may cast the copy without paying its mana cost.\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "cares:type:instant",
+   "col:none",
+   "eff:attach",
+   "eff:cast-free",
+   "kw:equip",
+   "kw:imprint",
+   "rec:partial",
+   "sub:equipment",
+   "trig:deals-damage",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ }
+]

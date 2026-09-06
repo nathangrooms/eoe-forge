@@ -1,0 +1,910 @@
+[
+ {
+  "name": "Loran of the Third Path",
+  "type": "Legendary Creature — Human Artificer",
+  "cost": "{2}{W}",
+  "rank": 344,
+  "text": "Vigilance\nWhen Loran enters, destroy up to one target artifact or enchantment.\n{T}: You and target opponent each draw a card.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cost:tap",
+   "eff:destroy",
+   "eff:draw",
+   "kw:vigilance",
+   "rec:full",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Damn",
+  "type": "Sorcery",
+  "cost": "{B}{B}",
+  "rank": 345,
+  "text": "Destroy target creature. A creature destroyed this way can't be regenerated.\nOverload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:overload",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blackblade Reforged",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 349,
+  "text": "Equipped creature gets +1/+1 for each land you control.\nEquip legendary creature {3}\nEquip {7}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:type:land",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Dawn's Truce",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 354,
+  "text": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nYou and permanents you control gain hexproof until end of turn. If the gift was promised, permanents you control also gain indestructible until end of turn.",
+  "facets": [
+   "eff:protect",
+   "grants:hexproof",
+   "grants:indestructible",
+   "kw:gift",
+   "kw:hexproof",
+   "kw:indestructible",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Buried Alive",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 356,
+  "text": "Search your library for up to three creature cards, put them into your graveyard, then shuffle.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sapphire Medallion",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 365,
+  "text": "Blue spells you cast cost {1} less to cast.",
+  "facets": [
+   "cares:color:u",
+   "col:none",
+   "eff:reduce-cost",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Anointed Procession",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 366,
+  "text": "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead.",
+  "facets": [
+   "cares:type:token",
+   "eff:create-token",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Land Tax",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 369,
+  "text": "At the beginning of your upkeep, if an opponent controls more lands than you, you may search your library for up to three basic land cards, reveal them, put them into your hand, then shuffle.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Go for the Throat",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 372,
+  "text": "Destroy target nonartifact creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Vanquisher's Banner",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 373,
+  "text": "As this artifact enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\nWhenever you cast a creature spell of the chosen type, draw a card.",
+  "facets": [
+   "cares:sub:chosen",
+   "col:none",
+   "eff:choose",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Aetherflux Reservoir",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 375,
+  "text": "Whenever you cast a spell, you gain 1 life for each spell you've cast this turn.\nPay 50 life: This artifact deals 50 damage to any target.",
+  "facets": [
+   "acost:0",
+   "cares:zone:stack",
+   "col:none",
+   "cost:life",
+   "eff:damage",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Eiganjo, Seat of the Empire",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 382,
+  "text": "{T}: Add {W}.\nChannel — {2}{W}, Discard this card: It deals 4 damage to target attacking or blocking creature. This ability costs {1} less to activate for each legendary creature you control.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:damage",
+   "kw:channel",
+   "mana:1",
+   "rec:partial",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Damnation",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 385,
+  "text": "Destroy all creatures. They can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Scrubland",
+  "type": "Land — Plains Swamp",
+  "cost": "",
+  "rank": 386,
+  "text": "({T}: Add {W} or {B}.)",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "sub:plains",
+   "sub:plains swamp",
+   "sub:swamp",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Dauthi Voidwalker",
+  "type": "Creature — Dauthi Rogue",
+  "cost": "{B}{B}",
+  "rank": 389,
+  "text": "Shadow (This creature can block or be blocked by only creatures with shadow.)\nIf a card would be put into an opponent's graveyard from anywhere, instead exile it with a void counter on it.\n{T}, Sacrifice this creature: Choose an exiled card an opponent owns with a void counter on it. You may play it this turn without paying its mana cost.",
+  "facets": [
+   "cares:zone:exile",
+   "cost:sacrifice-self",
+   "eff:cant-block-self",
+   "eff:cast-free",
+   "eff:exile-graveyard",
+   "kw:shadow",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dauthi",
+   "sub:dauthi rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spire of Industry",
+  "type": "Land",
+  "cost": "",
+  "rank": 394,
+  "text": "{T}: Add {C}.\n{T}, Pay 1 life: Add one mana of any color. Activate only if you control an artifact.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cost:life",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Helm of the Host",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 395,
+  "text": "At the beginning of combat on your turn, create a token that's a copy of equipped creature, except the token isn't legendary. That token gains haste.\nEquip {5}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Demolition Field",
+  "type": "Land",
+  "cost": "",
+  "rank": 397,
+  "text": "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls. That land's controller may search their library for a basic land card, put it onto the battlefield, then shuffle. You may search your library for a basic land card, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:destroy",
+   "eff:search-library",
+   "mana:1",
+   "rec:partial",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Silence",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 406,
+  "text": "Your opponents can't cast spells this turn.",
+  "facets": [
+   "eff:cant-cast",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Orzhov Basilica",
+  "type": "Land",
+  "cost": "",
+  "rank": 407,
+  "text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {W}{B}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Lotho, Corrupt Shirriff",
+  "type": "Legendary Creature — Halfling Rogue",
+  "cost": "{W}{B}",
+  "rank": 408,
+  "text": "Whenever a player casts their second spell each turn, you lose 1 life and create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "cares:zone:stack",
+   "eff:create-token",
+   "eff:lose-life",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:halfling",
+   "sub:halfling rogue",
+   "sub:rogue",
+   "tok:treasure",
+   "trig:cast",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Gilded Lotus",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 411,
+  "text": "{T}: Add three mana of any one color.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:3",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Despark",
+  "type": "Instant",
+  "cost": "{W}{B}",
+  "rank": 412,
+  "text": "Exile target permanent with mana value 4 or greater.",
+  "facets": [
+   "eff:exile",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Minas Tirith",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 415,
+  "text": "Minas Tirith enters tapped unless you control a legendary creature.\n{T}: Add {W}.\n{1}{W}, {T}: Draw a card. Activate only if you attacked with two or more creatures this turn.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:1",
+   "rec:partial",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Mystic Forge",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 416,
+  "text": "You may look at the top card of your library any time.\nYou may cast artifact spells and colorless spells from the top of your library.\n{T}, Pay 1 life: Exile the top card of your library.",
+  "facets": [
+   "cares:color:c",
+   "cares:type:artifact",
+   "cares:zone:library",
+   "col:none",
+   "cost:life",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Warren Soultrader",
+  "type": "Creature — Zombie Goblin Wizard",
+  "cost": "{2}{B}",
+  "rank": 417,
+  "text": "Pay 1 life, Sacrifice another creature: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:life",
+   "cost:sacrifice",
+   "eff:add-mana",
+   "eff:create-token",
+   "kw:treasure",
+   "rec:full",
+   "scope:all",
+   "sub:goblin",
+   "sub:wizard",
+   "sub:zombie",
+   "sub:zombie goblin wizard",
+   "tok:treasure",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shineshadow Snarl",
+  "type": "Land",
+  "cost": "",
+  "rank": 420,
+  "text": "As this land enters, you may reveal a Plains or Swamp card from your hand. If you don't, this land enters tapped.\n{T}: Add {W} or {B}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Hall of Heliod's Generosity",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 421,
+  "text": "{T}: Add {C}.\n{1}{W}, {T}: Put target enchantment card from your graveyard on top of your library.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:move-zone",
+   "mana:1",
+   "rec:full",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Welcoming Vampire",
+  "type": "Creature — Vampire",
+  "cost": "{2}{W}",
+  "rank": 424,
+  "text": "Flying\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "kw:flying",
+   "rec:partial",
+   "sub:vampire",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mondrak, Glory Dominus",
+  "type": "Legendary Creature — Phyrexian Horror",
+  "cost": "{2}{W}{W}",
+  "rank": 426,
+  "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n{1}{W/P}{W/P}, Sacrifice two other artifacts and/or creatures: Put an indestructible counter on Mondrak. ({W/P} can be paid with either {W} or 2 life.)",
+  "facets": [
+   "acost:3",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:token",
+   "cost:sacrifice",
+   "ctr:indestructible-self",
+   "eff:add-counters-self",
+   "rec:partial",
+   "scope:all",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Walking Ballista",
+  "type": "Artifact Creature — Construct",
+  "cost": "{X}{X}",
+  "rank": 430,
+  "text": "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "ctr:+1/+1-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:damage",
+   "mv:cheap",
+   "rec:partial",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "High Market",
+  "type": "Land",
+  "cost": "",
+  "rank": 432,
+  "text": "{T}: Add {C}.\n{T}, Sacrifice a creature: You gain 1 life.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ephemerate",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 439,
+  "text": "Exile target creature you control, then return it to the battlefield under its owner's control.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "eff:exile-own",
+   "eff:return-from",
+   "kw:rebound",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Geier Reach Sanitarium",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 440,
+  "text": "{T}: Add {C}.\n{2}, {T}: Each player draws a card, then discards a card.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:discard",
+   "eff:draw-each",
+   "mana:1",
+   "rec:full",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Tainted Field",
+  "type": "Land",
+  "cost": "",
+  "rank": 441,
+  "text": "{T}: Add {C}.\n{T}: Add {W} or {B}. Activate only if you control a Swamp.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Psychosis Crawler",
+  "type": "Artifact Creature — Phyrexian Horror",
+  "cost": "{5}",
+  "rank": 442,
+  "text": "Psychosis Crawler's power and toughness are each equal to the number of cards in your hand.\nWhenever you draw a card, each opponent loses 1 life.",
+  "facets": [
+   "col:none",
+   "eff:lose-life",
+   "eff:set-pt",
+   "rec:full",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:draws-card",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sram, Senior Edificer",
+  "type": "Legendary Creature — Dwarf Advisor",
+  "cost": "{1}{W}",
+  "rank": 444,
+  "text": "Whenever you cast an Aura, Equipment, or Vehicle spell, draw a card.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:sub:vehicle",
+   "cares:zone:stack",
+   "eff:draw",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:advisor",
+   "sub:dwarf",
+   "sub:dwarf advisor",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Cabal Ritual",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 449,
+  "text": "Add {B}{B}{B}.\nThreshold — Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:add-mana",
+   "kw:threshold",
+   "mana:3",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Urza's Cave",
+  "type": "Land — Urza's Cave",
+  "cost": "",
+  "rank": 451,
+  "text": "{T}: Add {C}.\n{3}, {T}, Sacrifice this land: Search your library for a land card, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:search-library",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "sub:cave",
+   "sub:urza's",
+   "sub:urza's cave",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Pearl Medallion",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 454,
+  "text": "White spells you cast cost {1} less to cast.",
+  "facets": [
+   "cares:color:w",
+   "col:none",
+   "eff:reduce-cost",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Expedition Map",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 455,
+  "text": "{2}, {T}, Sacrifice this artifact: Search your library for a land card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "acost:2",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sheoldred, the Apocalypse",
+  "type": "Legendary Creature — Phyrexian Praetor",
+  "cost": "{2}{B}{B}",
+  "rank": 456,
+  "text": "Deathtouch\nWhenever you draw a card, you gain 2 life.\nWhenever an opponent draws a card, they lose 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:deathtouch",
+   "rec:partial",
+   "sub:phyrexian",
+   "sub:phyrexian praetor",
+   "sub:praetor",
+   "trig:draws-card",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Living Death",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 459,
+  "text": "Each player exiles all creature cards from their graveyard, then sacrifices all creatures they control, then puts all cards they exiled this way onto the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "eff:sacrifice",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dispatch",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 460,
+  "text": "Tap target creature.\nMetalcraft — If you control three or more artifacts, exile that creature.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:exile",
+   "eff:tap",
+   "kw:metalcraft",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Vault of the Archangel",
+  "type": "Land",
+  "cost": "",
+  "rank": 465,
+  "text": "{T}: Add {C}.\n{2}{W}{B}, {T}: Creatures you control gain deathtouch and lifelink until end of turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:pump",
+   "grants:deathtouch",
+   "grants:lifelink",
+   "kw:deathtouch",
+   "kw:lifelink",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Treasure Vault",
+  "type": "Artifact Land",
+  "cost": "",
+  "rank": 467,
+  "text": "{T}: Add {C}.\n{X}{X}, {T}, Sacrifice this land: Create X Treasure tokens.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "kw:treasure",
+   "mana:1",
+   "rec:full",
+   "tok:treasure",
+   "type:artifact",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Conjurer's Closet",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 472,
+  "text": "At the beginning of your end step, you may exile target creature you control, then return that card to the battlefield under your control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "col:none",
+   "eff:exile-own",
+   "eff:return-from",
+   "rec:full",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Accursed Marauder",
+  "type": "Creature — Zombie Warrior",
+  "cost": "{1}{B}",
+  "rank": 474,
+  "text": "When this creature enters, each player sacrifices a nontoken creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "mv:cheap",
+   "rec:partial",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Read the Bones",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 480,
+  "text": "Scry 2, then draw two cards. You lose 2 life. (To scry 2, look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+  "facets": [
+   "eff:draw",
+   "eff:lose-life",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Diabolic Tutor",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 481,
+  "text": "Search your library for a card, put that card into your hand, then shuffle.",
+  "facets": [
+   "cares:zone:library",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ }
+]

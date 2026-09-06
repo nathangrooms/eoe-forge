@@ -10698,3 +10698,87 @@ was a no-op. **Six attempts, all measured, none shipped.**
 
 The shell-want route is narrowed by the lift bar shipped today. The other two
 are open.
+
+## THE WRONG WORDS ARE LOAD-BEARING (6 Sep 2026)
+
+The owner: *"all 32k cards need going through manually, deleting any junk
+attached to them and ensuring they have all the correct engine/words attached"*,
+and then the better scoping idea: *"start with white/black cards, that way we
+can prove improvements to syr vondam"*.
+
+253 reviewers read all **12,633 cards a white-black deck can legally play**.
+
+    cards needing a change      6,453 of 12,633   51%
+    words added                11,261
+    junk words deleted            877
+    new words proposed            189
+    refused by validation           0 unknown words, 0 phantom removals,
+                                    0 edits to a printed fact, 6 bad names
+
+**THE REVIEW IS RIGHT.** The errors it found are real and large:
+
+    Swords to Plowshares   eff:gain-life - the OPPONENT gains it, so the best
+                           removal spell in the format was an offer to lifegain
+    Path to Exile          eff:search-library + cares:zone:library-land - the
+                           OPPONENT ramps, so it read as a one-mana ramp spell
+    Generous Gift          eff:create-token - the opponent gets the 3/3
+    Bojuka Bog             missing eff:exile-graveyard, the only reason it is played
+    ten fetchlands         scope:all, which means "affects the whole board"
+
+**AND EVERY WAY OF APPLYING IT MAKES THE DECKS WORSE.**
+
+| applied | 18 shells keyed | bench | shape | Vondam |
+|---|---|---|---|---|
+| baseline | 1374 | 47/71 | 193/200 | 33/90 |
+| all 6,453 cards | - | - | - | **22/90** |
+| additions only | - | - | - | **22/90** |
+| deletions only | **1367** | 46/71 | 193 | 33/90 |
+| the 89 UNAMBIGUOUS deletions | **1366** | 46/71 | **192** | 33/90 |
+
+Even taking `eff:gain-life` off Swords to Plowshares costs eight points of
+commander synergy and a real-deck check.
+
+### Why, and it is structural rather than a fault in the reading
+
+Two separate mechanisms, and both are about the engine rather than the cards.
+
+**The additions dilute.** The engine matches a card by asking whether it CARRIES
+a facet, so 11,261 more facets across 6,453 cards means far more cards match any
+given theme and the cards that genuinely ARE the theme lose their slots. Vondam
+kept his count of arrivals (20 -> 22) and lost Conjurer's Closet, Teleportation
+Circle, Restoration Angel and Flickerwisp.
+
+**The deletions remove load-bearing errors.** `REAL_DECK_ROLES`, every p90
+ceiling, the lift bar, `PLAYED_ENOUGH_RANK`, the package thresholds and the role
+floors were ALL derived by running this engine over the CURRENT facets. Path to
+Exile counting as ramp is wrong AND it is filling a ramp slot; take it away and
+the deck reaches for a worse ramp card. The vocabulary and the constants were
+fitted to each other.
+
+> **So this is a RE-DERIVATION job, not a drop-in**, and the order is: land the
+> words, re-derive `real-deck-roles.json` and `REAL_DECK_ROLES` from the
+> corrected pool, then re-measure every threshold against it. This file already
+> records the small version of the same trap - *"any change to `cardRole`
+> invalidates real-deck-roles.json until it is re-derived, and nothing does that
+> automatically"* - and 51% of the pool is the large version.
+>
+> **Do not read the table above as "the review was wrong".** It says the engine
+> is currently fitted to its own errors, which is a different and worse problem,
+> and one no amount of rule-tuning would ever have surfaced.
+
+### What is kept
+
+`docs/review/wb-card-review.json` - all 6,453 corrections with a sentence of
+reasoning each, and the 189 proposed words ranked by how many cards asked. The
+largest gap is **`eff:lose-life-self`, wanted by 61 cards**: the engine cannot
+say "YOU lose life", so Reanimate, Necropotence and Phyrexian Arena are filed as
+DRAIN cards and offered to decks that want to drain opponents.
+
+`DM_CURATED=1|add|remove` and `DM_CURATED_FILE` in `scripts/probe/_catalog.mjs`
+apply any review to every catalogue read, so a subset can be measured against
+the whole suite without the database being touched.
+
+> ⚠️ `scratch/_blink.mjs` built its OWN `Catalog` and never saw the flag, so the
+> first curated run measured the uncurated pool and reported "no change" - which
+> read as the review having done nothing. Any probe that constructs a `Catalog`
+> directly is invisible to every harness flag; go through `_catalog.mjs`.

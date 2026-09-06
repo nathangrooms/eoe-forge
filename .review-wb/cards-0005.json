@@ -1,0 +1,878 @@
+[
+ {
+  "name": "Darksteel Mutation",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 583,
+  "text": "Enchant creature\nEnchanted creature is an Insect artifact creature with base power and toughness 0/1 and has indestructible, and it loses all other abilities, card types, and creature types.",
+  "facets": [
+   "cares:sub:insect",
+   "cares:type:creature",
+   "eff:neutralise",
+   "grants:indestructible",
+   "kw:enchant",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Saw in Half",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 584,
+  "text": "Destroy target creature. If that creature dies this way, its controller creates two tokens that are copies of that creature, except their power is half that creature's power and their toughness is half that creature's toughness. Round up each time.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Emerald Medallion",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 586,
+  "text": "Green spells you cast cost {1} less to cast.",
+  "facets": [
+   "col:none",
+   "eff:reduce-cost",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bender's Waterskin",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 590,
+  "text": "Untap this artifact during each other player's untap step.\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:untap",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Strionic Resonator",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 591,
+  "text": "{2}, {T}: Copy target triggered ability you control. You may choose new targets for the copy. (A triggered ability uses the words \"when,\" \"whenever,\" or \"at.\")",
+  "facets": [
+   "col:none",
+   "eff:copy",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Access Tunnel",
+  "type": "Land",
+  "cost": "",
+  "rank": 592,
+  "text": "{T}: Add {C}.\n{3}, {T}: Target creature with power 3 or less can't be blocked this turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:cant-be-blocked",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Selfless Spirit",
+  "type": "Creature — Spirit Cleric",
+  "cost": "{1}{W}",
+  "rank": 595,
+  "text": "Flying\nSacrifice this creature: Creatures you control gain indestructible until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:flying",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:spirit",
+   "sub:spirit cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Corrupted Conviction",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 596,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards.",
+  "facets": [
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Crucible of Worlds",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 597,
+  "text": "You may play lands from your graveyard.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:play-from-graveyard",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Puresteel Paladin",
+  "type": "Creature — Human Knight",
+  "cost": "{W}{W}",
+  "rank": 600,
+  "text": "Whenever an Equipment you control enters, you may draw a card.\nMetalcraft — Equipment you control have equip {0} as long as you control three or more artifacts.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "eff:draw",
+   "kw:metalcraft",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scrawling Crawler",
+  "type": "Artifact Creature — Phyrexian Construct",
+  "cost": "{3}",
+  "rank": 606,
+  "text": "At the beginning of your upkeep, each player draws a card.\nWhenever an opponent draws a card, that player loses 1 life.",
+  "facets": [
+   "col:none",
+   "eff:draw-each",
+   "eff:lose-life",
+   "rec:partial",
+   "sub:construct",
+   "sub:phyrexian",
+   "sub:phyrexian construct",
+   "trig:draws-card",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Reprieve",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 608,
+  "text": "Return target spell to its owner's hand.\nDraw a card.",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:stack",
+   "eff:draw",
+   "eff:move-zone",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Vault of Whispers",
+  "type": "Artifact Land",
+  "cost": "",
+  "rank": 611,
+  "text": "{T}: Add {B}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:artifact",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Mangara, the Diplomat",
+  "type": "Legendary Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 612,
+  "text": "Lifelink\nWhenever an opponent attacks with creatures, if two or more of those creatures are attacking you and/or planeswalkers you control, draw a card.\nWhenever an opponent casts their second spell each turn, draw a card.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:draw",
+   "kw:lifelink",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Cloud Key",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 613,
+  "text": "As this artifact enters, choose artifact, creature, enchantment, instant, or sorcery.\nSpells you cast of the chosen type cost {1} less to cast.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "col:none",
+   "eff:reduce-cost",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Carrion Feeder",
+  "type": "Creature — Zombie",
+  "cost": "{B}",
+  "rank": 614,
+  "text": "This creature can't block.\nSacrifice a creature: Put a +1/+1 counter on this creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elas il-Kor, Sadistic Pilgrim",
+  "type": "Legendary Creature — Phyrexian Kor Cleric",
+  "cost": "{W}{B}",
+  "rank": 615,
+  "text": "Deathtouch\nWhenever another creature you control enters, you gain 1 life.\nWhenever another creature you control dies, each opponent loses 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:kor",
+   "sub:phyrexian",
+   "sub:phyrexian kor cleric",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Shizo, Death's Storehouse",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 616,
+  "text": "{T}: Add {B}.\n{B}, {T}: Target legendary creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:pump",
+   "grants:fear",
+   "kw:fear",
+   "mana:1",
+   "rec:full",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bitterblossom",
+  "type": "Kindred Enchantment — Faerie",
+  "cost": "{1}{B}",
+  "rank": 617,
+  "text": "At the beginning of your upkeep, you lose 1 life and create a 1/1 black Faerie Rogue creature token with flying.",
+  "facets": [
+   "cares:sub:faerie",
+   "eff:create-token",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:faerie",
+   "tok:faerie",
+   "tok:rogue",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Torment of Hailfire",
+  "type": "Sorcery",
+  "cost": "{X}{B}{B}",
+  "rank": 618,
+  "text": "Repeat the following process X times. Each opponent loses 3 life unless that player sacrifices a nonland permanent of their choice or discards a card.",
+  "facets": [
+   "eff:lose-life",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Stitcher's Supplier",
+  "type": "Creature — Zombie",
+  "cost": "{B}",
+  "rank": 622,
+  "text": "When this creature enters or dies, mill three cards. (Put the top three cards of your library into your graveyard.)",
+  "facets": [
+   "eff:mill",
+   "kw:mill",
+   "mv:cheap",
+   "rec:full",
+   "sub:zombie",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Trouble in Pairs",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 623,
+  "text": "If an opponent would begin an extra turn, that player skips that turn instead.\nWhenever an opponent attacks you with two or more creatures, draws their second card each turn, or casts their second spell each turn, you draw a card.",
+  "facets": [
+   "eff:draw",
+   "trig:attacks",
+   "trig:cast",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "All That Glitters",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 624,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1 for each artifact and/or enchantment you control.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Banner of Kinship",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 626,
+  "text": "As this artifact enters, choose a creature type. This artifact enters with a fellowship counter on it for each creature you control of the chosen type.\nCreatures you control of the chosen type get +1/+1 for each fellowship counter on this artifact.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:add-counters",
+   "eff:pump",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Caretaker's Talent",
+  "type": "Enchantment — Class",
+  "cost": "{2}{W}",
+  "rank": 628,
+  "text": "(Gain the next level as a sorcery to add its ability.)\nWhenever one or more tokens you control enter, draw a card. This ability triggers only once each turn.\n{W}: Level 2\nWhen this Class becomes level 2, create a token that's a copy of target token you control.\n{3}{W}: Level 3\nCreature tokens you control get +2/+2.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:sub:class",
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:create-token",
+   "sub:class",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Plaguecrafter",
+  "type": "Creature — Human Shaman",
+  "cost": "{2}{B}",
+  "rank": 634,
+  "text": "When this creature enters, each player sacrifices a creature or planeswalker of their choice. Each player who can't discards a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "rec:partial",
+   "sub:human",
+   "sub:human shaman",
+   "sub:shaman",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boggart Trawler // Boggart Bog",
+  "type": "Creature — Goblin // Land",
+  "cost": "",
+  "rank": 635,
+  "text": "When this creature enters, exile target player's graveyard.\n//\nAs this land enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.",
+  "facets": [
+   "acost:1",
+   "rec:partial",
+   "sub:goblin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Altar of Dementia",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 637,
+  "text": "Sacrifice a creature: Target player mills cards equal to the sacrificed creature's power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "eff:mill",
+   "kw:mill",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Open the Armory",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 643,
+  "text": "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:zone:library",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Knight of the White Orchid",
+  "type": "Creature — Human Knight",
+  "cost": "{W}{W}",
+  "rank": 645,
+  "text": "First strike\nWhen this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "eff:search-library",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mentor of the Meek",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 647,
+  "text": "Whenever another creature you control with power 2 or less enters, you may pay {1}. If you do, draw a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ophiomancer",
+  "type": "Creature — Human Shaman",
+  "cost": "{2}{B}",
+  "rank": 651,
+  "text": "At the beginning of each upkeep, if you control no Snakes, create a 1/1 black Snake creature token with deathtouch.",
+  "facets": [
+   "cares:sub:snake",
+   "eff:create-token",
+   "rec:full",
+   "sub:human",
+   "sub:human shaman",
+   "sub:shaman",
+   "tok:snake",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Trailblazer's Boots",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 656,
+  "text": "Equipped creature has nonbasic landwalk. (It can't be blocked as long as defending player controls a nonbasic land.)\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:type:land",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Windbrisk Heights",
+  "type": "Land",
+  "cost": "",
+  "rank": 657,
+  "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\nThis land enters tapped.\n{T}: Add {W}.\n{W}, {T}: You may play the exiled card without paying its mana cost if you attacked with three or more creatures this turn.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:hideaway",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Intangible Virtue",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 662,
+  "text": "Creature tokens you control get +1/+1 and have vigilance.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sculpting Steel",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 664,
+  "text": "You may have this artifact enter as a copy of any artifact on the battlefield.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "eff:copy",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Wrath of God",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}",
+  "rank": 667,
+  "text": "Destroy all creatures. They can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Imp's Mischief",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 669,
+  "text": "Change the target of target spell with a single target. You lose life equal to that spell's mana value.",
+  "facets": [
+   "cares:zone:stack",
+   "cost:life",
+   "eff:redirect-spell",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Opal Palace",
+  "type": "Land",
+  "cost": "",
+  "rank": 670,
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color in your commander's color identity. If you spend this mana to cast your commander, it enters with a number of additional +1/+1 counters on it equal to the number of times it's been cast from the command zone this game.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:commander",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:add-counters",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Changeling Outcast",
+  "type": "Creature — Shapeshifter",
+  "cost": "{B}",
+  "rank": 671,
+  "text": "Changeling (This card is every creature type.)\nThis creature can't block and can't be blocked.",
+  "facets": [
+   "eff:cant-be-blocked",
+   "kw:changeling",
+   "mv:cheap",
+   "rec:full",
+   "sub:shapeshifter",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grim Monolith",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 672,
+  "text": "This artifact doesn't untap during your untap step.\n{T}: Add {C}{C}{C}.\n{4}: Untap this artifact.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:untap",
+   "mana:3",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sphere of Safety",
+  "type": "Enchantment",
+  "cost": "{4}{W}",
+  "rank": 673,
+  "text": "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:type:planeswalker",
+   "eff:unless-pays",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Black Market",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 674,
+  "text": "Whenever a creature dies, put a charge counter on this enchantment.\nAt the beginning of your first main phase, add {B} for each charge counter on this enchantment.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:charge-self",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "trig:dies",
+   "trig:step",
+   "trig:step:precombat-main",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bontu's Monument",
+  "type": "Legendary Artifact",
+  "cost": "{3}",
+  "rank": 676,
+  "text": "Black creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:reduce-cost",
+   "rec:full",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:creature",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Gravecrawler",
+  "type": "Creature — Zombie",
+  "cost": "{B}",
+  "rank": 680,
+  "text": "This creature can't block.\nYou may cast this card from your graveyard as long as you control a Zombie.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Archivist of Oghma",
+  "type": "Creature — Halfling Cleric",
+  "cost": "{1}{W}",
+  "rank": 686,
+  "text": "Flash\nWhenever an opponent searches their library, you gain 1 life and draw a card.",
+  "facets": [
+   "cares:zone:library",
+   "eff:draw",
+   "eff:gain-life",
+   "kw:flash",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:halfling",
+   "sub:halfling cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mortuary Mire",
+  "type": "Land",
+  "cost": "",
+  "rank": 689,
+  "text": "This land enters tapped.\nWhen this land enters, you may put target creature card from your graveyard on top of your library.\n{T}: Add {B}.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:move-zone",
+   "mana:1",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Charcoal Diamond",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 692,
+  "text": "This artifact enters tapped.\n{T}: Add {B}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Grim Tutor",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 699,
+  "text": "Search your library for a card, put that card into your hand, then shuffle. You lose 3 life.",
+  "facets": [
+   "cares:zone:library",
+   "eff:lose-life",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Castle Ardenvale",
+  "type": "Land",
+  "cost": "",
+  "rank": 705,
+  "text": "This land enters tapped unless you control a Plains.\n{T}: Add {W}.\n{2}{W}{W}, {T}: Create a 1/1 white Human creature token.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:plains",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "mana:1",
+   "rec:full",
+   "tok:human",
+   "type:land"
+  ]
+ }
+]

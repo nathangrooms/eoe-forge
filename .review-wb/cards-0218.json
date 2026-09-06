@@ -1,0 +1,818 @@
+[
+ {
+  "name": "Exorcist",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}{W}",
+  "rank": 27561,
+  "text": "{1}{W}, {T}: Destroy target black creature.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hooded Horror",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}",
+  "rank": 27563,
+  "text": "This creature can't be blocked as long as defending player controls the most creatures or is tied for the most.",
+  "facets": [
+   "eff:cant-be-blocked",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cadaverous Knight",
+  "type": "Creature — Zombie Knight",
+  "cost": "{2}{B}",
+  "rank": 27565,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{B}{B}: Regenerate this creature.",
+  "facets": [
+   "acost:3",
+   "kw:flanking",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:knight",
+   "sub:zombie",
+   "sub:zombie knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tawnos's Wand",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 27567,
+  "text": "{2}, {T}: Target creature with power 2 or less can't be blocked this turn.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:cant-be-blocked",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ramroller",
+  "type": "Artifact Creature — Juggernaut",
+  "cost": "{3}",
+  "rank": 27568,
+  "text": "This creature attacks each combat if able.\nThis creature gets +2/+0 as long as you control another artifact.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "rec:partial",
+   "sub:juggernaut",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Charmed Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}",
+  "rank": 27575,
+  "text": "Flying\nWhen this creature enters, each other player may put an artifact or enchantment card onto the battlefield from their hand.",
+  "facets": [
+   "kw:flying",
+   "rec:partial",
+   "sub:griffin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Resistance Fighter",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 27579,
+  "text": "Sacrifice this creature: Prevent all combat damage target creature would deal this turn.",
+  "facets": [
+   "cost:sacrifice-self",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mirror Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{6}",
+  "rank": 27580,
+  "text": "Imprint — When this creature enters, you may exile target card from a graveyard.\nThis creature has protection from each of the exiled card's card types. (Artifact, battle, creature, enchantment, instant, kindred, land, planeswalker, and sorcery are card types.)",
+  "facets": [
+   "col:none",
+   "eff:exile-graveyard",
+   "kw:imprint",
+   "mv:big",
+   "rec:partial",
+   "sub:golem",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gerrard's Wisdom",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}",
+  "rank": 27581,
+  "text": "You gain 2 life for each card in your hand.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Abyssal Nightstalker",
+  "type": "Creature — Nightstalker",
+  "cost": "{3}{B}",
+  "rank": 27584,
+  "text": "Whenever this creature attacks and isn't blocked, defending player discards a card.",
+  "facets": [
+   "eff:discard",
+   "sub:nightstalker",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sphere of Law",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 27585,
+  "text": "If a red source would deal damage to you, prevent 2 of that damage.",
+  "facets": [
+   "cares:color:r",
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Order of the White Shield",
+  "type": "Creature — Human Knight",
+  "cost": "{W}{W}",
+  "rank": 27587,
+  "text": "Protection from black\n{W}: This creature gains first strike until end of turn.\n{W}{W}: This creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flesh Allergy",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 27592,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nDestroy target creature. Its controller loses life equal to the number of creatures that died this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:destroy",
+   "eff:lose-life",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Prophecy",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 27593,
+  "text": "Reveal the top card of target opponent's library. If it's a land, you gain 1 life. Then that player shuffles.\nDraw a card at the beginning of the next turn's upkeep.",
+  "facets": [
+   "eff:draw",
+   "eff:gain-life",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Necromancer's Familiar",
+  "type": "Creature — Bird Spirit",
+  "cost": "{3}{B}",
+  "rank": 27595,
+  "text": "Flying\nHellbent — This creature has lifelink as long as you have no cards in hand.\n{B}, Discard a card: This creature gains indestructible until end of turn. Tap it.",
+  "facets": [
+   "acost:1",
+   "cares:zone:hand",
+   "cost:discard",
+   "eff:pump",
+   "eff:tap-own",
+   "grants:indestructible",
+   "grants:lifelink",
+   "kw:flying",
+   "kw:hellbent",
+   "kw:indestructible",
+   "kw:lifelink",
+   "rec:full",
+   "sub:bird",
+   "sub:bird spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Circle of Solace",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 27600,
+  "text": "As this enchantment enters, choose a creature type.\n{1}{W}: The next time a creature of the chosen type would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:2",
+   "cares:sub:chosen",
+   "eff:choose",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Soul Kiss",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 27602,
+  "text": "Enchant creature\n{B}, Pay 1 life: Enchanted creature gets +2/+2 until end of turn. Activate no more than three times each turn.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:life",
+   "eff:attach",
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Zealous Strike",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 27603,
+  "text": "Target creature gets +2/+2 and gains first strike until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Topan Freeblade",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 27604,
+  "text": "Vigilance (Attacking doesn't cause this creature to tap.)\nRenown 1 (When this creature deals combat damage to a player, if it isn't renowned, put a +1/+1 counter on it and it becomes renowned.)",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:renown",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Visions",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 27608,
+  "text": "Look at the top five cards of target player's library. You may then have that player shuffle that library.",
+  "facets": [
+   "cares:zone:library",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Benevolent Ancestor",
+  "type": "Creature — Spirit",
+  "cost": "{2}{W}",
+  "rank": 27610,
+  "text": "Defender (This creature can't attack.)\n{T}: Prevent the next 1 damage that would be dealt to any target this turn.",
+  "facets": [
+   "acost:1",
+   "kw:defender",
+   "rec:partial",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Anoint",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 27613,
+  "text": "Buyback {3} (You may pay an additional {3} as you cast this spell. If you do, put this card into your hand as it resolves.)\nPrevent the next 3 damage that would be dealt to target creature this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:buyback",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Tethered Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{W}",
+  "rank": 27615,
+  "text": "Flying\nWhen you control no enchantments, sacrifice this creature.",
+  "facets": [
+   "cares:type:enchantment",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kithkin Zealot",
+  "type": "Creature — Kithkin Cleric",
+  "cost": "{1}{W}",
+  "rank": 27618,
+  "text": "When this creature enters, you gain 1 life for each black and/or red permanent target opponent controls.",
+  "facets": [
+   "cares:color:r",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:kithkin",
+   "sub:kithkin cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arcane Omens",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 27620,
+  "text": "Converge — Target player discards X cards, where X is the number of colors of mana spent to cast this spell.",
+  "facets": [
+   "cares:mana-spent",
+   "eff:discard",
+   "kw:converge",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Cateran Kidnappers",
+  "type": "Creature — Human Mercenary",
+  "cost": "{2}{B}{B}",
+  "rank": 27621,
+  "text": "{3}, {T}: Search your library for a Mercenary permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:mercenary",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human mercenary",
+   "sub:mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Culling Sun",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}{B}",
+  "rank": 27622,
+  "text": "Destroy each creature with mana value 3 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Juzám Djinn",
+  "type": "Creature — Djinn",
+  "cost": "{2}{B}{B}",
+  "rank": 27624,
+  "text": "At the beginning of your upkeep, this creature deals 1 damage to you.",
+  "facets": [
+   "eff:damage-self",
+   "pt:big",
+   "rec:full",
+   "sub:djinn",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Weight of the Underworld",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 27625,
+  "text": "Enchant creature\nEnchanted creature gets -3/-2.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mind Ravel",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 27626,
+  "text": "Target player discards a card.\nDraw a card at the beginning of the next turn's upkeep.",
+  "facets": [
+   "eff:discard",
+   "eff:draw",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mightstone",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 27629,
+  "text": "Attacking creatures get +1/+0.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Mausoleum Turnkey",
+  "type": "Creature — Ogre Rogue",
+  "cost": "{3}{B}",
+  "rank": 27636,
+  "text": "When this creature enters, return target creature card of an opponent's choice from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "sub:ogre",
+   "sub:ogre rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Time of Heroes",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 27638,
+  "text": "Each creature you control with a level counter on it gets +2/+2.",
+  "facets": [
+   "ctr:level",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bleak Coven Vampires",
+  "type": "Creature — Vampire Warrior",
+  "cost": "{3}{B}{B}",
+  "rank": 27640,
+  "text": "Metalcraft — When this creature enters, if you control three or more artifacts, target player loses 4 life and you gain 4 life.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:metalcraft",
+   "rec:full",
+   "sub:vampire",
+   "sub:vampire warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cateran Slaver",
+  "type": "Creature — Horror Mercenary",
+  "cost": "{4}{B}{B}",
+  "rank": 27641,
+  "text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\n{5}, {T}: Search your library for a Mercenary permanent card with mana value 5 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:mercenary",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:search-library",
+   "kw:landwalk",
+   "kw:swampwalk",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:horror mercenary",
+   "sub:mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Crimson Acolyte",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 27642,
+  "text": "Protection from red\n{W}: Target creature gains protection from red until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:color:r",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:protection",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thran Tome",
+  "type": "Artifact — Book",
+  "cost": "{4}",
+  "rank": 27646,
+  "text": "{5}, {T}: Reveal the top three cards of your library. Target opponent chooses one of those cards. Put that card into your graveyard, then draw two cards.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "sub:book",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dungeon Shade",
+  "type": "Creature — Shade Spirit",
+  "cost": "{3}{B}",
+  "rank": 27647,
+  "text": "Flying\n{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:shade",
+   "sub:shade spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scalding Cauldron",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 27649,
+  "text": "{3}, {T}, Sacrifice this artifact: It deals 3 damage to target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gate Hound",
+  "type": "Creature — Dog",
+  "cost": "{2}{W}",
+  "rank": 27650,
+  "text": "Creatures you control have vigilance as long as this creature is enchanted.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "grants:vigilance",
+   "kw:vigilance",
+   "scope:all",
+   "sub:dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Winter Soldier, Bucky Barnes",
+  "type": "Legendary Creature — Human Soldier Hero",
+  "cost": "{W}",
+  "rank": 27653,
+  "text": "Winter Soldier enters tapped.",
+  "facets": [
+   "cares:sub:soldier",
+   "mv:cheap",
+   "rec:full",
+   "sub:hero",
+   "sub:human",
+   "sub:human soldier hero",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Weakness",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 27655,
+  "text": "Enchant creature\nEnchanted creature gets -2/-1.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Emissary of Sunrise",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 27661,
+  "text": "First strike\nWhen this creature enters, it explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:explore",
+   "kw:first strike",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bloodtallow Candle",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 27663,
+  "text": "{6}, {T}, Sacrifice this artifact: Target creature gets -5/-5 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Raft Security Officer",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 27665,
+  "text": "{2}, {T}: Tap target creature. This ability costs {1} less to activate if it targets a creature with power 3 or less.",
+  "facets": [
+   "acost:2",
+   "cares:power",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eager First-Year",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 27668,
+  "text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, this creature gets +1/+0 until end of turn.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "kw:magecraft",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dapper Shieldmate",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 27671,
+  "text": "This creature enters with a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nDuring your turn, this creature gets +2/+0.",
+  "facets": [
+   "ctr:shield",
+   "eff:add-counters",
+   "eff:pump",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Droning Bureaucrats",
+  "type": "Creature — Human Advisor",
+  "cost": "{3}{W}",
+  "rank": 27672,
+  "text": "{X}, {T}: Each creature with mana value X can't attack or block this turn.",
+  "facets": [
+   "acost:1",
+   "acost:x",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dromoka Dunecaster",
+  "type": "Creature — Human Wizard",
+  "cost": "{W}",
+  "rank": 27673,
+  "text": "{1}{W}, {T}: Tap target creature without flying.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Suppress",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 27677,
+  "text": "Target player exiles all cards from their hand face down. At the beginning of the end step of that player's next turn, that player returns those cards to their hand.",
+  "facets": [
+   "cares:zone:hand",
+   "type:sorcery"
+  ]
+ }
+]

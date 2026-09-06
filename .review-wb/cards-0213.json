@@ -1,0 +1,848 @@
+[
+ {
+  "name": "Cursed Scroll",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 26954,
+  "text": "{3}, {T}: Choose a card name, then reveal a card at random from your hand. If that card has the chosen name, this artifact deals 2 damage to any target.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:damage",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Armor Thrull",
+  "type": "Creature — Thrull",
+  "cost": "{2}{B}",
+  "rank": 26955,
+  "text": "{T}, Sacrifice this creature: Put a +1/+2 counter on target creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "ctr:+1/+2",
+   "eff:add-counters",
+   "rec:full",
+   "sub:thrull",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Devout Harpist",
+  "type": "Creature — Human",
+  "cost": "{W}",
+  "rank": 26960,
+  "text": "{T}: Destroy target Aura attached to a creature.",
+  "facets": [
+   "acost:1",
+   "cares:sub:aura",
+   "eff:destroy",
+   "mv:cheap",
+   "sub:human",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hipparion",
+  "type": "Creature — Horse",
+  "cost": "{1}{W}",
+  "rank": 26962,
+  "text": "This creature can't block creatures with power 3 or greater unless you pay {1}.",
+  "facets": [
+   "eff:cant-block-self",
+   "mv:cheap",
+   "sub:horse",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hunger of the Nim",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 26963,
+  "text": "Target creature gets +1/+0 until end of turn for each artifact you control.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Echoes of the Kin Tree",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 26964,
+  "text": "{2}{W}: Bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:bolster",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ghoulcaller's Accomplice",
+  "type": "Creature — Human Rogue",
+  "cost": "{1}{B}",
+  "rank": 26966,
+  "text": "{3}{B}, Exile this card from your graveyard: Create a 2/2 black Zombie creature token. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cost:exile-self",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "tok:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Imperial Mask",
+  "type": "Enchantment",
+  "cost": "{4}{W}",
+  "rank": 26967,
+  "text": "When this enchantment enters, if it's not a token, each of your teammates creates a token that's a copy of this enchantment.\nYou have hexproof. (You can't be the target of spells or abilities your opponents control.)",
+  "facets": [
+   "eff:copy",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Glory Seeker",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 26968,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nightsquad Commando",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{B}",
+  "rank": 26970,
+  "text": "When this creature enters, if you attacked this turn, create a 1/1 white Human Soldier creature token.",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:soldier",
+   "eff:create-token",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:human",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Painful Memories",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 26971,
+  "text": "Look at target opponent's hand and choose a card from it. Put that card on top of that player's library.",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:move-zone",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ethereal Guidance",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 26978,
+  "text": "Creatures you control get +2/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Scars of the Veteran",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 26982,
+  "text": "You may exile a white card from your hand rather than pay this spell's mana cost.\nPrevent the next 7 damage that would be dealt to any target this turn. If it's a creature, put a +0/+1 counter on it for each 1 damage prevented this way at the beginning of the next end step.",
+  "facets": [
+   "cares:color:w",
+   "eff:add-counters",
+   "eff:prevent-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Elspeth's Devotee",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}{W}",
+  "rank": 26983,
+  "text": "When this creature enters, you may search your library and/or graveyard for a card named Elspeth, Undaunted Hero, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+  "facets": [
+   "cares:sub:hero",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soultether Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{2}",
+  "rank": 26984,
+  "text": "Vanishing 1 (This creature enters with a time counter on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhenever another creature you control enters, put a time counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "ctr:time-self",
+   "eff:add-counters-self",
+   "kw:vanishing",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:golem",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cateran Enforcer",
+  "type": "Creature — Horror Mercenary",
+  "cost": "{3}{B}{B}",
+  "rank": 26988,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\n{4}, {T}: Search your library for a Mercenary permanent card with mana value 4 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:mercenary",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:search-library",
+   "kw:fear",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:horror mercenary",
+   "sub:mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rune of Protection: Artifacts",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 26994,
+  "text": "{W}: The next time an artifact source of your choice would deal damage to you this turn, prevent that damage.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:type:artifact",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Windgrace Acolyte",
+  "type": "Creature — Cat Warrior",
+  "cost": "{4}{B}",
+  "rank": 26995,
+  "text": "Flying\nWhen this creature enters, mill three cards and you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:mill",
+   "kw:flying",
+   "kw:mill",
+   "rec:full",
+   "sub:cat",
+   "sub:cat warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sinstriker's Will",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{W}",
+  "rank": 26998,
+  "text": "Enchant creature\nEnchanted creature has \"{T}: This creature deals damage equal to its power to target attacking or blocking creature.\"",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Wooden Sphere",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 27003,
+  "text": "Whenever a player casts a green spell, you may pay {1}. If you do, you gain 1 life.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bloodcurdler",
+  "type": "Creature — Horror",
+  "cost": "{1}{B}",
+  "rank": 27007,
+  "text": "Flying\nAt the beginning of your upkeep, mill a card.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has \"At the beginning of your end step, exile two cards from your graveyard.\"",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:mill",
+   "kw:flying",
+   "kw:mill",
+   "kw:threshold",
+   "mv:cheap",
+   "rec:partial",
+   "sub:horror",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angel of Retribution",
+  "type": "Creature — Angel",
+  "cost": "{6}{W}",
+  "rank": 27009,
+  "text": "Flying, first strike",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon Engine",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 27010,
+  "text": "{2}: This creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:pump",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unassuming Sage",
+  "type": "Creature — Human Peasant Wizard",
+  "cost": "{1}{W}",
+  "rank": 27012,
+  "text": "When this creature enters, you may pay {2}. If you do, create a Sorcerer Role token attached to it. (Enchanted creature gets +1/+1 and has \"Whenever this creature attacks, scry 1.\")",
+  "facets": [
+   "cares:sub:role",
+   "eff:scry",
+   "kw:role token",
+   "kw:scry",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human peasant wizard",
+   "sub:peasant",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pin Collection",
+  "type": "Artifact — Equipment",
+  "cost": "{X}{W}",
+  "rank": 27014,
+  "text": "When this Equipment enters, you may put an ability sticker with ticket cost X or less on it without paying that sticker's ticket cost.\nEquipped creature gets +1/+1 and has all abilities of ability stickers on this Equipment.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dread Rider",
+  "type": "Creature — Spirit Knight",
+  "cost": "{5}{B}",
+  "rank": 27016,
+  "text": "{1}{B}, {T}, Exile a creature card from your graveyard: Target opponent loses 3 life.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "cost:tap",
+   "eff:lose-life",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:knight",
+   "sub:spirit",
+   "sub:spirit knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Riot Gear",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 27017,
+  "text": "Equipped creature gets +1/+2.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Urza's Avenger",
+  "type": "Artifact Creature — Shapeshifter",
+  "cost": "{6}",
+  "rank": 27020,
+  "text": "{0}: This creature gets -1/-1 and gains your choice of banding, flying, first strike, or trample until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "grants:flying",
+   "kw:flying",
+   "mv:big",
+   "sub:shapeshifter",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Radiant Epicure",
+  "type": "Creature — Vampire Wizard",
+  "cost": "{4}{B}",
+  "rank": 27033,
+  "text": "Converge — When this creature enters, each opponent loses X life and you gain X life, where X is the number of colors of mana spent to cast this spell.",
+  "facets": [
+   "cares:mana-spent",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:converge",
+   "pt:big",
+   "rec:partial",
+   "sub:vampire",
+   "sub:vampire wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Setessan Battle Priest",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 27035,
+  "text": "Heroic — Whenever you cast a spell that targets this creature, you gain 2 life.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:gain-life",
+   "kw:heroic",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Henge of Ramos",
+  "type": "Land",
+  "cost": "",
+  "rank": 27040,
+  "text": "{T}: Add {C}.\n{2}, {T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Doom Cannon",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 27042,
+  "text": "As this artifact enters, choose a creature type.\n{3}, {T}, Sacrifice a creature of the chosen type: This artifact deals 3 damage to any target.",
+  "facets": [
+   "cares:sub:chosen",
+   "col:none",
+   "eff:choose",
+   "eff:damage",
+   "mv:big",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Resupply",
+  "type": "Instant",
+  "cost": "{5}{W}",
+  "rank": 27044,
+  "text": "You gain 6 life.\nDraw a card.",
+  "facets": [
+   "eff:draw",
+   "eff:gain-life",
+   "mv:big",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kjeldoran Gargoyle",
+  "type": "Creature — Gargoyle",
+  "cost": "{5}{W}",
+  "rank": 27046,
+  "text": "Flying, first strike\nWhenever this creature deals damage, you gain that much life.",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:gargoyle",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "School of the Unseen",
+  "type": "Land",
+  "cost": "",
+  "rank": 27050,
+  "text": "{T}: Add {C}.\n{2}, {T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Bog Imp",
+  "type": "Creature — Imp",
+  "cost": "{1}{B}",
+  "rank": 27052,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mental Agony",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 27053,
+  "text": "Target player discards two cards and loses 2 life.",
+  "facets": [
+   "eff:discard",
+   "eff:lose-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Screeching Buzzard",
+  "type": "Creature — Bird",
+  "cost": "{3}{B}",
+  "rank": 27055,
+  "text": "Flying\nWhen this creature dies, each opponent discards a card.",
+  "facets": [
+   "eff:discard",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hand of Death",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 27056,
+  "text": "Destroy target nonblack creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Veteran's Sidearm",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 27059,
+  "text": "Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Wicked Akuba",
+  "type": "Creature — Spirit",
+  "cost": "{B}{B}",
+  "rank": 27064,
+  "text": "{B}: Target player dealt damage by this creature this turn loses 1 life.",
+  "facets": [
+   "acost:1",
+   "eff:lose-life",
+   "mv:cheap",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gargoyle Sentinel",
+  "type": "Artifact Creature — Gargoyle",
+  "cost": "{3}",
+  "rank": 27065,
+  "text": "Defender (This creature can't attack.)\n{3}: Until end of turn, this creature loses defender and gains flying.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "grants:flying",
+   "kw:defender",
+   "kw:flying",
+   "rec:partial",
+   "sub:gargoyle",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phalanx Vanguard",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 27066,
+  "text": "Vigilance\nWhenever an artifact you control enters, this creature gets +1/+0 until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:pump",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dunerider Outlaw",
+  "type": "Creature — Human Rebel Rogue",
+  "cost": "{B}{B}",
+  "rank": 27070,
+  "text": "Protection from green\nAt the beginning of each end step, if this creature dealt damage to an opponent this turn, put a +1/+1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human rebel rogue",
+   "sub:rebel",
+   "sub:rogue",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Daring Demolition",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 27071,
+  "text": "Destroy target creature or Vehicle.",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Barl's Cage",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 27072,
+  "text": "{3}: Target creature doesn't untap during its controller's next untap step.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Aeolipile",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 27073,
+  "text": "{1}, {T}, Sacrifice this artifact: It deals 2 damage to any target.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Odunos River Trawler",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 27076,
+  "text": "When this creature enters, return target enchantment creature card from your graveyard to your hand.\n{W}, Sacrifice this creature: Return target enchantment creature card from your graveyard to your hand.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "cost:sacrifice-self",
+   "eff:return-from",
+   "rec:full",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mourner's Shield",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 27078,
+  "text": "Imprint — When this artifact enters, you may exile target card from a graveyard.\n{2}, {T}: Prevent all damage that would be dealt this turn by a source of your choice that shares a color with the exiled card.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:exile-graveyard",
+   "kw:imprint",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Aven Warcraft",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 27080,
+  "text": "Creatures you control get +0/+2 until end of turn.\nThreshold — If there are seven or more cards in your graveyard, choose a color. Creatures you control also gain protection from the chosen color until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "kw:threshold",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ }
+]

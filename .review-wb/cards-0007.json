@@ -1,0 +1,912 @@
+[
+ {
+  "name": "Urza's Tower",
+  "type": "Land — Urza's Tower",
+  "cost": "",
+  "rank": 840,
+  "text": "{T}: Add {C}. If you control an Urza's Mine and an Urza's Power-Plant, add {C}{C}{C} instead.",
+  "facets": [
+   "acost:0",
+   "cares:sub:urza's",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:tower",
+   "sub:urza's",
+   "sub:urza's tower",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Tainted Pact",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 842,
+  "text": "Exile the top card of your library. You may put that card into your hand unless it has the same name as another card exiled this way. Repeat this process until you put a card into your hand or you exile two cards with the same name, whichever comes first.",
+  "facets": [
+   "cares:zone:library",
+   "eff:search-library",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Murder",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 843,
+  "text": "Destroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ayara, First of Locthwain",
+  "type": "Legendary Creature — Elf Noble",
+  "cost": "{B}{B}{B}",
+  "rank": 846,
+  "text": "Whenever Ayara or another black creature you control enters, each opponent loses 1 life and you gain 1 life.\n{T}, Sacrifice another black creature: Draw a card.",
+  "facets": [
+   "acost:0",
+   "cares:color:b",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:full",
+   "scope:all",
+   "sub:elf",
+   "sub:elf noble",
+   "sub:noble",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bitter Triumph",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 847,
+  "text": "As an additional cost to cast this spell, discard a card or pay 3 life.\nDestroy target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nadier's Nightblade",
+  "type": "Creature — Elf Warrior",
+  "cost": "{2}{B}",
+  "rank": 849,
+  "text": "Whenever a token you control leaves the battlefield, each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:lose-life",
+   "sub:elf",
+   "sub:elf warrior",
+   "sub:warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boromir, Warden of the Tower",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 851,
+  "text": "Vigilance\nWhenever an opponent casts a spell, if no mana was spent to cast it, counter that spell.\nSacrifice Boromir: Creatures you control gain indestructible until end of turn. The Ring tempts you.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "cost:sacrifice-self",
+   "eff:counter",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "kw:vigilance",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bloodletter of Aclazotz",
+  "type": "Creature — Vampire Demon",
+  "cost": "{1}{B}{B}{B}",
+  "rank": 852,
+  "text": "Flying\nIf an opponent would lose life during your turn, they lose twice that much life instead. (Damage causes loss of life.)",
+  "facets": [
+   "eff:multiply",
+   "kw:flying",
+   "rec:partial",
+   "sub:demon",
+   "sub:vampire",
+   "sub:vampire demon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Urza's Mine",
+  "type": "Land — Urza's Mine",
+  "cost": "",
+  "rank": 853,
+  "text": "{T}: Add {C}. If you control an Urza's Power-Plant and an Urza's Tower, add {C}{C} instead.",
+  "facets": [
+   "acost:0",
+   "cares:sub:urza's",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:mine",
+   "sub:urza's",
+   "sub:urza's mine",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Urza's Power Plant",
+  "type": "Land — Urza's Power-Plant",
+  "cost": "",
+  "rank": 857,
+  "text": "{T}: Add {C}. If you control an Urza's Mine and an Urza's Tower, add {C}{C} instead.",
+  "facets": [
+   "acost:0",
+   "cares:sub:urza's",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:power-plant",
+   "sub:urza's",
+   "sub:urza's power-plant",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Elesh Norn, Grand Cenobite",
+  "type": "Legendary Creature — Phyrexian Praetor",
+  "cost": "{5}{W}{W}",
+  "rank": 858,
+  "text": "Vigilance\nOther creatures you control get +2/+2.\nCreatures your opponents control get -2/-2.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:phyrexian",
+   "sub:phyrexian praetor",
+   "sub:praetor",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bloodthirsty Conqueror",
+  "type": "Creature — Vampire Knight",
+  "cost": "{3}{B}{B}",
+  "rank": 859,
+  "text": "Flying, deathtouch\nWhenever an opponent loses life, you gain that much life. (Damage causes loss of life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:deathtouch",
+   "kw:flying",
+   "pt:big",
+   "rec:partial",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Heraldic Banner",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 861,
+  "text": "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+0.\n{T}: Add one mana of the chosen color.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:add-mana",
+   "eff:choose",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "The Mycosynth Gardens",
+  "type": "Land — Sphere",
+  "cost": "",
+  "rank": 862,
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{X}, {T}: This land becomes a copy of target nontoken artifact you control with mana value X.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "acost:x",
+   "cares:type:artifact",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:sphere",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Breach the Multiverse",
+  "type": "Sorcery",
+  "cost": "{5}{B}{B}",
+  "rank": 866,
+  "text": "Each player mills ten cards. For each player, choose a creature or planeswalker card in that player's graveyard. Put those cards onto the battlefield under your control. Then each creature you control becomes a Phyrexian in addition to its other types.",
+  "facets": [
+   "cares:sub:phyrexian",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:mill",
+   "eff:return-from",
+   "kw:mill",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Scrap Trawler",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 868,
+  "text": "Whenever this creature dies or another artifact you control is put into a graveyard from the battlefield, return to your hand target artifact card in your graveyard with lesser mana value.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:return-from",
+   "sub:construct",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tragic Slip",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 871,
+  "text": "Target creature gets -1/-1 until end of turn.\nMorbid — That creature gets -13/-13 until end of turn instead if a creature died this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:morbid",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Beseech the Mirror",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}{B}",
+  "rank": 874,
+  "text": "Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)\nSearch your library for a card, exile it face down, then shuffle. If this spell was bargained, you may cast the exiled card without paying its mana cost if that spell's mana value is 4 or less. Put the exiled card into your hand if it wasn't cast this way.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:type:token",
+   "cares:zone:exile",
+   "cost:sacrifice",
+   "eff:cast-free",
+   "eff:search-library",
+   "kw:bargain",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Myr Retriever",
+  "type": "Artifact Creature — Myr",
+  "cost": "{2}",
+  "rank": 875,
+  "text": "When this creature dies, return another target artifact card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "sub:myr",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Demonic Consultation",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 876,
+  "text": "Choose a card name. Exile the top six cards of your library, then reveal cards from the top of your library until you reveal a card with the chosen name. Put that card into your hand and exile all other cards revealed this way.",
+  "facets": [
+   "cares:zone:library",
+   "eff:search-library",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Throne of Eldraine",
+  "type": "Legendary Artifact",
+  "cost": "{5}",
+  "rank": 878,
+  "text": "As Throne of Eldraine enters, choose a color.\n{T}: Add four mana of the chosen color. Spend this mana only to cast monocolored spells of that color.\n{3}, {T}: Draw two cards. Spend only mana of the chosen color to activate this ability.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:choose",
+   "eff:draw",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Lotus Field",
+  "type": "Land",
+  "cost": "",
+  "rank": 881,
+  "text": "Hexproof\nThis land enters tapped.\nWhen this land enters, sacrifice two lands.\n{T}: Add three mana of any one color.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:sacrifice",
+   "kw:hexproof",
+   "mana:3",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Witch's Cottage",
+  "type": "Land — Swamp",
+  "cost": "",
+  "rank": 884,
+  "text": "({T}: Add {B}.)\nThis land enters tapped unless you control three or more other Swamps.\nWhen this land enters untapped, you may put target creature card from your graveyard on top of your library.",
+  "facets": [
+   "cares:sub:swamp",
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:add-mana",
+   "eff:move-zone",
+   "eff:return-from",
+   "mana:1",
+   "rec:partial",
+   "sub:swamp",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ojer Taq, Deepest Foundation // Temple of Civilization",
+  "type": "Legendary Creature — God // Land",
+  "cost": "",
+  "rank": 887,
+  "text": "Vigilance\nIf one or more creature tokens would be created under your control, three times that many of those tokens are created instead.\nWhen Ojer Taq dies, return it to the battlefield tapped and transformed under its owner's control.\n//\n(Transforms from Ojer Taq, Deepest Foundation.)\n{T}: Add {W}.\n{2}{W}, {T}: Transform this land. Activate only if you attacked with three or more creatures this turn and only as a sorcery.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:type:creature",
+   "cares:type:token",
+   "kw:transform",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:god",
+   "trig:dies",
+   "type:creature",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Grim Hireling",
+  "type": "Creature — Tiefling Rogue",
+  "cost": "{3}{B}",
+  "rank": 891,
+  "text": "Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.\n{B}, Sacrifice X Treasures: Target creature gets -X/-X until end of turn. Activate only as a sorcery.",
+  "facets": [
+   "acost:1",
+   "cares:sub:treasure",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:create-token",
+   "eff:shrink",
+   "kw:treasure",
+   "rec:partial",
+   "scope:all",
+   "sub:rogue",
+   "sub:tiefling",
+   "sub:tiefling rogue",
+   "tok:treasure",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thousand-Year Elixir",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 892,
+  "text": "You may activate abilities of creatures you control as though those creatures had haste.\n{1}, {T}: Untap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:untap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Field of Ruin",
+  "type": "Land",
+  "cost": "",
+  "rank": 895,
+  "text": "{T}: Add {C}.\n{2}, {T}, Sacrifice this land: Destroy target nonbasic land an opponent controls. Each player searches their library for a basic land card, puts it onto the battlefield, then shuffles.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:destroy",
+   "eff:search-library",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Sword of Hearth and Home",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 898,
+  "text": "Equipped creature gets +2/+2 and has protection from green and from white.\nWhenever equipped creature deals combat damage to a player, exile up to one target creature you own, then search your library for a basic land card. Put both cards onto the battlefield under your control, then shuffle.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:color:w",
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "col:none",
+   "eff:attach",
+   "eff:search-library",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Forsaken Monument",
+  "type": "Legendary Artifact",
+  "cost": "{5}",
+  "rank": 899,
+  "text": "Colorless creatures you control get +2/+2.\nWhenever you tap a permanent for {C}, add an additional {C}.\nWhenever you cast a colorless spell, you gain 2 life.",
+  "facets": [
+   "cares:color:c",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "eff:gain-life",
+   "eff:pump",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Reconnaissance",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 900,
+  "text": "{0}: Remove target attacking creature you control from combat and untap it. (If you activate during end of combat, the creature will untap after it deals combat damage.)",
+  "facets": [
+   "acost:0",
+   "eff:untap",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Spirited Companion",
+  "type": "Enchantment Creature — Dog",
+  "cost": "{1}{W}",
+  "rank": 906,
+  "text": "When this creature enters, draw a card.",
+  "facets": [
+   "eff:draw",
+   "mv:cheap",
+   "rec:full",
+   "sub:dog",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Blade of Selves",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 907,
+  "text": "Equipped creature has myriad. (Whenever it attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "grants:myriad",
+   "kw:equip",
+   "kw:myriad",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Zuran Orb",
+  "type": "Artifact",
+  "cost": "{0}",
+  "rank": 911,
+  "text": "Sacrifice a land: You gain 2 life.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "col:none",
+   "cost:sacrifice",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Excalibur, Sword of Eden",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{12}",
+  "rank": 912,
+  "text": "This spell costs {X} less to cast, where X is the total mana value of historic permanents you control. (Artifacts, legendaries, and Sagas are historic.)\nEquipped creature gets +10/+0 and has vigilance.\nEquip legendary creature {2}",
+  "facets": [
+   "col:none",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "mv:big",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Buster Sword",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 913,
+  "text": "Equipped creature gets +3/+2.\nWhenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:cast-free",
+   "eff:pump",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Myr Battlesphere",
+  "type": "Artifact Creature — Myr Construct",
+  "cost": "{7}",
+  "rank": 916,
+  "text": "When this creature enters, create four 1/1 colorless Myr artifact creature tokens.\nWhenever this creature attacks, you may tap X untapped Myr you control. If you do, this creature gets +X/+0 until end of turn and deals X damage to the player or planeswalker it's attacking.",
+  "facets": [
+   "cares:sub:myr",
+   "cares:type:planeswalker",
+   "col:none",
+   "eff:create-token",
+   "eff:damage",
+   "mv:big",
+   "rec:partial",
+   "sub:construct",
+   "sub:myr",
+   "sub:myr construct",
+   "tok:myr",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Caged Sun",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 917,
+  "text": "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+1.\nWhenever a land's ability causes you to add one or more mana of the chosen color, add an additional one mana of that color.",
+  "facets": [
+   "col:none",
+   "eff:add-mana",
+   "eff:choose",
+   "mv:big",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Darksteel Plate",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 918,
+  "text": "Indestructible\nEquipped creature has indestructible.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "grants:indestructible",
+   "kw:equip",
+   "kw:indestructible",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Fountainport",
+  "type": "Land",
+  "cost": "",
+  "rank": 925,
+  "text": "{T}: Add {C}.\n{2}, {T}, Sacrifice a token: Draw a card.\n{3}, {T}, Pay 1 life: Create a 1/1 blue Fish creature token.\n{4}, {T}: Create a Treasure token.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "acost:3",
+   "cares:type:token",
+   "cost:life",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "eff:draw",
+   "kw:treasure",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "tok:fish",
+   "tok:treasure",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Vesuva",
+  "type": "Land",
+  "cost": "",
+  "rank": 926,
+  "text": "You may have this land enter tapped as a copy of any land on the battlefield.",
+  "facets": [
+   "eff:copy",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Dismember",
+  "type": "Instant",
+  "cost": "{1}{B/P}{B/P}",
+  "rank": 928,
+  "text": "({B/P} can be paid with either {B} or 2 life.)\nTarget creature gets -5/-5 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Desolate Mire",
+  "type": "Land",
+  "cost": "",
+  "rank": 930,
+  "text": "{1}, {T}: Add {W}{B}.",
+  "facets": [
+   "acost:1",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Bastion Protector",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 935,
+  "text": "Commander creatures you control get +2/+2 and have indestructible.",
+  "facets": [
+   "cares:commander",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dusk // Dawn",
+  "type": "Sorcery // Sorcery",
+  "cost": "{2}{W}{W} // {3}{W}{W}",
+  "rank": 941,
+  "text": "Destroy all creatures with power 3 or greater.\n//\nAftermath (Cast this spell only from your graveyard. Then exile it.)\nReturn all creature cards with power 2 or less from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "kw:aftermath",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Coat of Arms",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 942,
+  "text": "Each creature gets +1/+1 for each other creature on the battlefield that shares at least one creature type with it. (For example, if two Goblin Warriors and a Goblin Shaman are on the battlefield, each gets +2/+2.)",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:pump",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Phyrexian Reclamation",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 948,
+  "text": "{1}{B}, Pay 2 life: Return target creature card from your graveyard to your hand.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:life",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Promise of Loyalty",
+  "type": "Sorcery",
+  "cost": "{4}{W}",
+  "rank": 949,
+  "text": "Each player puts a vow counter on a creature they control and sacrifices the rest. Each of those creatures can't attack you or planeswalkers you control for as long as it has a vow counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:add-counters",
+   "eff:cant-attack",
+   "eff:sacrifice",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Cruel Celebrant",
+  "type": "Creature — Vampire",
+  "cost": "{W}{B}",
+  "rank": 950,
+  "text": "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:vampire",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unearth",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 951,
+  "text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:return-from",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ichor Wellspring",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 954,
+  "text": "When this artifact enters or is put into a graveyard from the battlefield, draw a card.",
+  "facets": [
+   "col:none",
+   "eff:draw",
+   "mv:cheap",
+   "trig:dies",
+   "trig:enters",
+   "type:artifact"
+  ]
+ }
+]

@@ -1,0 +1,841 @@
+[
+ {
+  "name": "Skullmane Baku",
+  "type": "Creature — Spirit",
+  "cost": "{3}{B}{B}",
+  "rank": 27909,
+  "text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\n{1}, {T}, Remove X ki counters from this creature: Target creature gets -X/-X until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "cost:remove-counters",
+   "cost:tap",
+   "eff:shrink",
+   "rec:partial",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ersatz Gnomes",
+  "type": "Artifact Creature — Gnome",
+  "cost": "{3}",
+  "rank": 27911,
+  "text": "{T}: Target spell becomes colorless.\n{T}: Target permanent becomes colorless until end of turn.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "sub:gnome",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hope Charm",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 27914,
+  "text": "Choose one —\n• Target creature gains first strike until end of turn.\n• Target player gains 2 life.\n• Destroy target Aura.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Delif's Cube",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 27915,
+  "text": "{2}, {T}: This turn, when target creature you control attacks and isn't blocked, it assigns no combat damage this turn and you put a cube counter on this artifact.\n{2}, Remove a cube counter from this artifact: Regenerate target creature.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "kw:regenerate",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Obsidian Acolyte",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 27916,
+  "text": "Protection from black\n{W}: Target creature gains protection from black until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:protection",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cloak of Confusion",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 27925,
+  "text": "Enchant creature you control\nWhenever enchanted creature attacks and isn't blocked, you may have it assign no combat damage this turn. If you do, defending player discards a card at random.",
+  "facets": [
+   "eff:discard",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Halo Hunter",
+  "type": "Creature — Demon",
+  "cost": "{2}{B}{B}{B}",
+  "rank": 27929,
+  "text": "Intimidate (This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhen this creature enters, destroy target Angel.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:intimidate",
+   "pt:big",
+   "rec:full",
+   "sub:demon",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Krovikan Vampire",
+  "type": "Creature — Vampire",
+  "cost": "{3}{B}{B}",
+  "rank": 27930,
+  "text": "At the beginning of each end step, if a creature dealt damage by this creature this turn died, put that card onto the battlefield under your control. Sacrifice it when you lose control of this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "sub:vampire",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Goldmaw Champion",
+  "type": "Creature — Dwarf Warrior",
+  "cost": "{2}{W}",
+  "rank": 27934,
+  "text": "Boast — {1}{W}: Tap target creature. (Activate only if this creature attacked this turn and only once each turn.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:tap",
+   "kw:boast",
+   "rec:full",
+   "sub:dwarf",
+   "sub:dwarf warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Enduring Victory",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 27941,
+  "text": "Destroy target attacking or blocking creature. Bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:destroy",
+   "kw:bolster",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Phyrexian Broodlings",
+  "type": "Creature — Phyrexian Minion",
+  "cost": "{1}{B}{B}",
+  "rank": 27943,
+  "text": "{1}, Sacrifice a creature: Put a +1/+1 counter on this creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "scope:all",
+   "sub:minion",
+   "sub:phyrexian",
+   "sub:phyrexian minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warlord's Axe",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 27953,
+  "text": "Equipped creature gets +3/+1.\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nyxborn Marauder",
+  "type": "Enchantment Creature — Minotaur",
+  "cost": "{2}{B}{B}",
+  "rank": 27955,
+  "text": "",
+  "facets": [
+   "sub:minotaur",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Nyxborn Courser",
+  "type": "Enchantment Creature — Centaur Scout",
+  "cost": "{1}{W}{W}",
+  "rank": 27957,
+  "text": "",
+  "facets": [
+   "sub:centaur",
+   "sub:centaur scout",
+   "sub:scout",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fend Off",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 27958,
+  "text": "Prevent all combat damage that would be dealt by target creature this turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Museum Nightwatch",
+  "type": "Creature — Centaur Soldier",
+  "cost": "{3}{W}",
+  "rank": 27974,
+  "text": "When this creature dies, create a 2/2 white and blue Detective creature token.\nDisguise {1}{W} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)",
+  "facets": [
+   "eff:create-token",
+   "kw:disguise",
+   "rec:partial",
+   "sub:centaur",
+   "sub:centaur soldier",
+   "sub:soldier",
+   "tok:detective",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unhinge",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 27981,
+  "text": "Target player discards a card.\nDraw a card.",
+  "facets": [
+   "eff:discard",
+   "eff:draw",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mind Extraction",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 27985,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nTarget player reveals their hand and discards all cards of each of the sacrificed creature's colors.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cost:sacrifice",
+   "eff:discard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Relic Ward",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 27988,
+  "text": "You may cast this spell as though it had flash. If you cast it any time a sorcery couldn't have been cast, the controller of the permanent it becomes sacrifices it at the beginning of the next cleanup step.\nEnchant artifact\nEnchanted artifact has shroud. (It can't be the target of spells or abilities.)",
+  "facets": [
+   "cares:type:artifact",
+   "eff:protect",
+   "grants:shroud",
+   "kw:enchant",
+   "kw:flash",
+   "kw:shroud",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Demonic Torment",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 27991,
+  "text": "Enchant creature\nEnchanted creature can't attack.\nPrevent all combat damage that would be dealt by enchanted creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:cant-attack",
+   "eff:prevent-damage",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Implements of Sacrifice",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 27992,
+  "text": "{1}, {T}, Sacrifice this artifact: Add two mana of any one color.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Fiend Binder",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 27995,
+  "text": "Whenever this creature attacks, tap target creature defending player controls.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Haunting Hymn",
+  "type": "Instant",
+  "cost": "{4}{B}{B}",
+  "rank": 27996,
+  "text": "Target player discards two cards. If you cast this spell during your main phase, that player discards four cards instead.",
+  "facets": [
+   "eff:discard",
+   "mv:big",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Vicious Hunger",
+  "type": "Sorcery",
+  "cost": "{B}{B}",
+  "rank": 27998,
+  "text": "Vicious Hunger deals 2 damage to target creature and you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Poisonbelly Ogre",
+  "type": "Creature — Ogre Warrior",
+  "cost": "{4}{B}",
+  "rank": 28001,
+  "text": "Whenever another creature enters, its controller loses 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:lose-life",
+   "rec:partial",
+   "scope:all",
+   "sub:ogre",
+   "sub:ogre warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mind Maggots",
+  "type": "Creature — Insect",
+  "cost": "{3}{B}",
+  "rank": 28004,
+  "text": "When this creature enters, discard any number of creature cards. For each card discarded this way, put two +1/+1 counters on this creature.",
+  "facets": [
+   "eff:add-counters-self",
+   "rec:partial",
+   "sub:insect",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seasoned Consultant",
+  "type": "Creature — Human Detective",
+  "cost": "{1}{W}",
+  "rank": 28008,
+  "text": "Whenever you attack with three or more creatures, this creature gets +2/+0 until end of turn.",
+  "facets": [
+   "mv:cheap",
+   "sub:detective",
+   "sub:human",
+   "sub:human detective",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stasis Cocoon",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 28009,
+  "text": "Enchant artifact\nEnchanted artifact can't attack or block, and its activated abilities can't be activated.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:cant-activate",
+   "eff:cant-attack",
+   "eff:cant-block",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Smolder Initiate",
+  "type": "Creature — Elemental Shaman",
+  "cost": "{B}",
+  "rank": 28014,
+  "text": "Whenever a player casts a black spell, you may pay {1}. If you do, target player loses 1 life.",
+  "facets": [
+   "cares:color:b",
+   "cares:zone:stack",
+   "eff:do-if-cost-paid",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:elemental",
+   "sub:elemental shaman",
+   "sub:shaman",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gempalm Avenger",
+  "type": "Creature — Human Soldier",
+  "cost": "{5}{W}",
+  "rank": 28019,
+  "text": "Cycling {2}{W} ({2}{W}, Discard this card: Draw a card.)\nWhen you cycle this card, Soldier creatures get +1/+1 and gain first strike until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:sub:soldier",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "mv:big",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Irini Sengir",
+  "type": "Legendary Creature — Vampire Dwarf",
+  "cost": "{2}{B}{B}",
+  "rank": 28020,
+  "text": "Green enchantment spells and white enchantment spells cost {2} more to cast.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:enchantment",
+   "eff:increase-cost",
+   "scope:all",
+   "sub:dwarf",
+   "sub:vampire",
+   "sub:vampire dwarf",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Court Cleric",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 28022,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nThis creature gets +1/+1 as long as you control an Ajani planeswalker.",
+  "facets": [
+   "cares:sub:ajani",
+   "cares:type:planeswalker",
+   "eff:pump",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shimmering Barrier",
+  "type": "Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 28027,
+  "text": "Defender (This creature can't attack.)\nFirst strike\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "kw:defender",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Oketra's Avenger",
+  "type": "Creature — Human Warrior",
+  "cost": "{1}{W}",
+  "rank": 28029,
+  "text": "You may exert this creature as it attacks. When you do, prevent all combat damage that would be dealt to it this turn. (An exerted creature won't untap during your next untap step.)",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:exert",
+   "mv:cheap",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Renegade Demon",
+  "type": "Creature — Demon",
+  "cost": "{3}{B}{B}",
+  "rank": 28030,
+  "text": "",
+  "facets": [
+   "pt:big",
+   "sub:demon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zanikev Locust",
+  "type": "Creature — Insect",
+  "cost": "{5}{B}",
+  "rank": 28031,
+  "text": "Flying\nScavenge {2}{B}{B} ({2}{B}{B}, Exile this card from your graveyard: Put a number of +1/+1 counters equal to this card's power on target creature. Scavenge only as a sorcery.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "cost:exile-self",
+   "eff:add-counters",
+   "kw:flying",
+   "kw:scavenge",
+   "mv:big",
+   "rec:full",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Trench Stalker",
+  "type": "Creature — Beast Horror",
+  "cost": "{4}{B}",
+  "rank": 28043,
+  "text": "As long as you've drawn two or more cards this turn, this creature has deathtouch and lifelink.",
+  "facets": [
+   "eff:gain-life",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:lifelink",
+   "sub:beast",
+   "sub:beast horror",
+   "sub:horror",
+   "trig:draws-card",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Squeaking Pie Sneak",
+  "type": "Creature — Goblin Rogue",
+  "cost": "{1}{B}",
+  "rank": 28048,
+  "text": "As an additional cost to cast this spell, reveal a Goblin card from your hand or pay {3}.\nFear (This creature can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:type:creature",
+   "kw:fear",
+   "mv:cheap",
+   "rec:partial",
+   "sub:goblin",
+   "sub:goblin rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Clinging Darkness",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 28051,
+  "text": "Enchant creature\nEnchanted creature gets -4/-1.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Dementia Bat",
+  "type": "Creature — Phyrexian Bat",
+  "cost": "{4}{B}",
+  "rank": 28052,
+  "text": "Flying\n{4}{B}, Sacrifice this creature: Target player discards two cards.",
+  "facets": [
+   "acost:3",
+   "cost:sacrifice-self",
+   "eff:discard",
+   "kw:flying",
+   "rec:full",
+   "sub:bat",
+   "sub:phyrexian",
+   "sub:phyrexian bat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Muse Vessel",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 28053,
+  "text": "{3}, {T}: Target player exiles a card from their hand. Activate only as a sorcery.\n{1}: Choose a card exiled with this artifact. You may play that card this turn.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:zone:hand",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Decorated Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{4}{W}",
+  "rank": 28055,
+  "text": "Flying\n{1}{W}: Prevent the next 1 combat damage that would be dealt to you this turn.",
+  "facets": [
+   "acost:2",
+   "kw:flying",
+   "rec:partial",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Charismatic Vanguard",
+  "type": "Creature — Dwarf Soldier",
+  "cost": "{2}{W}",
+  "rank": 28056,
+  "text": "{4}{W}: Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:dwarf",
+   "sub:dwarf soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voice of Reason",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}",
+  "rank": 28060,
+  "text": "Flying, protection from blue",
+  "facets": [
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Propeller Pioneer",
+  "type": "Creature — Human Artificer",
+  "cost": "{3}{W}",
+  "rank": 28069,
+  "text": "Flying\nFabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:fabricate",
+   "kw:flying",
+   "rec:full",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "tok:servo",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Plague Wight",
+  "type": "Creature — Zombie",
+  "cost": "{1}{B}",
+  "rank": 28071,
+  "text": "Whenever this creature becomes blocked, each creature blocking it gets -1/-1 until end of turn.",
+  "facets": [
+   "mv:cheap",
+   "rec:partial",
+   "sub:zombie",
+   "trig:becomes-blocked",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Painsmith",
+  "type": "Creature — Human Artificer",
+  "cost": "{1}{B}",
+  "rank": 28073,
+  "text": "Whenever you cast an artifact spell, you may have target creature get +2/+0 and gain deathtouch until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sea Gate Banneret",
+  "type": "Creature — Kor Warrior",
+  "cost": "{W}",
+  "rank": 28074,
+  "text": "{4}{W}: Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:kor",
+   "sub:kor warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Guardian of the Guildpact",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 28079,
+  "text": "Protection from monocolored",
+  "facets": [
+   "kw:protection",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Knight of Valor",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}",
+  "rank": 28080,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{W}: Each creature without flanking blocking this creature gets -1/-1 until end of turn. Activate only once each turn.",
+  "facets": [
+   "acost:2",
+   "kw:flanking",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ }
+]

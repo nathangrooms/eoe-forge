@@ -1,0 +1,834 @@
+[
+ {
+  "name": "Revoke Privileges",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 26604,
+  "text": "Enchant creature\nEnchanted creature can't attack, block, or crew Vehicles.",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "eff:cant-attack",
+   "eff:cant-block",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Grim Javelineer",
+  "type": "Creature — Human Warrior",
+  "cost": "{2}{B}",
+  "rank": 26605,
+  "text": "Whenever you attack, target attacking creature gets +1/+0 until end of turn. When that creature dies this turn, surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
+  "facets": [
+   "eff:surveil",
+   "kw:surveil",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shadowfeed",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 26609,
+  "text": "Exile target card from a graveyard. You gain 3 life.",
+  "facets": [
+   "eff:exile-graveyard",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Knight of Stromgald",
+  "type": "Creature — Human Knight",
+  "cost": "{B}{B}",
+  "rank": 26610,
+  "text": "Protection from white\n{B}: This creature gains first strike until end of turn.\n{B}{B}: This creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:color:w",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ornate Kanzashi",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 26611,
+  "text": "{2}, {T}: Target opponent exiles the top card of their library. You may play that card this turn.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Strength of Isolation",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 26612,
+  "text": "Enchant creature\nEnchanted creature gets +1/+2 and has protection from black.\nMadness {W} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+  "facets": [
+   "grants:protection",
+   "kw:enchant",
+   "kw:madness",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sorin's Guide",
+  "type": "Creature — Vampire",
+  "cost": "{3}{B}{B}",
+  "rank": 26618,
+  "text": "When this creature enters, you may search your library and/or graveyard for a card named Sorin, Vampire Lord, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+  "facets": [
+   "cares:sub:vampire",
+   "rec:partial",
+   "sub:vampire",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skyspear Cavalry",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}{W}",
+  "rank": 26619,
+  "text": "Flying\nDouble strike (This creature deals both first-strike and regular combat damage.)",
+  "facets": [
+   "kw:double strike",
+   "kw:flying",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kjeldoran Royal Guard",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}{W}",
+  "rank": 26620,
+  "text": "{T}: All combat damage that would be dealt to you by unblocked creatures this turn is dealt to this creature instead.",
+  "facets": [
+   "acost:1",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Patrol Hound",
+  "type": "Creature — Dog",
+  "cost": "{1}{W}",
+  "rank": 26622,
+  "text": "Discard a card: This creature gains first strike until end of turn.",
+  "facets": [
+   "acost:0",
+   "cost:discard",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mardu Hateblade",
+  "type": "Creature — Human Warrior",
+  "cost": "{W}",
+  "rank": 26623,
+  "text": "{B}: This creature gains deathtouch until end of turn. (Any amount of damage it deals to a creature is enough to destroy it.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Order of the Golden Cricket",
+  "type": "Creature — Kithkin Knight",
+  "cost": "{1}{W}",
+  "rank": 26624,
+  "text": "Whenever this creature attacks, you may pay {W}. If you do, it gains flying until end of turn.",
+  "facets": [
+   "eff:do-if-cost-paid",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:kithkin",
+   "sub:kithkin knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Humble the Brute",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 26628,
+  "text": "Destroy target creature with power 4 or greater.\nInvestigate.(Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "eff:draw",
+   "kw:investigate",
+   "rec:partial",
+   "tok:clue",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Fodder Cannon",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26631,
+  "text": "{4}, {T}, Sacrifice a creature: This artifact deals 4 damage to target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:damage",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sidar Jabari",
+  "type": "Legendary Creature — Human Knight",
+  "cost": "{3}{W}",
+  "rank": 26633,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nWhenever Sidar Jabari attacks, tap target creature defending player controls.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "kw:flanking",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Candles' Glow",
+  "type": "Instant — Arcane",
+  "cost": "{1}{W}",
+  "rank": 26634,
+  "text": "Prevent the next 3 damage that would be dealt to any target this turn. You gain life equal to the damage prevented this way.\nSplice onto Arcane {1}{W} (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)",
+  "facets": [
+   "cares:sub:arcane",
+   "eff:gain-life",
+   "eff:prevent-damage",
+   "kw:splice",
+   "mv:cheap",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nihilistic Glee",
+  "type": "Enchantment",
+  "cost": "{2}{B}{B}",
+  "rank": 26635,
+  "text": "{2}{B}, Discard a card: Target opponent loses 1 life and you gain 1 life.\nHellbent — {1}, Pay 2 life: Draw a card. Activate only if you have no cards in hand.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:zone:hand",
+   "cost:discard",
+   "cost:life",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:hellbent",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rain of Blades",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 26637,
+  "text": "Rain of Blades deals 1 damage to each attacking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Scarab of the Unseen",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 26639,
+  "text": "{T}, Sacrifice this artifact: Return all Auras attached to target permanent you own to their owners' hands. Draw a card at the beginning of the next turn's upkeep.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:enchantment",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:draw",
+   "eff:move-zone",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Shu General",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 26641,
+  "text": "Vigilance; horsemanship (This creature can't be blocked except by creatures with horsemanship.)",
+  "facets": [
+   "kw:horsemanship",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Excavator",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 26645,
+  "text": "{T}, Sacrifice a basic land: Target creature gains landwalk of each of the land types of the sacrificed land until end of turn. (It can't be blocked as long as defending player controls a land of any of those types.)",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "cost:sacrifice",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Landbind Ritual",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 26649,
+  "text": "You gain 2 life for each Plains you control.",
+  "facets": [
+   "cares:sub:plains",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Aerialephant",
+  "type": "Creature — Elephant Performer",
+  "cost": "{3}{W}",
+  "rank": 26653,
+  "text": "Flying\nWhen Aerialephant enters, you get {TK}, then you may put a sticker on a nonland permanent you own.",
+  "facets": [
+   "kw:flying",
+   "rec:partial",
+   "sub:elephant",
+   "sub:elephant performer",
+   "sub:performer",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scroll of Griselbrand",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 26654,
+  "text": "{1}, Sacrifice this artifact: Target opponent discards a card. If you control a Demon, that player loses 3 life.",
+  "facets": [
+   "acost:1",
+   "cares:sub:demon",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:discard",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dragonloft Idol",
+  "type": "Artifact Creature — Gargoyle",
+  "cost": "{4}",
+  "rank": 26655,
+  "text": "As long as you control a Dragon, this creature gets +1/+1 and has flying and trample.",
+  "facets": [
+   "cares:sub:dragon",
+   "col:none",
+   "eff:pump",
+   "grants:flying",
+   "grants:trample",
+   "kw:flying",
+   "kw:trample",
+   "rec:full",
+   "sub:gargoyle",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Necromentia",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 26659,
+  "text": "Choose a card name other than a basic land card name. Search target opponent's graveyard, hand, and library for any number of cards with that name and exile them. That player shuffles, then creates a 2/2 black Zombie creature token for each card exiled from their hand this way.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:exile-graveyard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Stronghold Confessor",
+  "type": "Creature — Human Cleric",
+  "cost": "{B}",
+  "rank": 26660,
+  "text": "Kicker {3} (You may pay an additional {3} as you cast this spell.)\nMenace (This creature can't be blocked except by two or more creatures.)\nIf this creature was kicked, it enters with two +1/+1 counters on it.",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:kicker",
+   "kw:menace",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Psychic Miasma",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 26662,
+  "text": "Target player discards a card. If a land card is discarded this way, return Psychic Miasma to its owner's hand.",
+  "facets": [
+   "eff:discard",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Profit // Loss",
+  "type": "Instant // Instant",
+  "cost": "{1}{W} // {2}{B}",
+  "rank": 26663,
+  "text": "Creatures you control get +1/+1 until end of turn.\nFuse (You may cast one or both halves of this card from your hand.)\n//\nCreatures your opponents control get -1/-1 until end of turn.\nFuse (You may cast one or both halves of this card from your hand.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:fuse",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Duskrider Peregrine",
+  "type": "Creature — Bird",
+  "cost": "{5}{W}",
+  "rank": 26664,
+  "text": "Flying, protection from black\nSuspend 3—{1}{W} (Rather than cast this card from your hand, you may pay {1}{W} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)",
+  "facets": [
+   "grants:haste",
+   "kw:flying",
+   "kw:haste",
+   "kw:protection",
+   "kw:suspend",
+   "mv:big",
+   "rec:partial",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skirsdag Supplicant",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{B}",
+  "rank": 26666,
+  "text": "{B}, {T}, Discard a card: Each player loses 2 life.",
+  "facets": [
+   "acost:1",
+   "cost:discard",
+   "cost:tap",
+   "eff:lose-life",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Necrosavant",
+  "type": "Creature — Zombie Giant",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 26668,
+  "text": "{3}{B}{B}, Sacrifice a creature: Return this card from your graveyard to the battlefield. Activate only during your upkeep.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "eff:recur-self",
+   "eff:return-from",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:giant",
+   "sub:zombie",
+   "sub:zombie giant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sivvi's Ruse",
+  "type": "Instant",
+  "cost": "{2}{W}{W}",
+  "rank": 26669,
+  "text": "If an opponent controls a Mountain and you control a Plains, you may cast this spell without paying its mana cost.\nPrevent all damage that would be dealt this turn to creatures you control.",
+  "facets": [
+   "cares:type:land",
+   "eff:prevent-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Debilitating Injury",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 26670,
+  "text": "Enchant creature\nEnchanted creature gets -2/-2.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Nomad Decoy",
+  "type": "Creature — Human Nomad",
+  "cost": "{2}{W}",
+  "rank": 26673,
+  "text": "{W}, {T}: Tap target creature.\nThreshold — {W}{W}, {T}: Tap two target creatures. Activate only if there are seven or more cards in your graveyard.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:tap",
+   "kw:threshold",
+   "rec:full",
+   "sub:human",
+   "sub:human nomad",
+   "sub:nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hollowhenge Spirit",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 26678,
+  "text": "Flash (You may cast this spell any time you could cast an instant.)\nFlying\nWhen this creature enters, remove target attacking or blocking creature from combat.",
+  "facets": [
+   "kw:flash",
+   "kw:flying",
+   "rec:partial",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Torch Gauntlet",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 26680,
+  "text": "Equipped creature gets +2/+0.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Roc Charger",
+  "type": "Creature — Bird",
+  "cost": "{2}{W}",
+  "rank": 26682,
+  "text": "Flying\nWhenever this creature attacks, target attacking creature without flying gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Horn of Deafening",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26684,
+  "text": "{2}, {T}: Prevent all combat damage that would be dealt by target creature this turn.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Goblin Boom Keg",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26686,
+  "text": "At the beginning of your upkeep, sacrifice this artifact.\nWhen this artifact is put into a graveyard from the battlefield, it deals 3 damage to any target.",
+  "facets": [
+   "col:none",
+   "eff:damage",
+   "eff:sacrifice",
+   "rec:full",
+   "trig:dies",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hornet Cannon",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26690,
+  "text": "{3}, {T}: Create a 1/1 colorless Insect artifact creature token with flying and haste named Hornet. Destroy it at the beginning of the next end step.",
+  "facets": [
+   "acost:3",
+   "cares:sub:insect",
+   "col:none",
+   "eff:create-token",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Feast or Famine",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 26691,
+  "text": "Choose one —\n• Create a 2/2 black Zombie creature token.\n• Destroy target nonartifact, nonblack creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "rec:partial",
+   "tok:zombie",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Divine Transformation",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}{W}",
+  "rank": 26695,
+  "text": "Enchant creature\nEnchanted creature gets +3/+3.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Stirring Honormancer",
+  "type": "Creature — Rhino Bard",
+  "cost": "{2}{W}{W/B}{B}",
+  "rank": 26698,
+  "text": "When this creature enters, look at the top X cards of your library, where X is the number of creatures you control. Put one of those cards into your hand and the rest into your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "rec:partial",
+   "sub:bard",
+   "sub:rhino",
+   "sub:rhino bard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blinding Beam",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 26699,
+  "text": "Choose one —\n• Tap two target creatures.\n• Creatures don't untap during target player's next untap step.\nEntwine {1} (Choose both if you pay the entwine cost.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "kw:entwine",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kraul Swarm",
+  "type": "Creature — Insect Warrior",
+  "cost": "{4}{B}",
+  "rank": 26701,
+  "text": "Flying\n{2}{B}, Discard a creature card: Return this card from your graveyard to your hand.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "cost:discard",
+   "eff:bounce-own",
+   "eff:return-from",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:insect",
+   "sub:insect warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Feast of the Unicorn",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 26704,
+  "text": "Enchant creature\nEnchanted creature gets +4/+0.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Resolute Rider",
+  "type": "Creature — Human Knight",
+  "cost": "{W/B}{W/B}{W/B}{W/B}",
+  "rank": 26705,
+  "text": "{W/B}{W/B}: This creature gains lifelink until end of turn.\n{W/B}{W/B}{W/B}: This creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "acost:2",
+   "acost:3",
+   "eff:pump",
+   "grants:indestructible",
+   "grants:lifelink",
+   "kw:indestructible",
+   "kw:lifelink",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Paladin of Prahv",
+  "type": "Creature — Human Knight",
+  "cost": "{4}{W}{W}",
+  "rank": 26710,
+  "text": "Whenever this creature deals damage, you gain that much life.\nForecast — {1}{W}, Reveal this card from your hand: Whenever target creature deals damage this turn, you gain that much life. (Activate only during your upkeep and only once each turn.)",
+  "facets": [
+   "kw:forecast",
+   "mv:big",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Path of Peace",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 26711,
+  "text": "Destroy target creature. Its owner gains 4 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ }
+]

@@ -1,0 +1,914 @@
+[
+ {
+  "name": "Ayara's Oathsworn",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{B}",
+  "rank": 7212,
+  "text": "Menace\nWhenever this creature deals combat damage to a player, if it has fewer than four +1/+1 counters on it, put a +1/+1 counter on it. Then if it has exactly four +1/+1 counters on it, search your library for a card, put it into your hand, then shuffle.",
+  "facets": [
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:search-library",
+   "kw:menace",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Barrow-Blade",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 7214,
+  "text": "Equipped creature gets +1/+1.\nWhenever equipped creature blocks or becomes blocked by a creature, that creature loses all abilities until end of turn.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:neutralise",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Feed the Cycle",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 7216,
+  "text": "As an additional cost to cast this spell, forage or pay {B}. (To forage, exile three cards from your graveyard or sacrifice a Food.)\nDestroy target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "kw:forage",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Blightbeetle",
+  "type": "Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 7222,
+  "text": "Protection from green (This creature can't be blocked, targeted, dealt damage, enchanted, or equipped by anything green.)\nCreatures your opponents control can't have +1/+1 counters put on them.",
+  "facets": [
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "SOLDIER Military Program",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 7224,
+  "text": "At the beginning of combat on your turn, choose one. If you control a commander, you may choose both instead.\n• Create a 1/1 white Soldier creature token.\n• Put a +1/+1 counter on each of up to two Soldiers you control.",
+  "facets": [
+   "cares:commander",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:create-token",
+   "rec:partial",
+   "tok:soldier",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shadow Alley Denizen",
+  "type": "Creature — Vampire Rogue",
+  "cost": "{B}",
+  "rank": 7225,
+  "text": "Whenever another black creature you control enters, target creature gains intimidate until end of turn. (It can't be blocked except by artifact creatures and/or creatures that share a color with it.)",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:intimidate",
+   "kw:intimidate",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:rogue",
+   "sub:vampire",
+   "sub:vampire rogue",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jeskai Barricade",
+  "type": "Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 7230,
+  "text": "Flash (You may cast this spell any time you could cast an instant.)\nDefender\nWhen this creature enters, you may return another target creature you control to its owner's hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "kw:defender",
+   "kw:flash",
+   "mv:cheap",
+   "rec:full",
+   "sub:wall",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "O-Naginata",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 7234,
+  "text": "This Equipment can be attached only to a creature with power 3 or greater.\nEquipped creature gets +3/+0 and has trample.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:power",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:trample",
+   "kw:equip",
+   "kw:trample",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Greatsword of Tyr",
+  "type": "Artifact — Equipment",
+  "cost": "{1}{W}",
+  "rank": 7237,
+  "text": "Whenever equipped creature attacks, put a +1/+1 counter on it and tap up to one target creature defending player controls.\nEquip {W} ({W}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:attach",
+   "eff:tap",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Vow of Duty",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 7239,
+  "text": "Enchant creature\nEnchanted creature gets +2/+2, has vigilance, and can't attack you or planeswalkers you control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:cant-attack",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:enchant",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Lobelia, Defender of Bag End",
+  "type": "Legendary Creature — Halfling Citizen",
+  "cost": "{2}{B}",
+  "rank": 7241,
+  "text": "When Lobelia enters, look at the top card of each opponent's library and exile those cards face down.\n{T}, Sacrifice an artifact: Choose one —\n• Until end of turn, you may play a card exiled with Lobelia without paying its mana cost.\n• Each opponent loses 2 life and you gain 2 life.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:library",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:partial",
+   "sub:citizen",
+   "sub:halfling",
+   "sub:halfling citizen",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Excise the Imperfect",
+  "type": "Instant",
+  "cost": "{1}{W}{W}",
+  "rank": 7244,
+  "text": "Exile target nonland permanent. Its controller incubates X, where X is its mana value. (They create an Incubator token with X +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)",
+  "facets": [
+   "eff:create-token",
+   "eff:exile",
+   "kw:incubate",
+   "kw:transform",
+   "rec:partial",
+   "tok:incubator",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Repel Calamity",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 7245,
+  "text": "Destroy target creature with power or toughness 4 or greater.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Colossus of Akros",
+  "type": "Artifact Creature — Golem",
+  "cost": "{8}",
+  "rank": 7247,
+  "text": "Defender, indestructible\n{10}: Monstrosity 10. (If this creature isn't monstrous, put ten +1/+1 counters on it and it becomes monstrous.)\nAs long as this creature is monstrous, it has trample and can attack as though it didn't have defender.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "kw:defender",
+   "kw:indestructible",
+   "kw:monstrosity",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ugin's Nexus",
+  "type": "Legendary Artifact",
+  "cost": "{5}",
+  "rank": 7248,
+  "text": "If a player would begin an extra turn, that player skips that turn instead.\nIf Ugin's Nexus would be put into a graveyard from the battlefield, instead exile it and take an extra turn after this one.",
+  "facets": [
+   "col:none",
+   "eff:extra-turn",
+   "trig:dies",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Batterbone",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 7251,
+  "text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +1/+1 and has vigilance and lifelink.\nEquip {5}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "grants:lifelink",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:lifelink",
+   "kw:living weapon",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "tok:germ",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Blazing Archon",
+  "type": "Creature — Archon",
+  "cost": "{6}{W}{W}{W}",
+  "rank": 7253,
+  "text": "Flying\nCreatures can't attack you.",
+  "facets": [
+   "eff:cant-attack",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:archon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon Throne of Tarkir",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 7254,
+  "text": "Equipped creature has defender and \"{2}, {T}: Other creatures you control gain trample and get +X/+X until end of turn, where X is this creature's power.\"\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:power",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Selfless Samurai",
+  "type": "Creature — Fox Samurai",
+  "cost": "{1}{W}",
+  "rank": 7255,
+  "text": "Whenever a Samurai or Warrior you control attacks alone, it gains lifelink until end of turn.\nSacrifice this creature: Another target creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:samurai",
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "sub:fox",
+   "sub:fox samurai",
+   "sub:samurai",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Golem-Skin Gauntlets",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 7256,
+  "text": "Equipped creature gets +1/+0 for each Equipment attached to it.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Carrot Cake",
+  "type": "Artifact — Food",
+  "cost": "{1}{W}",
+  "rank": 7260,
+  "text": "When this artifact enters and when you sacrifice it, create a 1/1 white Rabbit creature token and scry 1. (Look at the top card of your library. You may put that card on the bottom.)\n{2}, {T}, Sacrifice this artifact: You gain 3 life.",
+  "facets": [
+   "acost:2",
+   "cares:sub:rabbit",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:gain-life",
+   "eff:scry",
+   "kw:scry",
+   "mv:cheap",
+   "rec:partial",
+   "sub:food",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Boon of Safety",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 7265,
+  "text": "Put a shield counter on target creature. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\nScry 1.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:shield",
+   "eff:add-counters",
+   "eff:scry",
+   "kw:scry",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Celebr-8000",
+  "type": "Artifact Creature — Clown Robot",
+  "cost": "{5}",
+  "rank": 7268,
+  "text": "At the beginning of combat on your turn, roll two six-sided dice. For each result of 1, this creature gets +1/+1 until end of turn. For each other result, it gains the indicated ability until end of turn. If you rolled doubles, it also gains double strike until end of turn.\n• 2 — menace\n• 3 — vigilance\n• 4 — lifelink\n• 5 — flying\n• 6 — indestructible",
+  "facets": [
+   "col:none",
+   "kw:flying",
+   "kw:indestructible",
+   "kw:lifelink",
+   "kw:menace",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:clown",
+   "sub:clown robot",
+   "sub:robot",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cast Down",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 7273,
+  "text": "Destroy target nonlegendary creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Corpse Churn",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 7275,
+  "text": "Mill three cards, then you may return a creature card from your graveyard to your hand. (To mill three cards, put the top three cards of your library into your graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:mill",
+   "eff:return-from",
+   "kw:mill",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Plague of Vermin",
+  "type": "Sorcery",
+  "cost": "{6}{B}",
+  "rank": 7276,
+  "text": "Starting with you, each player may pay any amount of life. Repeat this process until no one pays life. Each player creates a 1/1 black Rat creature token for each 1 life they paid this way.",
+  "facets": [
+   "cares:sub:rat",
+   "cares:type:creature",
+   "cost:life",
+   "mv:big",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lash of the Balrog",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 7279,
+  "text": "As an additional cost to cast this spell, sacrifice a creature or pay {4}.\nDestroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mindwrack Harpy",
+  "type": "Enchantment Creature — Harpy",
+  "cost": "{3}{B}",
+  "rank": 7283,
+  "text": "Flying\nAt the beginning of combat on your turn, each player mills three cards.",
+  "facets": [
+   "eff:mill",
+   "kw:flying",
+   "kw:mill",
+   "rec:full",
+   "sub:harpy",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fall of the First Civilization",
+  "type": "Enchantment — Saga",
+  "cost": "{2}{W}",
+  "rank": 7290,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — You and target opponent each draw two cards.\nII — Exile target artifact an opponent controls.\nIII — Each player chooses three nonland permanents they control. Destroy all other nonland permanents.",
+  "facets": [
+   "eff:destroy",
+   "eff:draw",
+   "eff:exile",
+   "kw:iii",
+   "scope:all",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Kindred Boon",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 7292,
+  "text": "As this enchantment enters, choose a creature type.\n{1}{W}: Put a divinity counter on target creature you control of the chosen type.\nEach creature you control with a divinity counter on it has indestructible.",
+  "facets": [
+   "acost:2",
+   "cares:sub:chosen",
+   "eff:choose",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Behemoth of Vault 0",
+  "type": "Artifact Creature — Robot",
+  "cost": "{6}",
+  "rank": 7294,
+  "text": "Trample\nWhen this creature enters, you get {E}{E}{E}{E} (four energy counters).\nWhen this creature dies, you may pay an amount of {E} equal to target nonland permanent's mana value. When you do, destroy that permanent.",
+  "facets": [
+   "col:none",
+   "ctr:energy",
+   "eff:destroy",
+   "eff:player-counter",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:robot",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scytheclaw",
+  "type": "Artifact — Equipment",
+  "cost": "{5}",
+  "rank": 7297,
+  "text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +1/+1.\nWhenever equipped creature deals combat damage to a player, that player loses half their life, rounded up.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "kw:equip",
+   "kw:living weapon",
+   "rec:partial",
+   "sub:equipment",
+   "tok:germ",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Splitskin Doll",
+  "type": "Artifact Creature — Toy",
+  "cost": "{1}{W}",
+  "rank": 7303,
+  "text": "When this creature enters, draw a card. Then discard a card unless you control another creature with power 2 or less.",
+  "facets": [
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "sub:toy",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Midnight Snack",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 7308,
+  "text": "Raid — At the beginning of your end step, if you attacked this turn, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\n{2}{B}, Sacrifice this enchantment: Target opponent loses X life, where X is the amount of life you gained this turn.",
+  "facets": [
+   "eff:create-token",
+   "eff:lose-life",
+   "kw:food",
+   "kw:raid",
+   "rec:partial",
+   "tok:food",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Coercive Impetus",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 7309,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature attacks, you draw a card and lose 1 life.",
+  "facets": [
+   "eff:draw",
+   "eff:lose-life",
+   "kw:enchant",
+   "kw:goad",
+   "rec:partial",
+   "sub:aura",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bismuth Mindrender",
+  "type": "Creature — Eldrazi",
+  "cost": "{3}{B}",
+  "rank": 7310,
+  "text": "Devoid (This card has no color.)\nMenace\nWhenever this creature deals combat damage to a player, that player exiles cards from the top of their library until they exile a nonland card. You may cast that card by paying life equal to the spell's mana value rather than paying its mana cost.",
+  "facets": [
+   "kw:devoid",
+   "kw:menace",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Éowyn, Lady of Rohan",
+  "type": "Legendary Creature — Human Noble",
+  "cost": "{2}{W}",
+  "rank": 7311,
+  "text": "At the beginning of combat on your turn, target creature gains your choice of first strike or vigilance until end of turn. If that creature is equipped, it gains first strike and vigilance until end of turn instead.\nEquip abilities you activate cost {1} less to activate.",
+  "facets": [
+   "cares:type:creature",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:human",
+   "sub:human noble",
+   "sub:noble",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Requiem Monolith",
+  "type": "Artifact",
+  "cost": "{2}{B}",
+  "rank": 7315,
+  "text": "{T}: Until end of turn, target creature gains \"Whenever this creature is dealt damage, you draw that many cards and lose that much life.\" That creature's controller may have this artifact deal 1 damage to it. Activate only as a sorcery.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:draw",
+   "eff:lose-life",
+   "trig:dealt-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bog Witch",
+  "type": "Creature — Human Spellshaper",
+  "cost": "{2}{B}",
+  "rank": 7320,
+  "text": "{B}, {T}, Discard a card: Add {B}{B}{B}.",
+  "facets": [
+   "acost:1",
+   "cost:discard",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:3",
+   "rec:full",
+   "sub:human",
+   "sub:human spellshaper",
+   "sub:spellshaper",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tale of Tinúviel",
+  "type": "Enchantment — Saga",
+  "cost": "{3}{W}{W}",
+  "rank": 7321,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Target creature you control gains indestructible for as long as you control this Saga.\nII — Return target creature card from your graveyard to the battlefield.\nIII — Up to two target creatures you control each gain lifelink until end of turn.",
+  "facets": [
+   "cares:sub:saga",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "grants:indestructible",
+   "grants:lifelink",
+   "kw:iii",
+   "kw:indestructible",
+   "kw:lifelink",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Tithe Drinker",
+  "type": "Creature — Vampire",
+  "cost": "{W}{B}",
+  "rank": 7323,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nExtort (Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and you gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:extort",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:vampire",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ashiok's Reaper",
+  "type": "Creature — Nightmare",
+  "cost": "{3}{B}",
+  "rank": 7324,
+  "text": "Whenever an enchantment you control is put into a graveyard from the battlefield, draw a card.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:draw",
+   "rec:full",
+   "scope:all",
+   "sub:nightmare",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dewdrop Cure",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 7326,
+  "text": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nReturn up to two target creature cards each with mana value 2 or less from your graveyard to the battlefield. If the gift was promised, instead return up to three target creature cards each with mana value 2 or less from your graveyard to the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:gift",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Big Apple, 3 a.m.",
+  "type": "Land",
+  "cost": "",
+  "rank": 7327,
+  "text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.\n{5}, {T}: Create a 1/1 black Rat creature token for each opponent you have.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:sub:rat",
+   "eff:create-token",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Delivery Moogle",
+  "type": "Creature — Moogle",
+  "cost": "{3}{W}",
+  "rank": 7338,
+  "text": "Flying\nWhen this creature enters, search your library and/or graveyard for an artifact card with mana value 2 or less, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "eff:search-library",
+   "kw:flying",
+   "rec:partial",
+   "sub:moogle",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gravepurge",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 7339,
+  "text": "Put any number of target creature cards from your graveyard on top of your library.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:draw",
+   "eff:move-zone",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Overwhelming Remorse",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 7340,
+  "text": "This spell costs {1} less to cast for each creature card in your graveyard.\nExile target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:exile",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Josu Vess, Lich Knight",
+  "type": "Legendary Creature — Zombie Knight",
+  "cost": "{2}{B}{B}",
+  "rank": 7350,
+  "text": "Kicker {5}{B} (You may pay an additional {5}{B} as you cast this spell.)\nMenace\nWhen Josu Vess enters, if it was kicked, create eight 2/2 black Zombie Knight creature tokens with menace.",
+  "facets": [
+   "cares:sub:knight",
+   "cares:sub:zombie",
+   "eff:create-token",
+   "kw:kicker",
+   "kw:menace",
+   "rec:partial",
+   "sub:knight",
+   "sub:zombie",
+   "sub:zombie knight",
+   "tok:knight",
+   "tok:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Cathar's Shield",
+  "type": "Artifact — Equipment",
+  "cost": "{0}",
+  "rank": 7351,
+  "text": "Equipped creature gets +0/+3 and has vigilance.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Danse Macabre",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 7352,
+  "text": "Each player sacrifices a nontoken creature of their choice. Roll a d20 and add the toughness of the creature you sacrificed this way.\n1—14 | Return a creature card put into a graveyard this way to the battlefield under your control.\n15+ | Return up to two creature cards put into graveyards this way to the battlefield under your control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "eff:gain-control",
+   "eff:random",
+   "eff:return-from",
+   "eff:sacrifice",
+   "scope:all",
+   "type:sorcery"
+  ]
+ }
+]

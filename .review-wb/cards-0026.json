@@ -1,0 +1,983 @@
+[
+ {
+  "name": "The Mightstone and Weakstone",
+  "type": "Legendary Artifact — Powerstone",
+  "cost": "{5}",
+  "rank": 3021,
+  "text": "When The Mightstone and Weakstone enters, choose one —\n• Draw two cards.\n• Target creature gets -5/-5 until end of turn.\n{T}: Add {C}{C}. This mana can't be spent to cast nonartifact spells.\n(Melds with Urza, Lord Protector.)",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:shrink",
+   "mana:2",
+   "rec:partial",
+   "sub:powerstone",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Chivalric Alliance",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 3024,
+  "text": "Whenever you attack with two or more creatures, draw a card.\n{2}, Discard a card: Create a 2/2 white and blue Knight creature token with vigilance.",
+  "facets": [
+   "acost:2",
+   "cost:discard",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:partial",
+   "tok:knight",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Serra's Sanctum",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 3025,
+  "text": "{T}: Add {W} for each enchantment you control.",
+  "facets": [
+   "acost:0",
+   "cares:type:enchantment",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Nuclear Fallout",
+  "type": "Sorcery",
+  "cost": "{X}{B}{B}",
+  "rank": 3030,
+  "text": "Each creature gets twice -X/-X until end of turn. Each player gets X rad counters.",
+  "facets": [
+   "cares:type:creature",
+   "eff:mill",
+   "eff:shrink",
+   "mv:cheap",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Brimaz, King of Oreskos",
+  "type": "Legendary Creature — Cat Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 3033,
+  "text": "Vigilance\nWhenever Brimaz attacks, create a 1/1 white Cat Soldier creature token with vigilance that's attacking.\nWhenever Brimaz blocks a creature, create a 1/1 white Cat Soldier creature token with vigilance that's blocking that creature.",
+  "facets": [
+   "cares:sub:cat",
+   "cares:sub:soldier",
+   "eff:create-token",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:cat",
+   "sub:cat soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Reaver Titan",
+  "type": "Artifact — Vehicle",
+  "cost": "{7}",
+  "rank": 3034,
+  "text": "Void Shields — Protection from mana value 3 or less\nGatling Blaster — Whenever this Vehicle attacks, it deals 5 damage to each opponent.\nCrew 4 (Tap any number of creatures you control with total power 4 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:sub:vehicle",
+   "col:none",
+   "eff:damage",
+   "kw:crew",
+   "kw:gatling blaster",
+   "kw:protection",
+   "kw:void shields",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:vehicle",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Spawnbed Protector",
+  "type": "Creature — Eldrazi",
+  "cost": "{7}",
+  "rank": 3036,
+  "text": "At the beginning of your end step, return up to one target Eldrazi creature card from your graveyard to your hand. Create two 1/1 colorless Eldrazi Scion creature tokens with \"Sacrifice this token: Add {C}.\"",
+  "facets": [
+   "cares:sub:eldrazi",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:create-token",
+   "eff:return-from",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Comeuppance",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 3043,
+  "text": "Prevent all damage that would be dealt to you and planeswalkers you control this turn by sources you don't control. If damage from a creature source is prevented this way, Comeuppance deals that much damage to that creature. If damage from a noncreature source is prevented this way, Comeuppance deals that much damage to the source's controller.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:damage",
+   "eff:prevent-damage",
+   "eff:redirect-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Legion Lieutenant",
+  "type": "Creature — Vampire Knight",
+  "cost": "{W}{B}",
+  "rank": 3046,
+  "text": "Other Vampires you control get +1/+1.",
+  "facets": [
+   "cares:sub:vampire",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blinkmoth Nexus",
+  "type": "Land",
+  "cost": "",
+  "rank": 3049,
+  "text": "{T}: Add {C}.\n{1}: This land becomes a 1/1 Blinkmoth artifact creature with flying until end of turn. It's still a land.\n{1}, {T}: Target Blinkmoth creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "acost:2",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Selfless Savior",
+  "type": "Creature — Dog",
+  "cost": "{W}",
+  "rank": 3051,
+  "text": "Sacrifice this creature: Another target creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "sub:dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Piper of the Swarm",
+  "type": "Creature — Human Warlock",
+  "cost": "{1}{B}",
+  "rank": 3056,
+  "text": "Rats you control have menace.\n{1}{B}, {T}: Create a 1/1 black Rat creature token.\n{2}{B}{B}, {T}, Sacrifice three Rats: Gain control of target creature.",
+  "facets": [
+   "acost:2",
+   "acost:3",
+   "cares:sub:rat",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:create-token",
+   "eff:gain-control",
+   "grants:menace",
+   "kw:menace",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "tok:rat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elspeth Conquers Death",
+  "type": "Enchantment — Saga",
+  "cost": "{3}{W}{W}",
+  "rank": 3059,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Exile target permanent an opponent controls with mana value 3 or greater.\nII — Noncreature spells your opponents cast cost {2} more to cast until your next turn.\nIII — Return target creature or planeswalker card from your graveyard to the battlefield. Put a +1/+1 counter or a loyalty counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:exile",
+   "eff:increase-cost",
+   "eff:return-from",
+   "kw:iii",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Youthful Valkyrie",
+  "type": "Creature — Angel",
+  "cost": "{1}{W}",
+  "rank": 3063,
+  "text": "Flying\nWhenever another Angel you control enters, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Demon of Fate's Design",
+  "type": "Enchantment Creature — Demon",
+  "cost": "{4}{B}{B}",
+  "rank": 3066,
+  "text": "Flying, trample\nOnce during each of your turns, you may cast an enchantment spell by paying life equal to its mana value rather than paying its mana cost.\n{2}{B}, Sacrifice another enchantment: This creature gets +X/+0 until end of turn, where X is the sacrificed enchantment's mana value.",
+  "facets": [
+   "cares:type:enchantment",
+   "cost:life",
+   "cost:sacrifice",
+   "eff:pump",
+   "kw:flying",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mirrorworks",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 3067,
+  "text": "Whenever another nontoken artifact you control enters, you may pay {2}. If you do, create a token that's a copy of that artifact.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "eff:create-token",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Necrogoyf",
+  "type": "Creature — Lhurgoyf",
+  "cost": "{3}{B}{B}",
+  "rank": 3069,
+  "text": "Necrogoyf's power is equal to the number of creature cards in all graveyards.\nAt the beginning of each player's upkeep, that player discards a card.\nMadness {1}{B}{B} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:discard",
+   "kw:madness",
+   "rec:partial",
+   "sub:lhurgoyf",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dazzling Angel",
+  "type": "Creature — Angel",
+  "cost": "{2}{W}",
+  "rank": 3074,
+  "text": "Flying\nWhenever another creature you control enters, you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Temple Altisaur",
+  "type": "Creature — Dinosaur",
+  "cost": "{4}{W}",
+  "rank": 3076,
+  "text": "If a source would deal damage to another Dinosaur you control, prevent all but 1 of that damage.",
+  "facets": [
+   "cares:sub:dinosaur",
+   "cares:type:creature",
+   "eff:prevent-damage",
+   "sub:dinosaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Abyssal Harvester",
+  "type": "Creature — Demon Warlock",
+  "cost": "{1}{B}{B}",
+  "rank": 3078,
+  "text": "{T}: Exile target creature card from a graveyard that was put there this turn. Create a token that's a copy of it, except it's a Nightmare in addition to its other types. Then exile all other Nightmare tokens you control.",
+  "facets": [
+   "acost:1",
+   "cares:sub:nightmare",
+   "cares:zone:graveyard",
+   "eff:create-token",
+   "sub:demon",
+   "sub:demon warlock",
+   "sub:warlock",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Walking Atlas",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 3079,
+  "text": "{T}: You may put a land card from your hand onto the battlefield.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cares:zone:hand",
+   "col:none",
+   "cost:tap",
+   "eff:extra-land-drop",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "World Map",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 3080,
+  "text": "{1}, {T}, Sacrifice this artifact: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.\n{3}, {T}, Sacrifice this artifact: Search your library for a land card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nesting Dovehawk",
+  "type": "Creature — Bird",
+  "cost": "{3}{W}",
+  "rank": 3082,
+  "text": "Flying\nAt the beginning of combat on your turn, populate. (Create a token that's a copy of a creature token you control.)\nWhenever a creature token you control enters, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:flying",
+   "kw:populate",
+   "rec:partial",
+   "sub:bird",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cornered by Black Mages",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 3087,
+  "text": "Target opponent sacrifices a creature of their choice.\nCreate a 0/1 black Wizard creature token with \"Whenever you cast a noncreature spell, this token deals 1 damage to each opponent.\"",
+  "facets": [
+   "cares:sub:wizard",
+   "cares:type:creature",
+   "eff:damage",
+   "eff:sacrifice",
+   "trig:cast",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Zombie Apocalypse",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 3088,
+  "text": "Return all Zombie creature cards from your graveyard to the battlefield tapped, then destroy all Humans.",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "mv:big",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Diamond City",
+  "type": "Land",
+  "cost": "",
+  "rank": 3090,
+  "text": "This land enters with a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)\n{T}: Add {C}.\n{T}: Move a shield counter from this land onto target creature. Activate only if two or more creatures entered the battlefield under your control this turn.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cost:tap",
+   "ctr:shield",
+   "eff:add-counters",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Blowfly Infestation",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 3092,
+  "text": "Whenever a creature dies, if it had a -1/-1 counter on it, put a -1/-1 counter on target creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "rec:partial",
+   "scope:all",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Light-Paws, Emperor's Voice",
+  "type": "Legendary Creature — Fox Advisor",
+  "cost": "{1}{W}",
+  "rank": 3094,
+  "text": "Whenever an Aura you control enters, if you cast it, you may search your library for an Aura card with mana value less than or equal to that Aura and with a different name than each Aura you control, put that card onto the battlefield attached to Light-Paws, then shuffle.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:advisor",
+   "sub:fox",
+   "sub:fox advisor",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Witch's Oven",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 3095,
+  "text": "{T}, Sacrifice a creature: Create a Food token. If the sacrificed creature's toughness was 4 or greater, create two Food tokens instead. (They're artifacts with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:create-token",
+   "kw:food",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "tok:food",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Spirit Link",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 3096,
+  "text": "Enchant creature (Target a creature as you cast this. This card enters attached to that creature.)\nWhenever enchanted creature deals damage, you gain that much life.",
+  "facets": [
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:deals-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Settle the Wreckage",
+  "type": "Instant",
+  "cost": "{2}{W}{W}",
+  "rank": 3097,
+  "text": "Exile all attacking creatures target player controls. That player may search their library for that many basic land cards, put those cards onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:exile",
+   "eff:search-library",
+   "scope:all",
+   "trig:attacks",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Phyrexian Triniform",
+  "type": "Artifact Creature — Phyrexian Golem",
+  "cost": "{9}",
+  "rank": 3102,
+  "text": "When this creature dies, create three 3/3 colorless Phyrexian Golem artifact creature tokens.\nEncore {12} ({12}, Exile this card from your graveyard: For each opponent, create a token copy that attacks that opponent this turn if able. They gain haste. Sacrifice them at the beginning of the next end step. Activate only as a sorcery.)",
+  "facets": [
+   "cares:sub:golem",
+   "cares:sub:phyrexian",
+   "col:none",
+   "eff:copy",
+   "eff:create-token",
+   "kw:encore",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:golem",
+   "sub:phyrexian",
+   "sub:phyrexian golem",
+   "tok:golem",
+   "tok:phyrexian",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stinkweed Imp",
+  "type": "Creature — Imp",
+  "cost": "{2}{B}",
+  "rank": 3103,
+  "text": "Flying\nWhenever this creature deals combat damage to a creature, destroy that creature.\nDredge 5 (If you would draw a card, you may mill five cards instead. If you do, return this card from your graveyard to your hand.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:mill",
+   "eff:return-from",
+   "kw:dredge",
+   "kw:flying",
+   "kw:mill",
+   "rec:partial",
+   "sub:imp",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voice of the Blessed",
+  "type": "Creature — Spirit Cleric",
+  "cost": "{W}{W}",
+  "rank": 3105,
+  "text": "Whenever you gain life, put a +1/+1 counter on this creature.\nAs long as this creature has four or more +1/+1 counters on it, it has flying and vigilance.\nAs long as this creature has ten or more +1/+1 counters on it, it has indestructible.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:spirit",
+   "sub:spirit cleric",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mask of Griselbrand",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{1}{B}{B}",
+  "rank": 3106,
+  "text": "Equipped creature has flying and lifelink.\nWhenever equipped creature dies, you may pay X life, where X is its power. If you do, draw X cards.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:power",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:draw",
+   "grants:flying",
+   "grants:lifelink",
+   "kw:equip",
+   "kw:flying",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:equipment",
+   "trig:dies",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Marrow-Gnawer",
+  "type": "Legendary Creature — Rat Rogue",
+  "cost": "{3}{B}{B}",
+  "rank": 3108,
+  "text": "All Rats have fear.\n{T}, Sacrifice a Rat: Create X 1/1 black Rat creature tokens, where X is the number of Rats you control.",
+  "facets": [
+   "acost:0",
+   "cares:sub:rat",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:create-token",
+   "grants:fear",
+   "kw:fear",
+   "rec:full",
+   "scope:all",
+   "sub:rat",
+   "sub:rat rogue",
+   "sub:rogue",
+   "tok:rat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hallowed Haunting",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 3111,
+  "text": "As long as you control seven or more enchantments, creatures you control have flying and vigilance.\nWhenever you cast an enchantment spell, create a white Spirit Cleric creature token with \"This token's power and toughness are each equal to the number of Spirits you control.\"",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:zone:stack",
+   "eff:create-token",
+   "grants:flying",
+   "grants:vigilance",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:enchantment",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Power Conduit",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 3115,
+  "text": "{T}, Remove a counter from a permanent you control: Choose one —\n• Put a charge counter on target artifact.\n• Put a +1/+1 counter on target creature.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "cost:remove-counters",
+   "eff:add-counters",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Etchings of the Chosen",
+  "type": "Enchantment",
+  "cost": "{1}{W}{B}",
+  "rank": 3117,
+  "text": "As this enchantment enters, choose a creature type.\nCreatures you control of the chosen type get +1/+1.\n{1}, Sacrifice a creature of the chosen type: Target creature you control gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "cares:sub:chosen",
+   "eff:choose",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Heap Gate",
+  "type": "Land — Gate",
+  "cost": "",
+  "rank": 3118,
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{1}, {T}, Tap an untapped Gate you control: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:gate",
+   "cares:sub:treasure",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "kw:treasure",
+   "mana:1",
+   "rec:partial",
+   "sub:gate",
+   "tok:treasure",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Merciless Eviction",
+  "type": "Sorcery",
+  "cost": "{4}{W}{B}",
+  "rank": 3122,
+  "text": "Choose one —\n• Exile all artifacts.\n• Exile all creatures.\n• Exile all enchantments.\n• Exile all planeswalkers.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:type:planeswalker",
+   "eff:exile",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mountain Valley",
+  "type": "Land",
+  "cost": "",
+  "rank": 3125,
+  "text": "This land enters tapped.\n{T}, Sacrifice this land: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:0",
+   "cares:sub:forest",
+   "cares:sub:mountain",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Staff of the Storyteller",
+  "type": "Artifact",
+  "cost": "{1}{W}",
+  "rank": 3131,
+  "text": "When this artifact enters, create a 1/1 white Spirit creature token with flying.\nWhenever you create one or more creature tokens, put a story counter on this artifact.\n{W}, {T}, Remove a story counter from this artifact: Draw a card.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:type:token",
+   "cost:remove-counters",
+   "cost:tap",
+   "eff:create-token",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "tok:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Athreos, Shroud-Veiled",
+  "type": "Legendary Enchantment Creature — God",
+  "cost": "{4}{W}{B}",
+  "rank": 3132,
+  "text": "Indestructible\nAs long as your devotion to white and black is less than seven, Athreos isn't a creature.\nAt the beginning of your end step, put a coin counter on another target creature.\nWhenever a creature with a coin counter on it dies or is put into exile, return that card to the battlefield under your control.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "ctr:coin",
+   "eff:add-counters",
+   "kw:indestructible",
+   "mv:big",
+   "rec:partial",
+   "sub:god",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Master of Ceremonies",
+  "type": "Creature — Rhino Druid",
+  "cost": "{3}{W}",
+  "rank": 3138,
+  "text": "At the beginning of your upkeep, each opponent chooses money, friends, or secrets. For each player who chose money, you and that player each create a Treasure token. For each player who chose friends, you and that player each create a 1/1 green and white Citizen creature token. For each player who chose secrets, you and that player each draw a card.",
+  "facets": [
+   "cares:sub:citizen",
+   "cares:sub:treasure",
+   "eff:create-token",
+   "kw:treasure",
+   "rec:partial",
+   "sub:druid",
+   "sub:rhino",
+   "sub:rhino druid",
+   "tok:treasure",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stonespeaker Crystal",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 3141,
+  "text": "{T}: Add {C}{C}.\n{2}, {T}, Sacrifice this artifact: Exile any number of target players' graveyards. Draw a card.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:2",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lunar Convocation",
+  "type": "Enchantment",
+  "cost": "{W}{B}",
+  "rank": 3144,
+  "text": "At the beginning of your end step, if you gained life this turn, each opponent loses 1 life.\nAt the beginning of your end step, if you gained and lost life this turn, create a 1/1 black Bat creature token with flying.\n{1}{B}, Pay 2 life: Draw a card.",
+  "facets": [
+   "acost:2",
+   "cares:lifegain",
+   "cost:life",
+   "eff:create-token",
+   "eff:draw",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "tok:bat",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Twilight Diviner",
+  "type": "Creature — Elf Cleric",
+  "cost": "{2}{B}",
+  "rank": 3146,
+  "text": "When this creature enters, surveil 2. (Look at the top two cards of your library, then put any number of them into your graveyard and the rest on top of your library in any order.)\nWhenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them. This ability triggers only once each turn.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:create-token",
+   "eff:surveil",
+   "kw:surveil",
+   "rec:partial",
+   "sub:cleric",
+   "sub:elf",
+   "sub:elf cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Appa, Steadfast Guardian",
+  "type": "Legendary Creature — Bison Ally",
+  "cost": "{2}{W}{W}",
+  "rank": 3147,
+  "text": "Flash\nFlying\nWhen Appa enters, airbend any number of other target nonland permanents you control. (Exile them. While each one is exiled, its owner may cast it for {2} rather than its mana cost.)\nWhenever you cast a spell from exile, create a 1/1 white Ally creature token.",
+  "facets": [
+   "cares:sub:ally",
+   "cares:zone:exile",
+   "eff:create-token",
+   "kw:airbend",
+   "kw:flash",
+   "kw:flying",
+   "rec:partial",
+   "sub:ally",
+   "sub:bison",
+   "sub:bison ally",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Darkstar Augur",
+  "type": "Creature — Bat Warlock",
+  "cost": "{2}{B}",
+  "rank": 3149,
+  "text": "Offspring {B} (You may pay an additional {B} as you cast this spell. If you do, when this creature enters, create a 1/1 token copy of it.)\nFlying\nAt the beginning of your upkeep, reveal the top card of your library and put that card into your hand. You lose life equal to its mana value.",
+  "facets": [
+   "cares:zone:library",
+   "eff:copy",
+   "eff:create-token",
+   "eff:draw",
+   "eff:lose-life",
+   "kw:flying",
+   "kw:offspring",
+   "rec:full",
+   "sub:bat",
+   "sub:bat warlock",
+   "sub:warlock",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ }
+]

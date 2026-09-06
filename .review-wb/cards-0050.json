@@ -1,0 +1,935 @@
+[
+ {
+  "name": "Sunscape Familiar",
+  "type": "Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 6133,
+  "text": "Defender (This creature can't attack.)\nGreen spells and blue spells you cast cost {1} less to cast.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:reduce-cost",
+   "kw:defender",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blightwing Bandit",
+  "type": "Creature — Faerie Rogue",
+  "cost": "{3}{B}",
+  "rank": 6135,
+  "text": "Flying, deathtouch\nWhenever you cast your first spell during each opponent's turn, look at the top card of that player's library, then exile it face down. You may play that card for as long as it remains exiled, and mana of any type can be spent to cast it.",
+  "facets": [
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:mill",
+   "kw:deathtouch",
+   "kw:flying",
+   "rec:partial",
+   "sub:faerie",
+   "sub:faerie rogue",
+   "sub:rogue",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Captivating Cave",
+  "type": "Land — Cave",
+  "cost": "",
+  "rank": 6136,
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}, {T}, Sacrifice this land: Put two +1/+1 counters on target creature. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "acost:3",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "sub:cave",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Yawgmoth's Vile Offering",
+  "type": "Legendary Sorcery",
+  "cost": "{4}{B}",
+  "rank": 6137,
+  "text": "(You may cast a legendary sorcery only if you control a legendary creature or planeswalker.)\nPut up to one target creature or planeswalker card from a graveyard onto the battlefield under your control. Destroy up to one target creature or planeswalker. Exile Yawgmoth's Vile Offering.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:exile-self",
+   "eff:return-from",
+   "rec:partial",
+   "type:legendary",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Elena, Turk Recruit",
+  "type": "Legendary Creature — Human Assassin",
+  "cost": "{2}{W}",
+  "rank": 6139,
+  "text": "When Elena enters, return target non-Assassin historic card from your graveyard to your hand. (Artifacts, legendaries, and Sagas are historic.)\nWhenever you cast a historic spell, put a +1/+1 counter on Elena.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "rec:partial",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Rosa, Resolute White Mage",
+  "type": "Legendary Creature — Human Noble Cleric",
+  "cost": "{3}{W}",
+  "rank": 6143,
+  "text": "Reach (This creature can block creatures with flying.)\nAt the beginning of combat on your turn, put a +1/+1 counter on target creature you control. It gains lifelink until end of turn. (Damage dealt by the creature also causes you to gain that much life.)",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:pump",
+   "grants:lifelink",
+   "kw:lifelink",
+   "kw:reach",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human noble cleric",
+   "sub:noble",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Archghoul of Thraben",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{2}{B}",
+  "rank": 6144,
+  "text": "Whenever this creature or another Zombie you control dies, look at the top card of your library. If it's a Zombie card, you may reveal it and put it into your hand. If you don't put the card into your hand, you may put it into your graveyard.",
+  "facets": [
+   "cares:sub:zombie",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cliffhaven Kitesail",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 6148,
+  "text": "When this Equipment enters, attach it to target creature you control.\nEquipped creature has flying.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "grants:flying",
+   "kw:equip",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Eirdu, Carrier of Dawn // Isilu, Carrier of Twilight",
+  "type": "Legendary Creature — Elemental God // Legendary Creature — Elemental God",
+  "cost": "",
+  "rank": 6150,
+  "text": "Flying, lifelink\nCreature spells you cast have convoke. (Your creatures can help cast those spells. Each creature you tap while casting a creature spell pays for {1} or one mana of that creature's color.)\nAt the beginning of your first main phase, you may pay {B}. If you do, transform Eirdu.\n//\nFlying, lifelink\nEach other nontoken creature you control has persist. (When it dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)\nAt the beginning of your first main phase, you may pay {W}. If you do, transform Isilu.",
+  "facets": [
+   "kw:flying",
+   "kw:lifelink",
+   "kw:transform",
+   "rec:partial",
+   "sub:elemental",
+   "sub:elemental god",
+   "sub:god",
+   "trig:step",
+   "trig:step:precombat-main",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Oathsworn Vampire",
+  "type": "Creature — Vampire Knight",
+  "cost": "{1}{B}",
+  "rank": 6151,
+  "text": "This creature enters tapped.\nYou may cast this card from your graveyard if you gained life this turn.",
+  "facets": [
+   "cares:lifegain",
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Filigree Familiar",
+  "type": "Artifact Creature — Fox",
+  "cost": "{3}",
+  "rank": 6152,
+  "text": "When this creature enters, you gain 2 life.\nWhen this creature dies, draw a card.",
+  "facets": [
+   "col:none",
+   "eff:draw",
+   "eff:gain-life",
+   "rec:full",
+   "sub:fox",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scavenger Regent // Exude Toxin",
+  "type": "Creature — Dragon // Sorcery — Omen",
+  "cost": "{3}{B} // {X}{B}{B}",
+  "rank": 6153,
+  "text": "Flying\nWard—Discard a card.\n//\nEach non-Dragon creature gets -X/-X until end of turn. (Then shuffle this card into its owner's library.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "eff:shrink",
+   "kw:flying",
+   "kw:ward",
+   "rec:partial",
+   "scope:all",
+   "sub:dragon",
+   "sub:omen",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Whisper, Blood Liturgist",
+  "type": "Legendary Creature — Human Cleric",
+  "cost": "{3}{B}",
+  "rank": 6160,
+  "text": "{T}, Sacrifice two creatures: Return target creature card from your graveyard to the battlefield.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:return-from",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Rupture Spire",
+  "type": "Land",
+  "cost": "",
+  "rank": 6164,
+  "text": "This land enters tapped.\nWhen this land enters, sacrifice it unless you pay {1}.\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Corrupted Crossroads",
+  "type": "Land",
+  "cost": "",
+  "rank": 6165,
+  "text": "{T}: Add {C}. ({C} represents colorless mana.)\n{T}, Pay 1 life: Add one mana of any color. Spend this mana only to cast a spell with devoid.",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Silverquill Campus",
+  "type": "Land",
+  "cost": "",
+  "rank": 6166,
+  "text": "This land enters tapped.\n{T}: Add {W} or {B}.\n{4}, {T}: Scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:scry",
+   "kw:scry",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Erebos's Intervention",
+  "type": "Instant",
+  "cost": "{X}{B}",
+  "rank": 6168,
+  "text": "Choose one —\n• Target creature gets -X/-X until end of turn. You gain X life.\n• Exile up to twice X target cards from graveyards.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Lord Skitter's Blessing",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 6170,
+  "text": "When this enchantment enters, create a Wicked Role token attached to target creature you control. (Enchanted creature gets +1/+1. When this token is put into a graveyard, each opponent loses 1 life.)\nAt the beginning of your draw step, if you control an enchanted creature, you lose 1 life and you draw an additional card.",
+  "facets": [
+   "cares:sub:role",
+   "eff:lose-life",
+   "kw:role token",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:step",
+   "trig:step:draw",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Esper Panorama",
+  "type": "Land",
+  "cost": "",
+  "rank": 6173,
+  "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic Plains, Island, or Swamp card, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:island",
+   "cares:sub:plains",
+   "cares:sub:swamp",
+   "cares:zone:library",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:search-library",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Sunken Citadel",
+  "type": "Land — Cave",
+  "cost": "",
+  "rank": 6175,
+  "text": "This land enters tapped. As it enters, choose a color.\n{T}: Add one mana of the chosen color.\n{T}: Add two mana of the chosen color. Spend this mana only to activate abilities of land sources.",
+  "facets": [
+   "acost:1",
+   "cares:type:land",
+   "eff:add-mana",
+   "sub:cave",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Tourach, Dread Cantor",
+  "type": "Legendary Creature — Human Cleric",
+  "cost": "{1}{B}",
+  "rank": 6178,
+  "text": "Kicker {B}{B} (You may pay an additional {B}{B} as you cast this spell.)\nProtection from white\nWhenever an opponent discards a card, put a +1/+1 counter on Tourach.\nWhen Tourach enters, if it was kicked, target opponent discards two cards at random.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:discard",
+   "kw:kicker",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Altar of the Pantheon",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 6181,
+  "text": "Your devotion to each color and each combination of colors is increased by one.\n{T}: Add one mana of any color. If you control a God, a Demigod, or a legendary enchantment, you gain 1 life.",
+  "facets": [
+   "acost:0",
+   "cares:sub:demigod",
+   "cares:sub:god",
+   "cares:type:enchantment",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dino DNA",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 6192,
+  "text": "Imprint — {1}, {T}: Exile target creature card from a graveyard. Activate only as a sorcery.\n{6}: Create a token that's a copy of target creature card exiled with this artifact, except it's a 6/6 green Dinosaur creature with trample. Activate only as a sorcery.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:sub:dinosaur",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:tap",
+   "eff:create-token",
+   "eff:exile-graveyard",
+   "kw:imprint",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Redemption Choir",
+  "type": "Creature — Vampire Cleric",
+  "cost": "{2}{W}{W}",
+  "rank": 6194,
+  "text": "Lifelink\nCoven — Whenever this creature enters or attacks, if you control three or more creatures with different powers, return target permanent card with mana value 3 or less from your graveyard to the battlefield.",
+  "facets": [
+   "cares:power",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:coven",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:cleric",
+   "sub:vampire",
+   "sub:vampire cleric",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Revival // Revenge",
+  "type": "Sorcery // Sorcery",
+  "cost": "{W/B}{W/B} // {4}{W}{B}",
+  "rank": 6196,
+  "text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield.\n//\nDouble your life total. Target opponent loses half their life, rounded up.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:return-from",
+   "kw:double",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Battle at the Helvault",
+  "type": "Enchantment — Saga",
+  "cost": "{4}{W}{W}",
+  "rank": 6197,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — For each player, exile up to one target non-Saga, nonland permanent that player controls until this Saga leaves the battlefield.\nIII — Create Avacyn, a legendary 8/8 white Angel creature token with flying, vigilance, and indestructible.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:sub:saga",
+   "cares:zone:exile",
+   "eff:exile",
+   "eff:exile-own",
+   "eff:return-from",
+   "kw:iii",
+   "kw:vigilance",
+   "mv:big",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Make Your Move",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 6199,
+  "text": "Destroy target artifact, enchantment, or creature with power 4 or greater.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Primal Beyond",
+  "type": "Land",
+  "cost": "",
+  "rank": 6200,
+  "text": "As this land enters, you may reveal an Elemental card from your hand. If you don't, this land enters tapped.\n{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast an Elemental spell or activate an ability of an Elemental.",
+  "facets": [
+   "acost:0",
+   "cares:sub:elemental",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Crumb and Get It",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 6201,
+  "text": "Gift a Food (You may promise an opponent a gift as you cast this spell. If you do, they create a Food token before its other effects. It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nTarget creature you control gets +2/+2 until end of turn. If the gift was promised, that creature also gains indestructible until end of turn.",
+  "facets": [
+   "cares:sub:food",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:food",
+   "kw:gift",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "The Celestus",
+  "type": "Legendary Artifact",
+  "cost": "{3}",
+  "rank": 6202,
+  "text": "If it's neither day nor night, it becomes day as The Celestus enters.\n{T}: Add one mana of any color.\n{3}, {T}: If it's night, it becomes day. Otherwise, it becomes night. Activate only as a sorcery.\nWhenever day becomes night or night becomes day, you gain 1 life. You may draw a card. If you do, discard a card.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Dire Tactics",
+  "type": "Instant",
+  "cost": "{W}{B}",
+  "rank": 6204,
+  "text": "Exile target creature. If you don't control a Human, you lose life equal to that creature's toughness.",
+  "facets": [
+   "cares:sub:human",
+   "cares:type:creature",
+   "cost:life",
+   "eff:exile",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cosmic Cube",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 6208,
+  "text": "Ward {2}\nWhenever you attack, look at the top six cards of your library. You may cast a spell from among them with mana value less than or equal to the greatest power among attacking creatures you control without paying its mana cost. Put the rest on the bottom of your library in a random order.",
+  "facets": [
+   "cares:power",
+   "cares:zone:library",
+   "col:none",
+   "eff:cast-free",
+   "eff:look-and-pick",
+   "kw:ward",
+   "rec:partial",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bond of Discipline",
+  "type": "Sorcery",
+  "cost": "{4}{W}",
+  "rank": 6212,
+  "text": "Tap all creatures your opponents control. Creatures you control gain lifelink until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:tap",
+   "grants:lifelink",
+   "kw:lifelink",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Faith's Reward",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 6220,
+  "text": "Return to the battlefield all permanent cards in your graveyard that were put there from the battlefield this turn.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "trig:dies",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Glorious Protector",
+  "type": "Creature — Angel Cleric",
+  "cost": "{2}{W}{W}",
+  "rank": 6221,
+  "text": "Flash\nFlying\nWhen this creature enters, you may exile any number of non-Angel creatures you control until this creature leaves the battlefield.\nForetell {2}{W}",
+  "facets": [
+   "kw:flash",
+   "kw:flying",
+   "kw:foretell",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel cleric",
+   "sub:cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Agent Venom",
+  "type": "Legendary Creature — Symbiote Soldier Hero",
+  "cost": "{2}{B}",
+  "rank": 6223,
+  "text": "Flash\nMenace\nWhenever another nontoken creature you control dies, you draw a card and lose 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:lose-life",
+   "kw:flash",
+   "kw:menace",
+   "rec:full",
+   "scope:all",
+   "sub:hero",
+   "sub:soldier",
+   "sub:symbiote",
+   "sub:symbiote soldier hero",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Signal Pest",
+  "type": "Artifact Creature — Pest",
+  "cost": "{1}",
+  "rank": 6227,
+  "text": "Battle cry (Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn.)\nThis creature can't be blocked except by creatures with flying or reach.",
+  "facets": [
+   "col:none",
+   "eff:cant-be-blocked",
+   "kw:battle cry",
+   "mv:cheap",
+   "rec:partial",
+   "sub:pest",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aang, the Last Airbender",
+  "type": "Legendary Creature — Human Avatar Ally",
+  "cost": "{3}{W}",
+  "rank": 6229,
+  "text": "Flying\nWhen Aang enters, airbend up to one other target nonland permanent. (Exile it. While it's exiled, its owner may cast it for {2} rather than its mana cost.)\nWhenever you cast a Lesson spell, Aang gains lifelink until end of turn.",
+  "facets": [
+   "cares:sub:lesson",
+   "eff:exile",
+   "kw:airbend",
+   "kw:flying",
+   "rec:partial",
+   "sub:ally",
+   "sub:avatar",
+   "sub:human",
+   "sub:human avatar ally",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Incremental Blight",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 6231,
+  "text": "Put a -1/-1 counter on target creature, two -1/-1 counters on another target creature, and three -1/-1 counters on a third target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Perimeter Captain",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 6240,
+  "text": "Defender\nWhenever a creature you control with defender blocks, you may gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scalelord Reckoner",
+  "type": "Creature — Dragon",
+  "cost": "{3}{W}{W}",
+  "rank": 6243,
+  "text": "Flying\nWhenever a Dragon you control becomes the target of a spell or ability an opponent controls, destroy target nonland permanent that player controls.",
+  "facets": [
+   "cares:sub:dragon",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:flying",
+   "rec:partial",
+   "sub:dragon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pitiless Carnage",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 6246,
+  "text": "Sacrifice any number of permanents you control, then draw that many cards.\nPlot {1}{B}{B} (You may pay {1}{B}{B} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)",
+  "facets": [
+   "eff:draw",
+   "eff:sacrifice",
+   "kw:plot",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Revenge of the Rats",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 6247,
+  "text": "Create a tapped 1/1 black Rat creature token for each creature card in your graveyard.\nFlashback {2}{B}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:create-token",
+   "kw:flashback",
+   "rec:full",
+   "tok:rat",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Retreat to Emeria",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 6250,
+  "text": "Landfall — Whenever a land you control enters, choose one —\n• Create a 1/1 white Kor Ally creature token.\n• Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:create-token",
+   "eff:pump",
+   "kw:landfall",
+   "rec:full",
+   "scope:all",
+   "tok:ally",
+   "tok:kor",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Tocasia's Dig Site",
+  "type": "Land",
+  "cost": "",
+  "rank": 6252,
+  "text": "{T}: Add {C}.\n{3}, {T}: Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:surveil",
+   "kw:surveil",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Sinister Monolith",
+  "type": "Artifact",
+  "cost": "{3}{B}",
+  "rank": 6254,
+  "text": "At the beginning of combat on your turn, each opponent loses 1 life and you gain 1 life.\n{T}, Pay 2 life, Sacrifice this artifact: Draw two cards. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:full",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Jirina, Dauntless General",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{W}{B}",
+  "rank": 6256,
+  "text": "When Jirina enters, exile target player's graveyard.\nSacrifice Jirina: Humans you control gain hexproof and indestructible until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:human",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "grants:hexproof",
+   "grants:indestructible",
+   "kw:hexproof",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Aberrant Return",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 6257,
+  "text": "Put one, two, or three target creature cards from graveyards onto the battlefield under your control. Each of them enters with an additional -1/-1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:big",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Nimblewright Schematic",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 6259,
+  "text": "When this artifact enters or is put into a graveyard from the battlefield, create a 1/1 colorless Construct artifact creature token.",
+  "facets": [
+   "cares:sub:construct",
+   "col:none",
+   "mv:cheap",
+   "trig:dies",
+   "trig:enters",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hall of Tagsin",
+  "type": "Land",
+  "cost": "",
+  "rank": 6262,
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\n{4}, {T}: Create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:powerstone",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ }
+]

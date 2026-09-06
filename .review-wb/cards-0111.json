@@ -1,0 +1,901 @@
+[
+ {
+  "name": "Skyclave Shade",
+  "type": "Creature — Shade",
+  "cost": "{1}{B}",
+  "rank": 14263,
+  "text": "Kicker {2}{B}\nThis creature can't block.\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nLandfall — Whenever a land you control enters, if this card is in your graveyard and it's your turn, you may cast it from your graveyard this turn.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "eff:add-counters-self",
+   "eff:recur-self",
+   "kw:kicker",
+   "kw:landfall",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:shade",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seraph of the Masses",
+  "type": "Creature — Angel",
+  "cost": "{5}{W}{W}",
+  "rank": 14264,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nFlying\nSeraph of the Masses's power and toughness are each equal to the number of creatures you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:set-pt",
+   "kw:convoke",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sokka, Swordmaster",
+  "type": "Legendary Creature — Human Warrior Ally",
+  "cost": "{2}{W}",
+  "rank": 14268,
+  "text": "Vigilance\nEquipment spells you cast cost {1} less to cast for each Ally you control.\nAt the beginning of combat on your turn, attach up to one target Equipment you control to Sokka.",
+  "facets": [
+   "cares:sub:ally",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "eff:attach",
+   "eff:reduce-cost",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:ally",
+   "sub:human",
+   "sub:human warrior ally",
+   "sub:warrior",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Monument to Perfection",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 14271,
+  "text": "{3}, {T}: Search your library for a basic, Sphere, or Locus land card, reveal it, put it into your hand, then shuffle.\n{3}: This artifact becomes a 9/9 Phyrexian Construct artifact creature, loses all abilities, and gains indestructible and toxic 9. Activate only if there are nine or more lands with different names among the basic, Sphere, and Locus lands you control.",
+  "facets": [
+   "acost:3",
+   "cares:sub:construct",
+   "cares:sub:phyrexian",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "col:none",
+   "eff:search-library",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Frodo, Determined Hero",
+  "type": "Legendary Creature — Halfling Warrior",
+  "cost": "{1}{W}",
+  "rank": 14272,
+  "text": "Whenever Frodo enters or attacks, you may attach target Equipment you control with mana value 2 or 3 to Frodo.\nDuring your turn, prevent all damage that would be dealt to Frodo.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "eff:attach",
+   "mv:cheap",
+   "rec:partial",
+   "sub:halfling",
+   "sub:halfling warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Seraphic Greatsword",
+  "type": "Artifact — Equipment",
+  "cost": "{1}{W}",
+  "rank": 14273,
+  "text": "Equipped creature gets +2/+2.\nWhenever equipped creature attacks the player with the most life or tied for most life, create a 4/4 white Angel creature token with flying that's tapped and attacking that player.\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:sub:angel",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Escarpment Fortress",
+  "type": "Creature — Wall",
+  "cost": "{4}{W}",
+  "rank": 14274,
+  "text": "Defender (This creature can't attack.)\nReach (This creature can block creatures with flying.)\nOther creatures you control get +1/+0.\nWhenever you attack with two or more creatures, draw a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:defender",
+   "kw:reach",
+   "rec:partial",
+   "scope:all",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Cloning of Shredder",
+  "type": "Enchantment — Saga",
+  "cost": "{4}{B}{B}",
+  "rank": 14280,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Exile target creature card from your graveyard. Create a token that's a copy of it, except it isn't legendary and is a Mutant in addition to its other types.\nII, III — Create a token that's a copy of a card exiled with this Saga, except it isn't legendary and is a Mutant in addition to its other types.",
+  "facets": [
+   "cares:sub:mutant",
+   "cares:sub:saga",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:copy",
+   "eff:return-from",
+   "mv:big",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Summon Undead",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 14281,
+  "text": "You may mill three cards. Then return a creature card from your graveyard to the battlefield. (To mill a card, put the top card of your library into your graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:mill",
+   "eff:return-from",
+   "kw:mill",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Broodrage Mycoid",
+  "type": "Creature — Fungus",
+  "cost": "{3}{B}",
+  "rank": 14283,
+  "text": "At the beginning of your end step, if you descended this turn, create a 1/1 black Fungus creature token with \"This token can't block.\" (You descended if a permanent card was put into your graveyard from anywhere.)",
+  "facets": [
+   "cares:sub:fungus",
+   "eff:create-token",
+   "rec:partial",
+   "sub:fungus",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Creeping Dread",
+  "type": "Enchantment",
+  "cost": "{3}{B}",
+  "rank": 14285,
+  "text": "At the beginning of your upkeep, each player discards a card. Each opponent who discarded a card that shares a card type with the card you discarded loses 3 life. (Players reveal the discarded cards simultaneously.)",
+  "facets": [
+   "eff:discard",
+   "eff:lose-life",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Zeriam, Golden Wind",
+  "type": "Legendary Creature — Griffin",
+  "cost": "{3}{W}",
+  "rank": 14287,
+  "text": "Flying\nWhenever a Griffin you control deals combat damage to a player, create a 2/2 white Griffin creature token with flying.",
+  "facets": [
+   "cares:sub:griffin",
+   "eff:create-token",
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "tok:griffin",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bloodchief's Thirst",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 14288,
+  "text": "Kicker {2}{B} (You may pay an additional {2}{B} as you cast this spell.)\nDestroy target creature or planeswalker with mana value 2 or less. If this spell was kicked, instead destroy target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Swashbuckler's Whip",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 14300,
+  "text": "Equipped creature has reach, \"{2}, {T}: Tap target artifact or creature,\" and \"{8}, {T}: Discover 10.\" (Exile cards from the top of your library until you exile a nonland card with mana value 10 or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)\nEquip {1}",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:tap",
+   "kw:discover",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Boggart Mob",
+  "type": "Creature — Goblin Warrior",
+  "cost": "{3}{B}",
+  "rank": 14304,
+  "text": "Champion a Goblin (When this enters, sacrifice it unless you exile another Goblin you control. When this leaves the battlefield, that card returns to the battlefield.)\nWhenever a Goblin you control deals combat damage to a player, you may create a 1/1 black Goblin Rogue creature token.",
+  "facets": [
+   "cares:sub:goblin",
+   "eff:create-token",
+   "kw:champion",
+   "pt:big",
+   "rec:partial",
+   "sub:goblin",
+   "sub:goblin warrior",
+   "sub:warrior",
+   "tok:goblin",
+   "tok:rogue",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seeker's Folly",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 14309,
+  "text": "Choose one —\n• Target opponent discards two cards.\n• Creatures your opponents control get -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dead Weight",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 14315,
+  "text": "Enchant creature\nEnchanted creature gets -2/-2.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Orzhov Charm",
+  "type": "Instant",
+  "cost": "{W}{B}",
+  "rank": 14317,
+  "text": "Choose one —\n• Return target creature you control and all Auras you control attached to it to their owner's hand.\n• Destroy target creature and you lose life equal to its toughness.\n• Return target creature card with mana value 1 or less from your graveyard to the battlefield.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Gift of Compleation",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 14322,
+  "text": "When this enchantment enters, incubate 3. (Create an Incubator token with three +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)\nWhenever a Phyrexian you control dies, surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
+  "facets": [
+   "cares:sub:phyrexian",
+   "eff:create-token",
+   "eff:surveil",
+   "kw:incubate",
+   "kw:surveil",
+   "kw:transform",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "tok:incubator",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Warrior's Resolve",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 14323,
+  "text": "Creatures you control have training. (Whenever a creature you control attacks with another creature with greater power, put a +1/+1 counter on the creature with lesser power.)\nAt the beginning of your end step, if you control a creature with a +1/+1 counter on it that attacked this turn, draw a card.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:draw",
+   "grants:training",
+   "kw:training",
+   "rec:partial",
+   "scope:all",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Orator of Ojutai",
+  "type": "Creature — Bird Monk",
+  "cost": "{1}{W}",
+  "rank": 14324,
+  "text": "As an additional cost to cast this spell, you may reveal a Dragon card from your hand.\nDefender, flying\nWhen this creature enters, if you revealed a Dragon card or controlled a Dragon as you cast this spell, draw a card.",
+  "facets": [
+   "cares:sub:dragon",
+   "eff:draw",
+   "kw:defender",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird monk",
+   "sub:monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slaughter",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 14325,
+  "text": "Buyback—Pay 4 life. (You may pay 4 life in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nDestroy target nonblack creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:buyback",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Syphon Soul",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 14330,
+  "text": "Syphon Soul deals 2 damage to each other player. You gain life equal to the damage dealt this way.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Heroic Sacrifice",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 14331,
+  "text": "Choose target creature you control. Until end of turn, all damage that would be dealt to you and creatures you control is dealt to the chosen creature instead (if it's still on the battlefield). When that creature dies this turn, put its counters on up to one target creature you control and draw a card.",
+  "facets": [
+   "eff:draw",
+   "mv:cheap",
+   "trig:dies",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Canyon Vaulter",
+  "type": "Creature — Kor Pilot",
+  "cost": "{1}{W}",
+  "rank": 14336,
+  "text": "Whenever this creature saddles a Mount or crews a Vehicle during your main phase, that Mount or Vehicle gains flying until end of turn.",
+  "facets": [
+   "cares:sub:mount",
+   "cares:sub:vehicle",
+   "cares:type:artifact",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "sub:kor",
+   "sub:kor pilot",
+   "sub:pilot",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Trusty Boomerang",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 14337,
+  "text": "Equipped creature has \"{1}, {T}: Tap target creature. Return Trusty Boomerang to its owner's hand.\"\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "col:none",
+   "eff:attach",
+   "eff:move-zone",
+   "eff:tap",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cranial Archive",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 14338,
+  "text": "{2}, Exile this artifact: Target player shuffles their graveyard into their library. Draw a card.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:draw",
+   "eff:exile-graveyard",
+   "eff:move-zone",
+   "mv:cheap",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Illness in the Ranks",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 14341,
+  "text": "Creature tokens get -1/-1.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Abeyance",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 14345,
+  "text": "Until end of turn, target player can't cast instant or sorcery spells, and that player can't activate abilities that aren't mana abilities.\nDraw a card.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "eff:cant-activate",
+   "eff:cant-cast",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cloudbound Moogle",
+  "type": "Creature — Moogle",
+  "cost": "{3}{W}{W}",
+  "rank": 14350,
+  "text": "Flying\nWhen this creature enters, put a +1/+1 counter on target creature.\nPlainscycling {2} ({2}, Discard this card: Search your library for a Plains card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:search-library",
+   "kw:cycling",
+   "kw:flying",
+   "kw:landcycling",
+   "kw:plainscycling",
+   "kw:typecycling",
+   "rec:partial",
+   "sub:moogle",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Forsaken Wastes",
+  "type": "World Enchantment",
+  "cost": "{2}{B}",
+  "rank": 14358,
+  "text": "Players can't gain life.\nAt the beginning of each player's upkeep, that player loses 1 life.\nWhenever this enchantment becomes the target of a spell, that spell's controller loses 5 life.",
+  "facets": [
+   "eff:lose-life",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment",
+   "type:world"
+  ]
+ },
+ {
+  "name": "Brainspoil",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 14360,
+  "text": "Destroy target creature that isn't enchanted. It can't be regenerated.\nTransmute {1}{B}{B} ({1}{B}{B}, Discard this card: Search your library for a card with the same mana value as this card, reveal it, put it into your hand, then shuffle. Transmute only as a sorcery.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:search-library",
+   "kw:transmute",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Greed's Gambit",
+  "type": "Enchantment",
+  "cost": "{3}{B}",
+  "rank": 14364,
+  "text": "When this enchantment enters, you draw three cards, gain 6 life, and create three 2/1 black Bat creature tokens with flying.\nAt the beginning of your end step, you discard a card, lose 2 life, and sacrifice a creature.\nWhen this enchantment leaves the battlefield, you discard three cards, lose 6 life, and sacrifice three creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:discard-self",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "rec:full",
+   "scope:all",
+   "tok:bat",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:leaves",
+   "trig:leaves-self",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Gideon's Avenger",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 14365,
+  "text": "Whenever a creature an opponent controls becomes tapped, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:tapped",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Feed the Cauldron",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 14371,
+  "text": "Destroy target creature with mana value 3 or less. If it's your turn, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+  "facets": [
+   "cares:sub:food",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "kw:food",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Wail of War",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 14374,
+  "text": "Choose one —\n• Creatures target opponent controls get -1/-1 until end of turn.\n• Return up to two target creature cards from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Sculpted Sunburst",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 14375,
+  "text": "Choose a creature you control, then each opponent chooses a creature they control with equal or lesser power. If you chose a creature this way, exile each creature not chosen by any player this way.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Faller's Faithful",
+  "type": "Creature — Human Wizard",
+  "cost": "{2}{B}",
+  "rank": 14380,
+  "text": "When this creature enters, destroy up to one other target creature. If that creature wasn't dealt damage this turn, its controller draws two cards.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ashes to Ashes",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 14382,
+  "text": "Exile two target nonartifact creatures. Ashes to Ashes deals 5 damage to you.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage-self",
+   "eff:exile",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Consulate Skygate",
+  "type": "Artifact Creature — Wall",
+  "cost": "{2}",
+  "rank": 14384,
+  "text": "Defender\nReach (This creature can block creatures with flying.)",
+  "facets": [
+   "col:none",
+   "kw:defender",
+   "kw:reach",
+   "mv:cheap",
+   "rec:full",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wing Shards",
+  "type": "Instant",
+  "cost": "{1}{W}{W}",
+  "rank": 14385,
+  "text": "Target player sacrifices an attacking creature of their choice.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:copy",
+   "eff:sacrifice",
+   "kw:storm",
+   "rec:partial",
+   "trig:cast",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Seasoned Warrenguard",
+  "type": "Creature — Rabbit Warrior",
+  "cost": "{W}",
+  "rank": 14388,
+  "text": "Whenever this creature attacks while you control a token, this creature gets +2/+0 until end of turn.",
+  "facets": [
+   "cares:type:token",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:rabbit",
+   "sub:rabbit warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Harnessed Snubhorn",
+  "type": "Creature — Dinosaur",
+  "cost": "{3}{W}",
+  "rank": 14389,
+  "text": "Vigilance\nWhenever this creature deals combat damage to a player, return target artifact or enchantment card from your graveyard to the battlefield.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:vigilance",
+   "rec:full",
+   "sub:dinosaur",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunblade Angel",
+  "type": "Creature — Angel",
+  "cost": "{5}{W}",
+  "rank": 14391,
+  "text": "Flying, first strike, vigilance, lifelink",
+  "facets": [
+   "eff:gain-life",
+   "kw:first strike",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tocatli Honor Guard",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 14392,
+  "text": "Creatures entering don't cause abilities to trigger.",
+  "facets": [
+   "mv:cheap",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Brass Herald",
+  "type": "Artifact Creature — Golem",
+  "cost": "{6}",
+  "rank": 14393,
+  "text": "As this creature enters, choose a creature type.\nWhen this creature enters, reveal the top four cards of your library. Put all creature cards of the chosen type revealed this way into your hand and the rest on the bottom of your library in any order.\nCreatures of the chosen type get +1/+1.",
+  "facets": [
+   "cares:sub:chosen",
+   "cares:zone:library",
+   "col:none",
+   "eff:choose",
+   "mv:big",
+   "rec:partial",
+   "sub:golem",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Entreat the Dead",
+  "type": "Sorcery",
+  "cost": "{X}{X}{B}{B}{B}",
+  "rank": 14395,
+  "text": "Return X target creature cards from your graveyard to the battlefield.\nMiracle {X}{B}{B} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:miracle",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Obstinate Gargoyle",
+  "type": "Artifact Creature — Gargoyle",
+  "cost": "{1}{W}{B}",
+  "rank": 14396,
+  "text": "This creature has flying as long as it's modified. (Equipment, Auras you control, and counters are modifications.)\nPersist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:return-from",
+   "grants:flying",
+   "kw:flying",
+   "kw:persist",
+   "rec:partial",
+   "sub:gargoyle",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Desperate Bloodseeker",
+  "type": "Creature — Vampire",
+  "cost": "{1}{B}",
+  "rank": 14399,
+  "text": "Lifelink\nWhen this creature enters, target player mills two cards. (They put the top two cards of their library into their graveyard.)",
+  "facets": [
+   "eff:mill",
+   "kw:lifelink",
+   "kw:mill",
+   "mv:cheap",
+   "rec:full",
+   "sub:vampire",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spell Satchel",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 14400,
+  "text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, put a book counter on this artifact.\n{T}, Remove a book counter from this artifact: Add {C}.\n{3}, {T}, Remove three book counters from this artifact: Draw a card.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "col:none",
+   "cost:remove-counters",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "kw:magecraft",
+   "mana:1",
+   "mv:cheap",
+   "rec:partial",
+   "trig:cast",
+   "type:artifact"
+  ]
+ }
+]

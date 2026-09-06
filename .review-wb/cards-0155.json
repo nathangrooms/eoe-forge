@@ -1,0 +1,898 @@
+[
+ {
+  "name": "Sworn Companions",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 19830,
+  "text": "Create two 1/1 white Soldier creature tokens with lifelink.",
+  "facets": [
+   "eff:create-token",
+   "eff:gain-life",
+   "rec:full",
+   "tok:soldier",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Silverflame Ritual",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 19832,
+  "text": "Put a +1/+1 counter on each creature you control.\nAdamant — If at least three white mana was spent to cast this spell, creatures you control gain vigilance until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "grants:vigilance",
+   "kw:adamant",
+   "kw:vigilance",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dreams of Steel and Oil",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 19834,
+  "text": "Target opponent reveals their hand. You choose an artifact or creature card from it, then choose an artifact or creature card from their graveyard. Exile the chosen cards.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:hand",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dreadwurm",
+  "type": "Creature — Wurm Horror",
+  "cost": "{4}{B}",
+  "rank": 19836,
+  "text": "Landfall — Whenever a land you control enters, this creature gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "cares:type:land",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "kw:landfall",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:wurm",
+   "sub:wurm horror",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bronze Sword",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 19837,
+  "text": "Equipped creature gets +2/+0.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Indebted Samurai",
+  "type": "Creature — Human Samurai",
+  "cost": "{3}{W}",
+  "rank": 19839,
+  "text": "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)\nWhenever a Samurai you control dies, you may put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:sub:samurai",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:bushido",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human samurai",
+   "sub:samurai",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Law-Rune Enforcer",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 19848,
+  "text": "{1}, {T}: Tap target creature with mana value 2 or greater.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Corpse Blockade",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 19851,
+  "text": "Defender\nSacrifice another creature: This creature gains deathtouch until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:defender",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Séance",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 19853,
+  "text": "At the beginning of each upkeep, you may exile target creature card from your graveyard. If you do, create a token that's a copy of that card, except it's a Spirit in addition to its other types. Exile it at the beginning of the next end step.",
+  "facets": [
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:create-token",
+   "eff:exile-graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Cackling Slasher",
+  "type": "Creature — Human Assassin",
+  "cost": "{3}{B}",
+  "rank": 19854,
+  "text": "Deathtouch\nThis creature enters with a +1/+1 counter on it if a creature died this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters-self",
+   "kw:deathtouch",
+   "rec:partial",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lonesome Unicorn // Rider in Need",
+  "type": "Creature — Unicorn // Sorcery — Adventure",
+  "cost": "{4}{W} // {2}{W}",
+  "rank": 19855,
+  "text": "Vigilance\n//\nCreate a 2/2 white Knight creature token with vigilance. (Then exile this card. You may cast the creature later from exile.)",
+  "facets": [
+   "kw:vigilance",
+   "rec:partial",
+   "sub:adventure",
+   "sub:unicorn",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Planar Guide",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 19856,
+  "text": "{3}{W}, Exile this creature: Exile all creatures. At the beginning of the next end step, return those cards to the battlefield under their owners' control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "eff:exile",
+   "eff:return-from",
+   "mv:cheap",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zealous Persecution",
+  "type": "Instant",
+  "cost": "{W}{B}",
+  "rank": 19857,
+  "text": "Until end of turn, creatures you control get +1/+1 and creatures your opponents control get -1/-1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:shrink",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Winged Shepherd",
+  "type": "Creature — Angel",
+  "cost": "{5}{W}",
+  "rank": 19860,
+  "text": "Flying, vigilance\nCycling {W} ({W}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "kw:flying",
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Suntail Hawk",
+  "type": "Creature — Bird",
+  "cost": "{W}",
+  "rank": 19863,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Otherworldly Escort",
+  "type": "Creature — Human Detective",
+  "cost": "{3}{W}",
+  "rank": 19864,
+  "text": "Flash\nWhen this creature dies, if it's not a Spirit, return it to the battlefield under its owner's control with four charge counters on it. It's a Spirit Detective. (It's no longer a Human.)\n{1}{W}, {T}, Remove a charge counter from this creature: Destroy target creature that dealt damage to you this turn.",
+  "facets": [
+   "cares:sub:detective",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:flash",
+   "rec:partial",
+   "sub:detective",
+   "sub:human",
+   "sub:human detective",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fortunate Few",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 19865,
+  "text": "Choose a nonland permanent you don't control, then each other player chooses a nonland permanent they don't control that hasn't been chosen this way. Destroy all other nonland permanents.",
+  "facets": [
+   "eff:destroy",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Haunted Dead",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 19868,
+  "text": "When this creature enters, create a 1/1 white Spirit creature token with flying.\n{1}{B}, Discard two cards: Return this card from your graveyard to the battlefield tapped.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:create-token",
+   "eff:recur-self",
+   "rec:partial",
+   "sub:zombie",
+   "tok:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lich",
+  "type": "Enchantment",
+  "cost": "{B}{B}{B}{B}",
+  "rank": 19870,
+  "text": "As this enchantment enters, you lose life equal to your life total.\nYou don't lose the game for having 0 or less life.\nIf you would gain life, draw that many cards instead.\nWhenever you're dealt damage, sacrifice that many nontoken permanents. If you can't, you lose the game.\nWhen this enchantment is put into a graveyard from the battlefield, you lose the game.",
+  "facets": [
+   "eff:lose-game",
+   "rec:partial",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Gibbering Barricade",
+  "type": "Creature — Nightmare Wall",
+  "cost": "{2}{B}",
+  "rank": 19871,
+  "text": "Defender\n{2}{B}, Sacrifice a creature: You gain 1 life and draw a card.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:draw",
+   "eff:gain-life",
+   "kw:defender",
+   "rec:full",
+   "scope:all",
+   "sub:nightmare",
+   "sub:nightmare wall",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deathpact Angel",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}{B}{B}",
+  "rank": 19872,
+  "text": "Flying\nWhen this creature dies, create a 1/1 white and black Cleric creature token. It has \"{3}{W}{B}{B}, {T}, Sacrifice this token: Return a card named Deathpact Angel from your graveyard to the battlefield.\"",
+  "facets": [
+   "cares:sub:angel",
+   "cares:zone:graveyard",
+   "eff:create-token",
+   "eff:recur-self",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "tok:cleric",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Adventurous Eater // Have a Bite",
+  "type": "Creature — Human Warlock // Sorcery",
+  "cost": "{2}{B} // {B}",
+  "rank": 19874,
+  "text": "This creature enters prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\n//\nPut a +1/+1 counter on target creature. You gain 1 life.",
+  "facets": [
+   "cares:zone:exile",
+   "eff:add-counters",
+   "eff:gain-life",
+   "kw:prepared",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sorin, Vampire Lord",
+  "type": "Legendary Planeswalker — Sorin",
+  "cost": "{4}{B}{B}",
+  "rank": 19876,
+  "text": "+1: Up to one target creature gets +2/+0 until end of turn.\n−2: Sorin deals 4 damage to any target. You gain 4 life.\n−8: Until end of turn, each Vampire you control gains \"{T}: Gain control of target creature.\"",
+  "facets": [
+   "acost:0",
+   "cares:sub:sorin",
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:damage",
+   "eff:gain-life",
+   "eff:pump",
+   "mv:big",
+   "rec:partial",
+   "sub:sorin",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Viridian Claw",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 19878,
+  "text": "Equipped creature gets +1/+0 and has first strike.\nEquip {1}",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:first strike",
+   "kw:equip",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Keen-Eared Sentry",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 19880,
+  "text": "You have hexproof. (You can't be the target of spells or abilities your opponents control.)\nEach opponent can't venture into the dungeon more than once each turn.",
+  "facets": [
+   "grants:hexproof",
+   "kw:hexproof",
+   "kw:venture into the dungeon",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Chainer's Torment",
+  "type": "Enchantment — Saga",
+  "cost": "{3}{B}",
+  "rank": 19883,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI, II — This Saga deals 2 damage to each opponent and you gain 2 life.\nIII — Create an X/X black Nightmare Horror creature token, where X is half your life total, rounded up. It deals X damage to you.",
+  "facets": [
+   "cares:sub:horror",
+   "cares:sub:nightmare",
+   "cares:sub:saga",
+   "eff:damage",
+   "eff:damage-self",
+   "eff:gain-life",
+   "kw:iii",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Cruel Sadist",
+  "type": "Creature — Human Assassin",
+  "cost": "{B}",
+  "rank": 19884,
+  "text": "{B}, {T}, Pay 1 life: Put a +1/+1 counter on this creature.\n{2}{B}, {T}, Remove X +1/+1 counters from this creature: It deals X damage to target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:life",
+   "cost:tap",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:damage",
+   "mv:cheap",
+   "rec:partial",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sovereign's Bite",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 19889,
+  "text": "Target player loses 3 life and you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Nighthowl Pursuer",
+  "type": "Creature — Wolf",
+  "cost": "{B}",
+  "rank": 19893,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nFerocious — Whenever this creature attacks while you control a creature with power 4 or greater, this creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:ferocious",
+   "kw:menace",
+   "mv:cheap",
+   "rec:full",
+   "sub:wolf",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Alley Evasion",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 19897,
+  "text": "Choose one —\n• Target creature you control gets +1/+2 until end of turn.\n• Return target creature you control to its owner's hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Odric's Outrider",
+  "type": "Creature — Human Knight",
+  "cost": "{3}{W}",
+  "rank": 19899,
+  "text": "Whenever this creature or another creature you control dies, put a +1/+1 counter on target creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ravening Warg",
+  "type": "Creature — Wolf",
+  "cost": "{1}{B}",
+  "rank": 19901,
+  "text": "Deathtouch\nFerocious — Whenever this creature attacks while you control a creature with power 4 or greater, you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:deathtouch",
+   "kw:ferocious",
+   "mv:cheap",
+   "rec:full",
+   "sub:wolf",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Crown of Empires",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 19904,
+  "text": "{3}, {T}: Tap target creature. Gain control of that creature instead if you control artifacts named Scepter of Empires and Throne of Empires.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Baleful Ammit",
+  "type": "Creature — Crocodile Demon",
+  "cost": "{2}{B}",
+  "rank": 19905,
+  "text": "Lifelink\nWhen this creature enters, put a -1/-1 counter on target creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "kw:lifelink",
+   "rec:full",
+   "sub:crocodile",
+   "sub:crocodile demon",
+   "sub:demon",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Take Vengeance",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 19906,
+  "text": "Destroy target tapped creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Coat with Venom",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 19907,
+  "text": "Target creature gets +1/+2 and gains deathtouch until end of turn. (Any amount of damage it deals to a creature is enough to destroy it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Painwracker Oni",
+  "type": "Creature — Demon Spirit",
+  "cost": "{3}{B}{B}",
+  "rank": 19908,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nAt the beginning of your upkeep, sacrifice a creature if you don't control an Ogre.",
+  "facets": [
+   "cares:sub:ogre",
+   "kw:fear",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "sub:demon spirit",
+   "sub:spirit",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Case of the Pilfered Proof",
+  "type": "Enchantment — Case",
+  "cost": "{1}{W}",
+  "rank": 19909,
+  "text": "Whenever a Detective you control enters or is turned face up, put a +1/+1 counter on it.\nTo solve — You control three or more Detectives. (If unsolved, solve at the beginning of your end step.)\nSolved — If one or more tokens would be created under your control, those tokens plus a Clue token are created instead. (It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "cares:sub:clue",
+   "cares:sub:detective",
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:draw",
+   "kw:solved",
+   "kw:to solve",
+   "mv:cheap",
+   "sub:case",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Thunderous Orator",
+  "type": "Creature — Kor Wizard",
+  "cost": "{1}{W}",
+  "rank": 19911,
+  "text": "Vigilance\nWhenever this creature attacks, it gains flying until end of turn if you control a creature with flying. The same is true for first strike, double strike, deathtouch, indestructible, lifelink, menace, and trample.",
+  "facets": [
+   "cares:kw:deathtouch",
+   "cares:kw:first strike",
+   "cares:kw:flying",
+   "cares:kw:lifelink",
+   "grants:deathtouch",
+   "grants:flying",
+   "kw:deathtouch",
+   "kw:flying",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:kor",
+   "sub:kor wizard",
+   "sub:wizard",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Whirlermaker",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 19912,
+  "text": "{4}, {T}: Create a 1/1 colorless Thopter artifact creature token with flying.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:create-token",
+   "rec:full",
+   "tok:thopter",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Earwig Squad",
+  "type": "Creature — Goblin Rogue",
+  "cost": "{3}{B}{B}",
+  "rank": 19917,
+  "text": "Prowl {2}{B} (You may cast this for its prowl cost if you dealt combat damage to a player this turn with a Goblin or Rogue.)\nWhen this creature enters, if its prowl cost was paid, search target opponent's library for three cards and exile them. Then that player shuffles.",
+  "facets": [
+   "cares:sub:rogue",
+   "cares:zone:library",
+   "kw:prowl",
+   "pt:big",
+   "rec:partial",
+   "sub:goblin",
+   "sub:goblin rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aerial Modification",
+  "type": "Enchantment — Aura",
+  "cost": "{4}{W}",
+  "rank": 19919,
+  "text": "Enchant creature or Vehicle\nAs long as enchanted permanent is a Vehicle, it's a creature in addition to its other types.\nEnchanted creature gets +2/+2 and has flying.",
+  "facets": [
+   "cares:sub:vehicle",
+   "eff:pump",
+   "grants:flying",
+   "kw:enchant",
+   "kw:flying",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mindleech Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{1}{B}",
+  "rank": 19927,
+  "text": "Exploit (When this creature enters, you may sacrifice a creature.)\nWhen this creature exploits a creature, each opponent exiles a card from their hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cost:sacrifice",
+   "eff:discard",
+   "kw:exploit",
+   "mv:cheap",
+   "rec:partial",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stony-Voiced Goblins",
+  "type": "Creature — Goblin Bard",
+  "cost": "{1}{B}",
+  "rank": 19928,
+  "text": "When this creature enters, each opponent discards a card.",
+  "facets": [
+   "eff:discard",
+   "mv:cheap",
+   "rec:full",
+   "sub:bard",
+   "sub:goblin",
+   "sub:goblin bard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Purify the Grave",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 19929,
+  "text": "Exile target card from a graveyard.\nFlashback {W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "eff:exile-graveyard",
+   "kw:flashback",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mystical Tether",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 19930,
+  "text": "You may cast this spell as though it had flash if you pay {2} more to cast it.\nWhen this enchantment enters, exile target artifact or creature an opponent controls until this enchantment leaves the battlefield.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:exile",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Wall of Bone",
+  "type": "Creature — Skeleton Wall",
+  "cost": "{2}{B}",
+  "rank": 19932,
+  "text": "Defender (This creature can't attack.)\n{B}: Regenerate this creature. (The next time this creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+  "facets": [
+   "acost:1",
+   "kw:defender",
+   "kw:heal",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:skeleton",
+   "sub:skeleton wall",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Agents of HYDRA",
+  "type": "Creature — Human Spy Villain",
+  "cost": "{1}{B}",
+  "rank": 19934,
+  "text": "When this creature dies, create a 2/1 black Villain creature token with menace. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "cares:sub:villain",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human spy villain",
+   "sub:spy",
+   "sub:villain",
+   "tok:villain",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Divine Deflection",
+  "type": "Instant",
+  "cost": "{X}{W}",
+  "rank": 19935,
+  "text": "Prevent the next X damage that would be dealt to you and/or permanents you control this turn. If damage is prevented this way, Divine Deflection deals that much damage to any target.",
+  "facets": [
+   "eff:prevent-damage",
+   "eff:redirect-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Auspicious Arrival",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19939,
+  "text": "Target creature gets +2/+2 until end of turn. Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:draw",
+   "eff:pump",
+   "kw:investigate",
+   "mv:cheap",
+   "rec:partial",
+   "tok:clue",
+   "type:instant"
+  ]
+ }
+]

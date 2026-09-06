@@ -1,0 +1,798 @@
+[
+ {
+  "name": "Sword-Swallowing Seraph",
+  "type": "Creature — Angel Performer",
+  "cost": "{4}{W}{W}",
+  "rank": 29612,
+  "text": "Flying, vigilance\nWhen this creature enters, you may put a name sticker on a nonland permanent you own.\n{1}{W}, {T}: Put a +1/+1 counter on another target creature with a name sticker on it. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:flying",
+   "kw:vigilance",
+   "mv:big",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel performer",
+   "sub:performer",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Farrel's Zealot",
+  "type": "Creature — Human",
+  "cost": "{1}{W}{W}",
+  "rank": 29614,
+  "text": "Whenever this creature attacks and isn't blocked, you may have it deal 3 damage to target creature. If you do, this creature assigns no combat damage this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "sub:human",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Malach of the Dawn",
+  "type": "Creature — Angel",
+  "cost": "{2}{W}{W}",
+  "rank": 29615,
+  "text": "Flying\n{W}{W}{W}: Regenerate this creature.",
+  "facets": [
+   "acost:3",
+   "kw:flying",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Draconian Cylix",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 29616,
+  "text": "{2}, {T}, Discard a card at random: Regenerate target creature.",
+  "facets": [
+   "col:none",
+   "eff:discard-self",
+   "eff:protect",
+   "kw:regenerate",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hawkeye's Shot",
+  "type": "Sorcery",
+  "cost": "{4}{W}",
+  "rank": 29618,
+  "text": "This spell costs {2} less to cast if it targets a tapped creature.\nExile target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Chrome Replicator",
+  "type": "Artifact Creature — Construct",
+  "cost": "{5}",
+  "rank": 29620,
+  "text": "When this creature enters, if you control two or more nonland, nontoken permanents with the same name as one another, create a 4/4 colorless Construct artifact creature token.",
+  "facets": [
+   "cares:sub:construct",
+   "col:none",
+   "rec:partial",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghost Warden",
+  "type": "Creature — Spirit",
+  "cost": "{1}{W}",
+  "rank": 29625,
+  "text": "{T}: Target creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spotted Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}",
+  "rank": 29631,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dusk Feaster",
+  "type": "Creature — Vampire",
+  "cost": "{5}{B}{B}",
+  "rank": 29634,
+  "text": "Delirium — This spell costs {2} less to cast if there are four or more card types among cards in your graveyard.\nFlying",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:delirium",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Auriok Siege Sled",
+  "type": "Artifact Creature — Juggernaut",
+  "cost": "{6}",
+  "rank": 29635,
+  "text": "{1}: Target artifact creature blocks this creature this turn if able.\n{1}: Target artifact creature can't block this creature this turn.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:force-block",
+   "mv:big",
+   "sub:juggernaut",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pillar Tombs of Aku",
+  "type": "World Enchantment",
+  "cost": "{2}{B}{B}",
+  "rank": 29639,
+  "text": "At the beginning of each player's upkeep, that player may sacrifice a creature of their choice. If that player doesn't, they lose 5 life and you sacrifice this enchantment.",
+  "facets": [
+   "cares:type:creature",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment",
+   "type:world"
+  ]
+ },
+ {
+  "name": "Hewed Stone Retainers",
+  "type": "Artifact Creature — Golem",
+  "cost": "{3}",
+  "rank": 29641,
+  "text": "Cast this spell only if you've cast another spell this turn.",
+  "facets": [
+   "col:none",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Audacious Infiltrator",
+  "type": "Creature — Dwarf Rogue",
+  "cost": "{1}{W}",
+  "rank": 29643,
+  "text": "This creature can't be blocked by artifact creatures.",
+  "facets": [
+   "mv:cheap",
+   "sub:dwarf",
+   "sub:dwarf rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Giant Slug",
+  "type": "Creature — Slug",
+  "cost": "{1}{B}",
+  "rank": 29649,
+  "text": "{5}: At the beginning of your next upkeep, choose a basic land type. This creature gains landwalk of the chosen type until the end of that turn. (It can't be blocked as long as defending player controls a land of that type.)",
+  "facets": [
+   "acost:3",
+   "mv:cheap",
+   "sub:slug",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Demon's Jester",
+  "type": "Creature — Imp",
+  "cost": "{3}{B}",
+  "rank": 29652,
+  "text": "Flying\nHellbent — This creature gets +2/+1 as long as you have no cards in hand.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:pump",
+   "kw:flying",
+   "kw:hellbent",
+   "rec:full",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Glint Hawk Idol",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 29654,
+  "text": "Whenever another artifact you control enters, you may have this artifact become a 2/2 Bird artifact creature with flying until end of turn.\n{W}: This artifact becomes a 2/2 Bird artifact creature with flying until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:sub:bird",
+   "cares:type:artifact",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Strength of Unity",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{W}",
+  "rank": 29655,
+  "text": "Enchant creature\nDomain — Enchanted creature gets +1/+1 for each basic land type among lands you control.",
+  "facets": [
+   "kw:domain",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Aether Searcher",
+  "type": "Artifact Creature — Construct",
+  "cost": "{7}",
+  "rank": 29656,
+  "text": "Reveal this card as you draft it. Reveal the next card you draft and note its name.\nWhen this creature enters, you may search your hand and/or library for a card with a name noted as you drafted cards named Aether Searcher. You may cast it without paying its mana cost. If you searched your library this way, shuffle.",
+  "facets": [
+   "col:none",
+   "eff:cast-free",
+   "eff:search-library",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kill-Zone Acrobat",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{B}",
+  "rank": 29658,
+  "text": "Whenever this creature attacks, you may sacrifice another creature or artifact. If you do, this creature gains flying until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:pump",
+   "eff:sacrifice",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Torii Watchward",
+  "type": "Creature — Spirit",
+  "cost": "{4}{W}",
+  "rank": 29660,
+  "text": "Vigilance (Attacking doesn't cause this creature to tap.)\nSoulshift 4 (When this creature dies, you may return target Spirit card with mana value 4 or less from your graveyard to your hand.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:soulshift",
+   "kw:vigilance",
+   "rec:full",
+   "sub:spirit",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rag Dealer",
+  "type": "Creature — Human Rogue",
+  "cost": "{B}",
+  "rank": 29662,
+  "text": "{2}{B}, {T}: Exile up to three target cards from a single graveyard.",
+  "facets": [
+   "acost:3",
+   "mv:cheap",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Reverse Polarity",
+  "type": "Instant",
+  "cost": "{W}{W}",
+  "rank": 29663,
+  "text": "You gain X life, where X is twice the damage dealt to you so far this turn by artifacts.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:gain-life",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Orim's Cure",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 29664,
+  "text": "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nPrevent the next 4 damage that would be dealt to any target this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cost:cast-tap-others",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mortiphobia",
+  "type": "Enchantment",
+  "cost": "{1}{B}{B}",
+  "rank": 29665,
+  "text": "{1}{B}, Discard a card: Exile target card from a graveyard.\n{1}{B}, Sacrifice this enchantment: Exile target card from a graveyard.",
+  "facets": [
+   "acost:2",
+   "cost:discard",
+   "cost:sacrifice-self",
+   "eff:exile-graveyard",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Healer's Headdress",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 29667,
+  "text": "Equipped creature gets +0/+2 and has \"{T}: Prevent the next 1 damage that would be dealt to any target this turn.\"\n{W}{W}: Attach this Equipment to target creature you control.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gustcloak Sentinel",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}{W}",
+  "rank": 29670,
+  "text": "Whenever this creature becomes blocked, you may untap it and remove it from combat.",
+  "facets": [
+   "eff:untap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:becomes-blocked",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Starlit Angel",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}{W}",
+  "rank": 29674,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghost Hounds",
+  "type": "Creature — Dog Spirit",
+  "cost": "{1}{B}",
+  "rank": 29675,
+  "text": "Vigilance\nWhenever this creature blocks or becomes blocked by a white creature, this creature gains first strike until end of turn.",
+  "facets": [
+   "cares:color:w",
+   "grants:first strike",
+   "kw:first strike",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dog",
+   "sub:dog spirit",
+   "sub:spirit",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Qilin's Blessing",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 29680,
+  "text": "Target creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Leeching Licid",
+  "type": "Creature — Licid",
+  "cost": "{1}{B}",
+  "rank": 29681,
+  "text": "{B}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {B} to end this effect.\nAt the beginning of the upkeep of enchanted creature's controller, this creature deals 1 damage to that player.",
+  "facets": [
+   "acost:2",
+   "cares:sub:aura",
+   "eff:damage",
+   "mv:cheap",
+   "sub:licid",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Witness of the Ages",
+  "type": "Artifact Creature — Golem",
+  "cost": "{6}",
+  "rank": 29690,
+  "text": "Morph {5} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "col:none",
+   "kw:morph",
+   "mv:big",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Premature Burial",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 29692,
+  "text": "Destroy target nonblack creature that entered since your last turn ended.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Undead Executioner",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 29694,
+  "text": "When this creature dies, you may have target creature get -2/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "sub:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ephara's Warden",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 29696,
+  "text": "{T}: Tap target creature with power 3 or less.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Heavenly Qilin",
+  "type": "Creature — Kirin",
+  "cost": "{2}{W}",
+  "rank": 29700,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhenever this creature attacks, another target creature you control gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:kirin",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Douser of Lights",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}",
+  "rank": 29701,
+  "text": "",
+  "facets": [
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shade of Trokair",
+  "type": "Creature — Shade",
+  "cost": "{3}{W}",
+  "rank": 29702,
+  "text": "{W}: This creature gets +1/+1 until end of turn.\nSuspend 3—{W} (Rather than cast this card from your hand, you may pay {W} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:suspend",
+   "rec:partial",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sangrophage",
+  "type": "Creature — Zombie",
+  "cost": "{B}{B}",
+  "rank": 29704,
+  "text": "At the beginning of your upkeep, tap this creature unless you pay 2 life.",
+  "facets": [
+   "mv:cheap",
+   "rec:partial",
+   "sub:zombie",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mystic Crusader",
+  "type": "Creature — Human Nomad Mystic",
+  "cost": "{1}{W}{W}",
+  "rank": 29706,
+  "text": "Protection from black and from red\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and has flying.",
+  "facets": [
+   "cares:color:r",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "kw:protection",
+   "kw:threshold",
+   "rec:full",
+   "sub:human",
+   "sub:human nomad mystic",
+   "sub:mystic",
+   "sub:nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tireless Missionaries",
+  "type": "Creature — Human Cleric",
+  "cost": "{4}{W}",
+  "rank": 29710,
+  "text": "When this creature enters, you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Foul Imp",
+  "type": "Creature — Imp",
+  "cost": "{B}{B}",
+  "rank": 29711,
+  "text": "Flying\nWhen this creature enters, you lose 2 life.",
+  "facets": [
+   "eff:lose-life",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:imp",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marble Gargoyle",
+  "type": "Artifact Creature — Gargoyle",
+  "cost": "{2}{W}",
+  "rank": 29713,
+  "text": "Flying\n{W}: This creature gets +0/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:gargoyle",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Calciderm",
+  "type": "Creature — Beast",
+  "cost": "{2}{W}{W}",
+  "rank": 29718,
+  "text": "Shroud (This creature can't be the target of spells or abilities.)\nVanishing 4 (This creature enters with four time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)",
+  "facets": [
+   "kw:shroud",
+   "kw:vanishing",
+   "pt:big",
+   "rec:full",
+   "sub:beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Black Carriage",
+  "type": "Creature — Horse",
+  "cost": "{3}{B}{B}",
+  "rank": 29719,
+  "text": "Trample\nThis creature doesn't untap during your untap step.\nSacrifice a creature: Untap this creature. Activate only during your upkeep.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:untap",
+   "kw:trample",
+   "rec:partial",
+   "scope:all",
+   "sub:horse",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Corrupted Harvester",
+  "type": "Creature — Phyrexian Horror",
+  "cost": "{4}{B}{B}",
+  "rank": 29720,
+  "text": "{B}, Sacrifice a creature: Regenerate this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "kw:regenerate",
+   "mv:big",
+   "pt:big",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Great Defender",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 29727,
+  "text": "Target creature gets +0/+X until end of turn, where X is its mana value.",
+  "facets": [
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Gustcloak Runner",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 29729,
+  "text": "Whenever this creature becomes blocked, you may untap it and remove it from combat.",
+  "facets": [
+   "eff:untap",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:becomes-blocked",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Discordant Dirge",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 29730,
+  "text": "At the beginning of your upkeep, you may put a verse counter on this enchantment.\n{B}, Sacrifice this enchantment: Look at target opponent's hand and choose up to X cards from it, where X is the number of verse counters on this enchantment. That player discards those cards.",
+  "facets": [
+   "cares:zone:hand",
+   "ctr:verse-self",
+   "eff:add-counters-self",
+   "eff:discard",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Suture Spirit",
+  "type": "Creature — Spirit",
+  "cost": "{1}{W}",
+  "rank": 29731,
+  "text": "Flying\n{W/B}{W/B}{W/B}: Regenerate target creature.",
+  "facets": [
+   "acost:3",
+   "kw:flying",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Alaborn Trooper",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 29732,
+  "text": "",
+  "facets": [
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ }
+]

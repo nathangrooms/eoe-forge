@@ -1,0 +1,897 @@
+[
+ {
+  "name": "Cult Healer",
+  "type": "Creature — Human Doctor",
+  "cost": "{2}{W}",
+  "rank": 21507,
+  "text": "Eerie — Whenever an enchantment you control enters and whenever you fully unlock a Room, this creature gains lifelink until end of turn.",
+  "facets": [
+   "cares:sub:room",
+   "cares:type:enchantment",
+   "eff:gain-life",
+   "kw:eerie",
+   "kw:lifelink",
+   "sub:doctor",
+   "sub:human",
+   "sub:human doctor",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Piercing Rays",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 21508,
+  "text": "Exile target tapped creature.\nForecast — {2}{W}, Reveal this card from your hand: Tap target untapped creature. (Activate this ability only during your upkeep and only once each turn.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "eff:tap",
+   "kw:forecast",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Woebringer Demon",
+  "type": "Creature — Demon",
+  "cost": "{3}{B}{B}",
+  "rank": 21509,
+  "text": "Flying\nAt the beginning of each player's upkeep, that player sacrifices a creature of their choice. If the player can't, sacrifice this creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:flying",
+   "rec:partial",
+   "sub:demon",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kiyomaro, First to Stand",
+  "type": "Legendary Creature — Spirit",
+  "cost": "{3}{W}{W}",
+  "rank": 21512,
+  "text": "Kiyomaro's power and toughness are each equal to the number of cards in your hand.\nAs long as you have four or more cards in hand, Kiyomaro has vigilance.\nWhenever Kiyomaro deals damage, if you have seven or more cards in hand, you gain 7 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:set-pt",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "sub:spirit",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Featherbrained Filcher",
+  "type": "Creature — Bird Mutant",
+  "cost": "{W}",
+  "rank": 21514,
+  "text": "Flying\nWhen this creature leaves the battlefield, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+  "facets": [
+   "eff:create-token",
+   "eff:gain-life",
+   "kw:flying",
+   "kw:food",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "sub:bird mutant",
+   "sub:mutant",
+   "tok:food",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boros Mastiff",
+  "type": "Creature — Dog",
+  "cost": "{1}{W}",
+  "rank": 21515,
+  "text": "Battalion — Whenever this creature and at least two other creatures attack, this creature gains lifelink until end of turn. (Damage dealt by a creature with lifelink also causes its controller to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:battalion",
+   "kw:lifelink",
+   "mv:cheap",
+   "sub:dog",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Draugr Recruiter",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{3}{B}",
+  "rank": 21516,
+  "text": "Boast — {3}{B}: Return target creature card from your graveyard to your hand. (Activate only if this creature attacked this turn and only once each turn.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:boast",
+   "rec:full",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scrap Compactor",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 21518,
+  "text": "{3}, {T}, Sacrifice this artifact: It deals 3 damage to target creature.\n{6}, {T}, Sacrifice this artifact: Destroy target creature or Vehicle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:vehicle",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:damage",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Doubtless One",
+  "type": "Creature — Cleric Avatar",
+  "cost": "{3}{W}",
+  "rank": 21521,
+  "text": "Doubtless One's power and toughness are each equal to the number of Clerics on the battlefield.\nWhenever this creature deals damage, you gain that much life.",
+  "facets": [
+   "cares:sub:cleric",
+   "rec:partial",
+   "sub:avatar",
+   "sub:cleric",
+   "sub:cleric avatar",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bebop, Warthog Warrior",
+  "type": "Legendary Creature — Boar Mutant Warrior",
+  "cost": "{4}{B}",
+  "rank": 21523,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nRhinos you control have menace.\nSwampcycling {2} ({2}, Discard this card: Search your library for a Swamp card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:sub:rhino",
+   "eff:search-library",
+   "grants:menace",
+   "kw:cycling",
+   "kw:landcycling",
+   "kw:menace",
+   "kw:swampcycling",
+   "kw:typecycling",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:boar",
+   "sub:boar mutant warrior",
+   "sub:mutant",
+   "sub:warrior",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Vampire Interloper",
+  "type": "Creature — Vampire Scout",
+  "cost": "{1}{B}",
+  "rank": 21524,
+  "text": "Flying\nThis creature can't block.",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:scout",
+   "sub:vampire",
+   "sub:vampire scout",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunhome Stalwart",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 21530,
+  "text": "First strike (This creature deals combat damage before creatures without first strike.)\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:first strike",
+   "kw:mentor",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thrull Wizard",
+  "type": "Creature — Thrull Wizard",
+  "cost": "{2}{B}",
+  "rank": 21532,
+  "text": "{1}{B}: Counter target black spell unless that spell's controller pays {B} or {3}.",
+  "facets": [
+   "acost:2",
+   "cares:zone:stack",
+   "eff:counter",
+   "sub:thrull",
+   "sub:thrull wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Frantic Purification",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 21533,
+  "text": "Destroy target enchantment.\nMadness {W} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "kw:madness",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Aven Cloudchaser",
+  "type": "Creature — Bird Soldier",
+  "cost": "{3}{W}",
+  "rank": 21534,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen this creature enters, destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arashin Sunshield",
+  "type": "Creature — Human Warrior",
+  "cost": "{3}{W}",
+  "rank": 21535,
+  "text": "When this creature enters, exile up to two target cards from a single graveyard.\n{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "rec:partial",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Retched Wretch",
+  "type": "Creature — Goblin",
+  "cost": "{2}{B}",
+  "rank": 21536,
+  "text": "When this creature dies, if it had a -1/-1 counter on it, return it to the battlefield under its owner's control and it loses all abilities.",
+  "facets": [
+   "rec:partial",
+   "sub:goblin",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon's Eye Sentry",
+  "type": "Creature — Human Monk",
+  "cost": "{W}",
+  "rank": 21537,
+  "text": "Defender, first strike",
+  "facets": [
+   "kw:defender",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gnashing of Teeth",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 21544,
+  "text": "Choose one —\n• Target creature gets -5/-5 until end of turn. If that creature would die this turn, exile it instead.\n• Creatures target player controls get -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "eff:shrink",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kami of Old Stone",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 21545,
+  "text": "",
+  "facets": [
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Acid-Spewer Dragon",
+  "type": "Creature — Dragon",
+  "cost": "{5}{B}",
+  "rank": 21547,
+  "text": "Flying, deathtouch\nMegamorph {5}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)\nWhen this creature is turned face up, put a +1/+1 counter on each other Dragon creature you control.",
+  "facets": [
+   "cares:sub:dragon",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:deathtouch",
+   "kw:flying",
+   "kw:megamorph",
+   "mv:big",
+   "rec:partial",
+   "sub:dragon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Porphyry Nodes",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 21552,
+  "text": "At the beginning of your upkeep, destroy the creature with the least power. It can't be regenerated. If two or more creatures are tied for least power, you choose one of them.\nWhen there are no creatures on the battlefield, sacrifice this enchantment.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Honed Khopesh",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 21553,
+  "text": "Equipped creature gets +1/+1.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Baku Altar",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 21557,
+  "text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this artifact.\n{2}, {T}, Remove a ki counter from this artifact: Create a 1/1 colorless Spirit creature token.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "cost:remove-counters",
+   "cost:tap",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:partial",
+   "tok:spirit",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Chainflail Centipede",
+  "type": "Artifact Creature — Equipment Insect",
+  "cost": "{2}{B}",
+  "rank": 21558,
+  "text": "Whenever this creature or equipped creature attacks, it gets +2/+0 until end of turn.\nReconfigure {2} ({2}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:attach",
+   "kw:reconfigure",
+   "rec:partial",
+   "sub:equipment",
+   "sub:equipment insect",
+   "sub:insect",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Accursed Horde",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 21559,
+  "text": "{1}{B}: Target attacking Zombie gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it. If its toughness is 0 or less, it still dies.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:zombie",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Syphon Fuel",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 21560,
+  "text": "Target creature gets -6/-6 until end of turn. You gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:shrink",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Farbog Revenant",
+  "type": "Creature — Spirit",
+  "cost": "{2}{B}",
+  "rank": 21561,
+  "text": "Skulk (This creature can't be blocked by creatures with greater power.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:lifelink",
+   "kw:skulk",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marrow Bats",
+  "type": "Creature — Bat Skeleton",
+  "cost": "{4}{B}",
+  "rank": 21562,
+  "text": "Flying\nPay 4 life: Regenerate this creature.",
+  "facets": [
+   "cost:life",
+   "kw:flying",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:bat",
+   "sub:bat skeleton",
+   "sub:skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spy Kit",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 21563,
+  "text": "Equipped creature gets +1/+1 and has all names of nonlegendary creature cards in addition to its name.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sultai Emissary",
+  "type": "Creature — Zombie Warrior",
+  "cost": "{1}{B}",
+  "rank": 21564,
+  "text": "When this creature dies, manifest the top card of your library. (Put that card onto the battlefield face down as a 2/2 creature. Turn it face up any time for its mana cost if it's a creature card.)",
+  "facets": [
+   "eff:create-token",
+   "kw:manifest",
+   "mv:cheap",
+   "rec:partial",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Quiet Purity",
+  "type": "Instant — Arcane",
+  "cost": "{W}",
+  "rank": 21566,
+  "text": "Destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Lash of Thorns",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 21571,
+  "text": "Target creature gets +2/+1 and gains deathtouch until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Abu Ja'far",
+  "type": "Creature — Human",
+  "cost": "{W}",
+  "rank": 21572,
+  "text": "When this creature dies, destroy all creatures blocking or blocked by it. They can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thalia's Geistcaller",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 21573,
+  "text": "Lifelink\nWhenever you cast a spell from your graveyard, create a 1/1 white Spirit creature token with flying.\nSacrifice a Spirit: This creature gains indestructible until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:spirit",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "eff:create-token",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "kw:lifelink",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Surge of Thoughtweft",
+  "type": "Kindred Instant — Kithkin",
+  "cost": "{1}{W}",
+  "rank": 21575,
+  "text": "Creatures you control get +1/+1 until end of turn. If you control a Kithkin, draw a card.",
+  "facets": [
+   "cares:sub:kithkin",
+   "cares:type:creature",
+   "eff:draw",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:kithkin",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rathi Trapper",
+  "type": "Creature — Human Rebel Rogue",
+  "cost": "{1}{B}",
+  "rank": 21576,
+  "text": "{B}, {T}: Tap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human rebel rogue",
+   "sub:rebel",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Haunted Plate Mail",
+  "type": "Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 21577,
+  "text": "Equipped creature gets +4/+4.\n{0}: Until end of turn, this permanent becomes a 4/4 Spirit artifact creature that's no longer an Equipment. Activate only if you control no creatures.\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Anvilwrought Raptor",
+  "type": "Artifact Creature — Bird",
+  "cost": "{4}",
+  "rank": 21579,
+  "text": "Flying\nFirst strike (This creature deals combat damage before creatures without first strike.)",
+  "facets": [
+   "col:none",
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Maw of the Obzedat",
+  "type": "Creature — Thrull",
+  "cost": "{3}{W}{B}",
+  "rank": 21581,
+  "text": "Sacrifice a creature: Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:thrull",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vivisection Evangelist",
+  "type": "Creature — Phyrexian Cleric",
+  "cost": "{3}{W}{B}",
+  "rank": 21582,
+  "text": "Vigilance\nCorrupted — When this creature enters, if an opponent has three or more poison counters, destroy target creature or planeswalker an opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "kw:corrupted",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thinking Cap",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 21585,
+  "text": "Equipped creature gets +1/+2.\nEquip Detective {1}\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:sub:detective",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Pious Kitsune",
+  "type": "Creature — Fox Cleric",
+  "cost": "{2}{W}",
+  "rank": 21586,
+  "text": "At the beginning of your upkeep, put a devotion counter on this creature. Then if a creature named Eight-and-a-Half-Tails is on the battlefield, you gain 1 life for each devotion counter on this creature.\n{T}, Remove a devotion counter from this creature: You gain 1 life.",
+  "facets": [
+   "acost:0",
+   "cost:remove-counters",
+   "cost:tap",
+   "ctr:devotion-self",
+   "eff:add-counters-self",
+   "eff:gain-life",
+   "rec:partial",
+   "sub:cleric",
+   "sub:fox",
+   "sub:fox cleric",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Snubhorn Sentry",
+  "type": "Creature — Dinosaur",
+  "cost": "{W}",
+  "rank": 21588,
+  "text": "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\nThis creature gets +3/+0 as long as you have the city's blessing.",
+  "facets": [
+   "kw:ascend",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dinosaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Avacynian Priest",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 21589,
+  "text": "{1}, {T}: Tap target non-Human creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Loyal Gryff",
+  "type": "Creature — Hippogriff",
+  "cost": "{2}{W}",
+  "rank": 21590,
+  "text": "Flash\nFlying\nWhen this creature enters, you may return another creature you control to its owner's hand.",
+  "facets": [
+   "eff:bounce-own",
+   "kw:flash",
+   "kw:flying",
+   "rec:partial",
+   "sub:hippogriff",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Parasitic Implant",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 21592,
+  "text": "Enchant creature\nAt the beginning of your upkeep, enchanted creature's controller sacrifices it and you create a 1/1 colorless Phyrexian Myr artifact creature token.",
+  "facets": [
+   "cares:type:creature",
+   "eff:attach",
+   "eff:create-token",
+   "eff:sacrifice",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "tok:myr",
+   "tok:phyrexian",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bog Hoodlums",
+  "type": "Creature — Goblin Warrior",
+  "cost": "{5}{B}",
+  "rank": 21593,
+  "text": "This creature can't block.\nWhen this creature enters, clash with an opponent. If you win, put a +1/+1 counter on this creature. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:clash",
+   "mv:big",
+   "rec:partial",
+   "sub:goblin",
+   "sub:goblin warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Resolute Strike",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 21597,
+  "text": "Target creature gets +2/+2 until end of turn. If it's a Warrior, you may attach an Equipment you control to it.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:sub:warrior",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Strands of Undeath",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 21600,
+  "text": "Enchant creature\nWhen this Aura enters, target player discards two cards.\n{B}: Regenerate enchanted creature.",
+  "facets": [
+   "acost:1",
+   "cares:sub:aura",
+   "eff:discard",
+   "kw:enchant",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ }
+]

@@ -1,0 +1,914 @@
+[
+ {
+  "name": "Samite Herbalist",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 18562,
+  "text": "Whenever this creature becomes tapped, you gain 1 life and scry 1. (Look at the top card of your library. You may put that card on the bottom.)",
+  "facets": [
+   "eff:gain-life",
+   "eff:scry",
+   "kw:scry",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:tapped",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fairgrounds Warden",
+  "type": "Creature — Dwarf Soldier",
+  "cost": "{2}{W}",
+  "rank": 18563,
+  "text": "When this creature enters, exile target creature an opponent controls until this creature leaves the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "rec:partial",
+   "sub:dwarf",
+   "sub:dwarf soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stir Up Trouble",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 18569,
+  "text": "As an additional cost to cast this spell, sacrifice an artifact or creature or pay {4}.\nDestroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Burst of Energy",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 18570,
+  "text": "Untap target permanent.",
+  "facets": [
+   "eff:untap",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Walking Sarcophagus",
+  "type": "Artifact Creature — Zombie Cat",
+  "cost": "{2}",
+  "rank": 18572,
+  "text": "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\nMax speed — This creature gets +1/+2.",
+  "facets": [
+   "col:none",
+   "eff:pump",
+   "kw:max speed",
+   "kw:start your engines!",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "sub:zombie",
+   "sub:zombie cat",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lethal Sting",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 18577,
+  "text": "As an additional cost to cast this spell, put a -1/-1 counter on a creature you control.\nDestroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Restore Balance",
+  "type": "Sorcery",
+  "cost": "",
+  "rank": 18579,
+  "text": "Suspend 6—{W}\nEach player chooses a number of lands they control equal to the number of lands controlled by the player who controls the fewest, then sacrifices the rest. Players sacrifice creatures and discard cards the same way.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:discard",
+   "eff:discard-self",
+   "eff:sacrifice",
+   "kw:suspend",
+   "mv:cheap",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Magus of the Balance",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 18582,
+  "text": "{4}{W}, {T}, Sacrifice this creature: Each player chooses a number of lands they control equal to the number of lands controlled by the player who controls the fewest, then sacrifices the rest. Players discard cards and sacrifice creatures the same way.",
+  "facets": [
+   "cares:type:land",
+   "cost:sacrifice-self",
+   "mv:cheap",
+   "scope:all",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Path of Peril",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 18583,
+  "text": "Cleave {4}{W}{B} (You may cast this spell for its cleave cost. If you do, remove the words in square brackets.)\nDestroy all creatures [with mana value 2 or less].",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:cleave",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blood Operative",
+  "type": "Creature — Vampire Assassin",
+  "cost": "{1}{B}{B}",
+  "rank": 18584,
+  "text": "Lifelink\nWhen this creature enters, you may exile target card from a graveyard.\nWhenever you surveil, if this card is in your graveyard, you may pay 3 life. If you do, return this card to your hand.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:exile-graveyard",
+   "eff:return-from",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:assassin",
+   "sub:vampire",
+   "sub:vampire assassin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Infected Defector",
+  "type": "Creature — Phyrexian Knight",
+  "cost": "{4}{W}",
+  "rank": 18589,
+  "text": "When this creature dies, incubate 3. (Create an Incubator token with three +1/+1 counters on it and \"{2}: Transform this token.\" It transforms into a 0/0 Phyrexian artifact creature.)",
+  "facets": [
+   "eff:create-token",
+   "kw:incubate",
+   "kw:transform",
+   "rec:partial",
+   "sub:knight",
+   "sub:phyrexian",
+   "sub:phyrexian knight",
+   "tok:incubator",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Signpost Scarecrow",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{4}",
+  "rank": 18594,
+  "text": "Vigilance\n{2}: Add one mana of any color.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:add-mana",
+   "kw:vigilance",
+   "mana:1",
+   "rec:full",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghoulraiser",
+  "type": "Creature — Zombie",
+  "cost": "{1}{B}{B}",
+  "rank": 18598,
+  "text": "When this creature enters, return a Zombie card at random from your graveyard to your hand.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Conch Horn",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 18599,
+  "text": "{1}, {T}, Sacrifice this artifact: Draw two cards, then put a card from your hand on top of your library.",
+  "facets": [
+   "col:none",
+   "cost:sacrifice-self",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gird for Battle",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 18602,
+  "text": "Put a +1/+1 counter on each of up to two target creatures.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Pitiless Pontiff",
+  "type": "Creature — Vampire Cleric",
+  "cost": "{W}{B}",
+  "rank": 18603,
+  "text": "{1}, Sacrifice another creature: This creature gains deathtouch and indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:pump",
+   "grants:deathtouch",
+   "grants:indestructible",
+   "kw:deathtouch",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:vampire",
+   "sub:vampire cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ballynock Trapper",
+  "type": "Creature — Kithkin Soldier",
+  "cost": "{3}{W}",
+  "rank": 18606,
+  "text": "{T}: Tap target creature.\nWhenever you cast a white spell, you may untap this creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "cost:tap",
+   "eff:tap",
+   "eff:untap",
+   "rec:full",
+   "scope:all",
+   "sub:kithkin",
+   "sub:kithkin soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Baleful Eidolon",
+  "type": "Enchantment Creature — Spirit",
+  "cost": "{1}{B}",
+  "rank": 18612,
+  "text": "Bestow {4}{B} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nDeathtouch (Any amount of damage this deals to a creature is enough to destroy it.)\nEnchanted creature gets +1/+1 and has deathtouch.",
+  "facets": [
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:bestow",
+   "kw:deathtouch",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mine Worker",
+  "type": "Artifact Creature — Assembly-Worker",
+  "cost": "{2}",
+  "rank": 18613,
+  "text": "{T}: You gain 1 life. If you control creatures named Power Plant Worker and Tower Worker, you gain 3 life instead.",
+  "facets": [
+   "acost:0",
+   "cares:sub:plant",
+   "col:none",
+   "cost:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:assembly-worker",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scourgemark",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 18615,
+  "text": "Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature gets +1/+0.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:draw",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Great Desert Prospector",
+  "type": "Creature — Human Artificer",
+  "cost": "{4}{W}",
+  "rank": 18620,
+  "text": "When this creature enters, create a tapped Powerstone token for each other creature you control. (They're artifacts with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "facets": [
+   "cares:sub:powerstone",
+   "cares:type:creature",
+   "eff:add-mana",
+   "rec:partial",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Beetle-Headed Merchants",
+  "type": "Creature — Human Citizen",
+  "cost": "{4}{B}",
+  "rank": 18625,
+  "text": "Whenever this creature attacks, you may sacrifice another creature or artifact. If you do, draw a card and put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:draw",
+   "eff:sacrifice",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:citizen",
+   "sub:human",
+   "sub:human citizen",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Enchanted Carriage",
+  "type": "Artifact — Vehicle",
+  "cost": "{5}",
+  "rank": 18628,
+  "text": "When this Vehicle enters, create two 1/1 white Mouse creature tokens.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:sub:vehicle",
+   "col:none",
+   "eff:create-token",
+   "kw:crew",
+   "rec:full",
+   "sub:vehicle",
+   "tok:mouse",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Eager Construct",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 18629,
+  "text": "When this creature enters, each player may scry 1. (To scry 1, look at the top card of your library, then you may put that card on the bottom.)",
+  "facets": [
+   "col:none",
+   "eff:scry",
+   "kw:scry",
+   "mv:cheap",
+   "rec:partial",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Makindi Ox",
+  "type": "Creature — Ox",
+  "cost": "{4}{W}",
+  "rank": 18630,
+  "text": "Landfall — Whenever a land you control enters, tap target creature an opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:tap",
+   "kw:landfall",
+   "rec:full",
+   "scope:all",
+   "sub:ox",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Contaminated Ground",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 18632,
+  "text": "Enchant land\nEnchanted land is a Swamp.\nWhenever enchanted land becomes tapped, its controller loses 2 life.",
+  "facets": [
+   "cares:type:land",
+   "eff:lose-life",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:tapped",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Hold the Line",
+  "type": "Instant",
+  "cost": "{1}{W}{W}",
+  "rank": 18633,
+  "text": "Blocking creatures get +7/+7 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Bloodsworn Squire // Bloodsworn Knight",
+  "type": "Creature — Vampire Soldier // Creature — Vampire Knight",
+  "cost": "",
+  "rank": 18635,
+  "text": "{1}{B}, Discard a card: This creature gains indestructible until end of turn. Tap it. Then if there are four or more creature cards in your graveyard, transform this creature. (Damage and effects that say \"destroy\" don't destroy it.)\n//\nBloodsworn Knight's power and toughness are each equal to the number of creature cards in your graveyard.\n{1}{B}, Discard a card: This creature gains indestructible until end of turn. Tap it. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:discard",
+   "eff:pump",
+   "eff:tap-own",
+   "grants:indestructible",
+   "kw:indestructible",
+   "kw:transform",
+   "rec:partial",
+   "sub:knight",
+   "sub:soldier",
+   "sub:vampire",
+   "sub:vampire knight",
+   "sub:vampire soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kithkin Harbinger",
+  "type": "Creature — Kithkin Wizard",
+  "cost": "{2}{W}",
+  "rank": 18636,
+  "text": "When this creature enters, you may search your library for a Kithkin card, reveal it, then shuffle and put that card on top.",
+  "facets": [
+   "cares:sub:kithkin",
+   "cares:zone:library",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "sub:kithkin",
+   "sub:kithkin wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Judge of Currents",
+  "type": "Creature — Merfolk Wizard",
+  "cost": "{1}{W}",
+  "rank": 18638,
+  "text": "Whenever a Merfolk you control becomes tapped, you may gain 1 life.",
+  "facets": [
+   "cares:sub:merfolk",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:merfolk",
+   "sub:merfolk wizard",
+   "sub:wizard",
+   "trig:tapped",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cruel Grimnarch",
+  "type": "Creature — Phyrexian Cleric",
+  "cost": "{5}{B}",
+  "rank": 18641,
+  "text": "Deathtouch\nWhen this creature enters, each opponent discards a card. For each opponent who can't, you gain 4 life.",
+  "facets": [
+   "eff:discard",
+   "eff:gain-life",
+   "kw:deathtouch",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shamble Back",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 18643,
+  "text": "Exile target creature card from a graveyard. Create a 2/2 black Zombie creature token. You gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:exile-graveyard",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "tok:zombie",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Soulreaper of Mogis",
+  "type": "Enchantment Creature — Minotaur Shaman",
+  "cost": "{2}{B}",
+  "rank": 18644,
+  "text": "{2}{B}, Sacrifice a creature: Draw a card.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:draw",
+   "rec:full",
+   "scope:all",
+   "sub:minotaur",
+   "sub:minotaur shaman",
+   "sub:shaman",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Stone Retrieval Unit",
+  "type": "Artifact Creature — Construct",
+  "cost": "{4}",
+  "rank": 18645,
+  "text": "When this creature enters, create a tapped Powerstone token. (It's an artifact with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\")",
+  "facets": [
+   "cares:sub:powerstone",
+   "col:none",
+   "eff:add-mana",
+   "rec:partial",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razortooth Rats",
+  "type": "Creature — Rat",
+  "cost": "{2}{B}",
+  "rank": 18647,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "kw:fear",
+   "rec:full",
+   "sub:rat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vanguard's Shield",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 18648,
+  "text": "Equipped creature gets +0/+3 and can block an additional creature each combat.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Oreskos Sun Guide",
+  "type": "Creature — Cat Monk",
+  "cost": "{1}{W}",
+  "rank": 18651,
+  "text": "Inspired — Whenever this creature becomes untapped, you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:inspired",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "sub:cat monk",
+   "sub:monk",
+   "trig:untapped",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Temporary Truce",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 18652,
+  "text": "Each player may draw up to two cards. For each card less than two a player draws this way, that player gains 2 life.",
+  "facets": [
+   "eff:draw",
+   "eff:gain-life",
+   "mv:cheap",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dawn to Dusk",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}",
+  "rank": 18655,
+  "text": "Choose one or both —\n• Return target enchantment card from your graveyard to your hand.\n• Destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Daggerdrome Imp",
+  "type": "Creature — Imp",
+  "cost": "{1}{B}",
+  "rank": 18657,
+  "text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ninja of the New Moon",
+  "type": "Creature — Spirit Ninja",
+  "cost": "{3}{B}{B}",
+  "rank": 18658,
+  "text": "Ninjutsu {3}{B} ({3}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)",
+  "facets": [
+   "cares:type:creature",
+   "cost:return-to-hand",
+   "kw:ninjutsu",
+   "pt:big",
+   "rec:full",
+   "sub:ninja",
+   "sub:spirit",
+   "sub:spirit ninja",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unsettling Twins",
+  "type": "Creature — Human",
+  "cost": "{3}{W}",
+  "rank": 18665,
+  "text": "When this creature enters, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)",
+  "facets": [
+   "eff:create-token",
+   "eff:mill",
+   "kw:manifest",
+   "kw:manifest dread",
+   "rec:partial",
+   "sub:human",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Brittle Effigy",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 18666,
+  "text": "{4}, {T}, Exile this artifact: Exile target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:exile-self",
+   "cost:tap",
+   "eff:exile",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bishop of Binding",
+  "type": "Creature — Vampire Cleric",
+  "cost": "{3}{W}",
+  "rank": 18668,
+  "text": "When this creature enters, exile target creature an opponent controls until this creature leaves the battlefield.\nWhenever this creature attacks, target Vampire gets +X/+X until end of turn, where X is the power of the exiled card.",
+  "facets": [
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "eff:exile",
+   "rec:partial",
+   "sub:cleric",
+   "sub:vampire",
+   "sub:vampire cleric",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Postmortem Lunge",
+  "type": "Sorcery",
+  "cost": "{X}{B/P}",
+  "rank": 18676,
+  "text": "({B/P} can be paid with either {B} or 2 life.)\nReturn target creature card with mana value X from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:cast-life",
+   "eff:return-from",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Fabled Hero",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 18677,
+  "text": "Double strike\nHeroic — Whenever you cast a spell that targets this creature, put a +1/+1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:double strike",
+   "kw:heroic",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Midnight Scavengers",
+  "type": "Creature — Human Rogue",
+  "cost": "{4}{B}",
+  "rank": 18678,
+  "text": "When this creature enters, you may return target creature card with mana value 3 or less from your graveyard to your hand.\n(Melds with Graf Rats.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cat-Gator",
+  "type": "Creature — Fish Crocodile",
+  "cost": "{6}{B}",
+  "rank": 18680,
+  "text": "Lifelink\nWhen this creature enters, it deals damage equal to the number of Swamps you control to any target.",
+  "facets": [
+   "cares:sub:swamp",
+   "eff:damage",
+   "eff:gain-life",
+   "kw:lifelink",
+   "mv:big",
+   "rec:full",
+   "sub:crocodile",
+   "sub:fish",
+   "sub:fish crocodile",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Okoye, Dora Milaje Leader",
+  "type": "Legendary Creature — Human Warrior Hero",
+  "cost": "{3}{W}",
+  "rank": 18683,
+  "text": "When Okoye enters, create two 1/1 white Soldier creature tokens.\nAttacking creature tokens you control have first strike.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:create-token",
+   "grants:first strike",
+   "kw:first strike",
+   "rec:full",
+   "scope:all",
+   "sub:hero",
+   "sub:human",
+   "sub:human warrior hero",
+   "sub:warrior",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Ripclaw Wrangler",
+  "type": "Artifact — Vehicle",
+  "cost": "{3}{B}",
+  "rank": 18684,
+  "text": "When this Vehicle enters, each opponent discards a card.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:sub:vehicle",
+   "eff:discard",
+   "kw:crew",
+   "rec:full",
+   "sub:vehicle",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ }
+]

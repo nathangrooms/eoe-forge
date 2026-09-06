@@ -1,0 +1,859 @@
+[
+ {
+  "name": "Filigree Crawler",
+  "type": "Artifact Creature — Insect",
+  "cost": "{4}",
+  "rank": 23697,
+  "text": "When this creature dies, create a 1/1 colorless Thopter artifact creature token with flying.",
+  "facets": [
+   "col:none",
+   "eff:create-token",
+   "rec:full",
+   "sub:insect",
+   "tok:thopter",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rancid Earth",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 23699,
+  "text": "Destroy target land.\nThreshold — If there are seven or more cards in your graveyard, instead destroy that land and Rancid Earth deals 1 damage to each creature and each player.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "eff:damage",
+   "eff:destroy",
+   "kw:threshold",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Drift of the Dead",
+  "type": "Creature — Wall",
+  "cost": "{3}{B}",
+  "rank": 23700,
+  "text": "Defender (This creature can't attack.)\nDrift of the Dead's power and toughness are each equal to the number of snow lands you control.",
+  "facets": [
+   "cares:type:land",
+   "cares:type:snow",
+   "eff:set-pt",
+   "kw:defender",
+   "rec:full",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Serra Disciple",
+  "type": "Creature — Bird Cleric",
+  "cost": "{1}{W}",
+  "rank": 23701,
+  "text": "Flying, first strike\nWhenever you cast a historic spell, this creature gets +1/+1 until end of turn. (Artifacts, legendaries, and Sagas are historic.)",
+  "facets": [
+   "cares:sub:saga",
+   "cares:type:artifact",
+   "kw:first strike",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird cleric",
+   "sub:cleric",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Death's Duet",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 23711,
+  "text": "Return two target creature cards from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sibsig Icebreakers",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 23719,
+  "text": "When this creature enters, each player discards a card.",
+  "facets": [
+   "eff:discard",
+   "rec:full",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shuriken",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 23724,
+  "text": "Equipped creature has \"{T}, Unattach Shuriken: Shuriken deals 2 damage to target creature. That creature's controller gains control of Shuriken unless it was unattached from a Ninja.\"\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:ninja",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:damage",
+   "eff:give-control",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Wall of Faith",
+  "type": "Creature — Wall",
+  "cost": "{3}{W}",
+  "rank": 23725,
+  "text": "Defender (This creature can't attack.)\n{W}: This creature gets +0/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:defender",
+   "rec:full",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Freewind Falcon",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 23727,
+  "text": "Flying, protection from red",
+  "facets": [
+   "cares:color:r",
+   "kw:flying",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lurking Deadeye",
+  "type": "Creature — Human Assassin",
+  "cost": "{3}{B}",
+  "rank": 23728,
+  "text": "Flash\nWhen this creature enters, destroy target creature that was dealt damage this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:flash",
+   "rec:partial",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Indestructible Aura",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 23729,
+  "text": "Prevent all damage that would be dealt to target creature this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Descent into Madness",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 23730,
+  "text": "At the beginning of your upkeep, put a despair counter on this enchantment, then each player exiles X permanents they control and/or cards from their hand, where X is the number of despair counters on this enchantment.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:exile",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Whetstone",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 23731,
+  "text": "{3}: Each player mills two cards.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:mill",
+   "kw:mill",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Moonring Mirror",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 23734,
+  "text": "Whenever you draw a card, exile the top card of your library face down.\nAt the beginning of your upkeep, you may exile all cards from your hand face down. If you do, put all other cards you own exiled with this artifact into your hand.",
+  "facets": [
+   "col:none",
+   "rec:partial",
+   "trig:draws-card",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Rally to Battle",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 23736,
+  "text": "Creatures you control get +1/+3 until end of turn. Untap them.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:untap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Hixus, Prison Warden",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{3}{W}{W}",
+  "rank": 23737,
+  "text": "Flash (You may cast this spell any time you could cast an instant.)\nWhenever a creature deals combat damage to you, if Hixus entered this turn, exile that creature until Hixus leaves the battlefield. (That creature returns under its owner's control.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "kw:flash",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Graceblade Artisan",
+  "type": "Creature — Human Monk",
+  "cost": "{2}{W}",
+  "rank": 23744,
+  "text": "This creature gets +2/+2 for each Aura attached to it.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:pump",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Instill Infection",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 23747,
+  "text": "Put a -1/-1 counter on target creature.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "eff:draw",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Bargain",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 23748,
+  "text": "Target opponent draws a card.\nYou gain 7 life.",
+  "facets": [
+   "eff:draw",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Parhelion Patrol",
+  "type": "Creature — Human Knight",
+  "cost": "{3}{W}",
+  "rank": 23753,
+  "text": "Flying\nVigilance (Attacking doesn't cause this creature to tap.)\nMentor (Whenever this creature attacks, put a +1/+1 counter on target attacking creature with lesser power.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:flying",
+   "kw:mentor",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lantern Kami",
+  "type": "Creature — Spirit",
+  "cost": "{W}",
+  "rank": 23754,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Start // Finish",
+  "type": "Instant // Sorcery",
+  "cost": "{2}{W} // {2}{B}",
+  "rank": 23757,
+  "text": "Create two 1/1 white Warrior creature tokens with vigilance.\n//\nAftermath (Cast this spell only from your graveyard. Then exile it.)\nAs an additional cost to cast this spell, sacrifice a creature.\nDestroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "kw:aftermath",
+   "mv:big",
+   "rec:partial",
+   "tok:warrior",
+   "type:instant",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ostracize",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 23758,
+  "text": "Target opponent reveals their hand. You choose a creature card from it. That player discards that card.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Vampire Bats",
+  "type": "Creature — Bat",
+  "cost": "{B}",
+  "rank": 23759,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\n{B}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:bat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Daraja Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}",
+  "rank": 23762,
+  "text": "Flying\nSacrifice this creature: Destroy target black creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Last Breath",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 23763,
+  "text": "Exile target creature with power 2 or less. Its controller gains 4 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Prizefighter Construct",
+  "type": "Artifact Creature — Construct",
+  "cost": "{5}",
+  "rank": 23766,
+  "text": "",
+  "facets": [
+   "col:none",
+   "pt:big",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dueling Coach",
+  "type": "Creature — Human Monk",
+  "cost": "{3}{W}",
+  "rank": 23770,
+  "text": "When this creature enters, put a +1/+1 counter on target creature.\n{4}{W}, {T}: Put a +1/+1 counter on each creature you control with a +1/+1 counter on it.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:partial",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tetravus",
+  "type": "Artifact Creature — Construct",
+  "cost": "{6}",
+  "rank": 23772,
+  "text": "Flying\nThis creature enters with three +1/+1 counters on it.\nAt the beginning of your upkeep, you may remove any number of +1/+1 counters from this creature. If you do, create that many 1/1 colorless Tetravite artifact creature tokens. They each have flying and \"This token can't be enchanted.\"\nAt the beginning of your upkeep, you may exile any number of tokens created with this creature. If you do, put that many +1/+1 counters on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:construct",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Font of Vigor",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 23773,
+  "text": "{2}{W}, Sacrifice this enchantment: You gain 7 life.",
+  "facets": [
+   "acost:3",
+   "cost:sacrifice-self",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Festival",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 23776,
+  "text": "Cast this spell only during an opponent's upkeep.\nCreatures can't attack this turn.",
+  "facets": [
+   "eff:cant-attack",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Guiding Voice",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 23781,
+  "text": "Put a +1/+1 counter on target creature.\nLearn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:learn",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Madame Hydra, Reanimated",
+  "type": "Legendary Creature — Human Horror Villain",
+  "cost": "{3}{B}",
+  "rank": 23782,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nMadame Hydra gets +1/+1 for each creature card in your graveyard.\nWhenever Madame Hydra enters or attacks, mill two cards. (Put the top two cards of your library into your graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:mill",
+   "eff:pump",
+   "kw:menace",
+   "kw:mill",
+   "rec:full",
+   "sub:horror",
+   "sub:human",
+   "sub:human horror villain",
+   "sub:villain",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Crumbling Colossus",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 23786,
+  "text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nWhen this creature attacks, sacrifice it at end of combat.",
+  "facets": [
+   "col:none",
+   "kw:trample",
+   "pt:big",
+   "rec:partial",
+   "sub:golem",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Crown of Awe",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 23790,
+  "text": "Enchant creature\nEnchanted creature has protection from black and from red.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it gain protection from black and from red until end of turn.",
+  "facets": [
+   "cares:color:r",
+   "cares:sub:aura",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:protect",
+   "grants:protection",
+   "kw:enchant",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bargaining Table",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 23792,
+  "text": "{X}, {T}: Draw a card. X is the number of cards in an opponent's hand.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "col:none",
+   "cost:tap",
+   "eff:draw",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Scholar of Athreos",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 23793,
+  "text": "{2}{B}: Each opponent loses 1 life. You gain life equal to the life lost this way.",
+  "facets": [
+   "acost:3",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Serpent Generator",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 23797,
+  "text": "{4}, {T}: Create a 1/1 colorless Snake artifact creature token. It has \"Whenever this creature deals damage to a player, that player gets a poison counter.\" (A player with ten or more poison counters loses the game.)",
+  "facets": [
+   "cares:sub:snake",
+   "cares:type:token",
+   "col:none",
+   "eff:create-token",
+   "eff:poison",
+   "mv:big",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Mage Tower Referee",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 23798,
+  "text": "Whenever you cast a multicolored spell, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:construct",
+   "trig:cast",
+   "trig:cast-own",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Akroan Jailer",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 23800,
+  "text": "{2}{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wasteland Strangler",
+  "type": "Creature — Eldrazi Processor",
+  "cost": "{2}{B}",
+  "rank": 23803,
+  "text": "Devoid (This card has no color.)\nWhen this creature enters, you may put a card an opponent owns from exile into that player's graveyard. If you do, target creature gets -3/-3 until end of turn.",
+  "facets": [
+   "kw:devoid",
+   "rec:partial",
+   "sub:eldrazi",
+   "sub:eldrazi processor",
+   "sub:processor",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pestilent Souleater",
+  "type": "Artifact Creature — Phyrexian Insect",
+  "cost": "{5}",
+  "rank": 23808,
+  "text": "{B/P}: This creature gains infect until end of turn. ({B/P} can be paid with either {B} or 2 life. A creature with infect deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
+  "facets": [
+   "acost:1",
+   "eff:poison",
+   "eff:pump",
+   "grants:infect",
+   "kw:infect",
+   "rec:full",
+   "sub:insect",
+   "sub:phyrexian",
+   "sub:phyrexian insect",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shieldhide Dragon",
+  "type": "Creature — Dragon",
+  "cost": "{5}{W}",
+  "rank": 23810,
+  "text": "Flying, lifelink\nMegamorph {5}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its megamorph cost and put a +1/+1 counter on it.)\nWhen this creature is turned face up, put a +1/+1 counter on each other Dragon creature you control.",
+  "facets": [
+   "cares:sub:dragon",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:gain-life",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:megamorph",
+   "mv:big",
+   "rec:partial",
+   "sub:dragon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nightcreep",
+  "type": "Instant",
+  "cost": "{B}{B}",
+  "rank": 23817,
+  "text": "Until end of turn, all creatures become black and all lands become Swamps.",
+  "facets": [
+   "cares:type:land",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Gate Smasher",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 23823,
+  "text": "This Equipment can be attached only to a creature with toughness 4 or greater.\nEquipped creature gets +3/+0 and has trample.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:trample",
+   "kw:equip",
+   "kw:trample",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Guardian's Magemark",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 23824,
+  "text": "Flash\nEnchant creature\nCreatures you control that are enchanted get +1/+1.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:pump",
+   "kw:enchant",
+   "kw:flash",
+   "rec:partial",
+   "scope:all",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sorrow's Path",
+  "type": "Land",
+  "cost": "",
+  "rank": 23825,
+  "text": "{T}: Choose two target blocking creatures controlled by the same opponent. If each of those creatures could block all creatures that the other is blocking, remove both of them from combat. Each one then blocks all creatures the other was blocking.\nWhenever this land becomes tapped, it deals 2 damage to you and each creature you control.",
+  "facets": [
+   "acost:1",
+   "eff:damage-self",
+   "rec:partial",
+   "trig:tapped",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Photon, Lady of Light",
+  "type": "Legendary Creature — Human Hero",
+  "cost": "{3}{W}",
+  "rank": 23827,
+  "text": "Flying\nWhenever Photon attacks, exile up to one other target creature you control, then return that card to the battlefield under its owner's control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "eff:exile-own",
+   "eff:return-from",
+   "kw:flying",
+   "rec:full",
+   "sub:hero",
+   "sub:human",
+   "sub:human hero",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Inventor's Goggles",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 23828,
+  "text": "Equipped creature gets +1/+2.\nWhenever an Artificer you control enters, you may attach this Equipment to it.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:artificer",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Life Chisel",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 23831,
+  "text": "Sacrifice a creature: You gain life equal to the sacrificed creature's toughness. Activate only during your upkeep.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "eff:gain-life",
+   "type:artifact"
+  ]
+ }
+]

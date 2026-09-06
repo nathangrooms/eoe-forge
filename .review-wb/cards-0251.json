@@ -1,0 +1,792 @@
+[
+ {
+  "name": "Valorous Charge",
+  "type": "Sorcery",
+  "cost": "{1}{W}{W}",
+  "rank": 31731,
+  "text": "White creatures get +2/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Treacherous Vampire",
+  "type": "Creature — Vampire",
+  "cost": "{4}{B}",
+  "rank": 31735,
+  "text": "Flying\nWhenever this creature attacks or blocks, sacrifice it unless you exile a card from your graveyard.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and has \"When this creature dies, you lose 6 life.\"",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:flying",
+   "kw:threshold",
+   "rec:partial",
+   "sub:vampire",
+   "trig:attacks",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nim Abomination",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 31740,
+  "text": "At the beginning of your end step, if this creature is untapped, you lose 3 life.",
+  "facets": [
+   "eff:lose-life",
+   "rec:full",
+   "sub:zombie",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Titanium Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 31748,
+  "text": "{1}{W}: This creature gains first strike until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Junún Efreet",
+  "type": "Creature — Efreet",
+  "cost": "{1}{B}{B}",
+  "rank": 31751,
+  "text": "Flying\nAt the beginning of your upkeep, sacrifice this creature unless you pay {B}{B}.",
+  "facets": [
+   "kw:flying",
+   "rec:partial",
+   "sub:efreet",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stern Marshal",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 31752,
+  "text": "{T}: Target creature gets +2/+2 until end of turn. Activate only during your turn, before attackers are declared.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Selfless Exorcist",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}{W}",
+  "rank": 31753,
+  "text": "{T}: Exile target creature card from a graveyard. That card deals damage equal to its power to this creature.",
+  "facets": [
+   "acost:0",
+   "cares:power",
+   "cares:type:creature",
+   "cost:tap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Return of the Nightstalkers",
+  "type": "Sorcery",
+  "cost": "{5}{B}{B}",
+  "rank": 31757,
+  "text": "Return all Nightstalker permanent cards from your graveyard to the battlefield. Then destroy all Swamps you control.",
+  "facets": [
+   "cares:sub:nightstalker",
+   "cares:sub:swamp",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy-own",
+   "eff:return-from",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Vindictive Mob",
+  "type": "Creature — Human Berserker",
+  "cost": "{4}{B}{B}",
+  "rank": 31759,
+  "text": "When this creature enters, sacrifice a creature.\nThis creature can't be blocked by Saprolings.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:berserker",
+   "sub:human",
+   "sub:human berserker",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Exiled Doomsayer",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 31762,
+  "text": "All morph costs cost {2} more. (This doesn't affect the cost to cast creature spells face down.)",
+  "facets": [
+   "eff:increase-cost",
+   "mv:cheap",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spined Basher",
+  "type": "Creature — Zombie Beast",
+  "cost": "{2}{B}",
+  "rank": 31773,
+  "text": "Morph {2}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "kw:morph",
+   "rec:full",
+   "sub:beast",
+   "sub:zombie",
+   "sub:zombie beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Just Fate",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 31777,
+  "text": "Cast this spell only during the declare attackers step and only if you've been attacked this step.\nDestroy target attacking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Daru Lancer",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}{W}",
+  "rank": 31780,
+  "text": "First strike\nMorph {2}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "kw:first strike",
+   "kw:morph",
+   "mv:big",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Enchanted Being",
+  "type": "Creature — Human",
+  "cost": "{1}{W}{W}",
+  "rank": 31783,
+  "text": "Prevent all combat damage that would be dealt to this creature by enchanted creatures.",
+  "facets": [
+   "eff:prevent-damage",
+   "sub:human",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stalking Bloodsucker",
+  "type": "Creature — Vampire",
+  "cost": "{4}{B}{B}",
+  "rank": 31785,
+  "text": "Flying\n{1}{B}, Discard a card: This creature gets +2/+2 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cost:discard",
+   "eff:pump",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lesser Werewolf",
+  "type": "Creature — Werewolf",
+  "cost": "{3}{B}",
+  "rank": 31787,
+  "text": "{B}: If this creature's power is 1 or more, it gets -1/-0 until end of turn and put a -0/-1 counter on target creature blocking or blocked by this creature. Activate only during the declare blockers step.",
+  "facets": [
+   "acost:1",
+   "sub:werewolf",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Crowd Favorites",
+  "type": "Creature — Human Soldier",
+  "cost": "{6}{W}",
+  "rank": 31790,
+  "text": "{3}{W}: Tap target creature.\n{3}{W}: This creature gets +0/+5 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:pump",
+   "eff:tap",
+   "mv:big",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Screeching Harpy",
+  "type": "Creature — Harpy Beast",
+  "cost": "{2}{B}{B}",
+  "rank": 31794,
+  "text": "Flying\n{1}{B}: Regenerate this creature.",
+  "facets": [
+   "acost:2",
+   "kw:flying",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:beast",
+   "sub:harpy",
+   "sub:harpy beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Belbe's Percher",
+  "type": "Creature — Bird",
+  "cost": "{2}{B}",
+  "rank": 31796,
+  "text": "Flying\nThis creature can block only creatures with flying.",
+  "facets": [
+   "eff:cant-block-self",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Venerable Lammasu",
+  "type": "Creature — Lammasu",
+  "cost": "{6}{W}",
+  "rank": 31798,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:lammasu",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Revered Elder",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 31799,
+  "text": "{1}: Prevent the next 1 damage that would be dealt to this creature this turn.",
+  "facets": [
+   "acost:1",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tombfire",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 31806,
+  "text": "Target player exiles all cards with flashback from their graveyard.",
+  "facets": [
+   "cares:kw:flashback",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Young Wei Recruits",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{B}",
+  "rank": 31815,
+  "text": "This creature can't block.",
+  "facets": [
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Liege of the Axe",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 31818,
+  "text": "Vigilance\nMorph {1}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, untap it.",
+  "facets": [
+   "eff:untap",
+   "kw:morph",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lurking Jackals",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 31819,
+  "text": "When an opponent has 10 or less life, if this permanent is an enchantment, it becomes a 3/2 Jackal creature.",
+  "facets": [
+   "cares:sub:jackal",
+   "eff:animate",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mystic Visionary",
+  "type": "Creature — Human Nomad Mystic",
+  "cost": "{1}{W}",
+  "rank": 31826,
+  "text": "Threshold — This creature has flying as long as there are seven or more cards in your graveyard.",
+  "facets": [
+   "cares:zone:graveyard",
+   "grants:flying",
+   "kw:flying",
+   "kw:threshold",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human nomad mystic",
+   "sub:mystic",
+   "sub:nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mind Burst",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 31827,
+  "text": "Target player discards X cards, where X is one plus the number of cards named Mind Burst in all graveyards.",
+  "facets": [
+   "eff:discard",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Soul Shred",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 31838,
+  "text": "Soul Shred deals 3 damage to target nonblack creature. You gain 3 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lead Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 31839,
+  "text": "Whenever this creature attacks, it doesn't untap during its controller's next untap step.",
+  "facets": [
+   "col:none",
+   "rec:partial",
+   "sub:golem",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sheltering Prayers",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 31840,
+  "text": "Basic lands each player controls have shroud as long as that player controls three or fewer lands. (They can't be the targets of spells or abilities.)",
+  "facets": [
+   "cares:type:land",
+   "grants:shroud",
+   "kw:shroud",
+   "mv:cheap",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Capashen Templar",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}",
+  "rank": 31842,
+  "text": "{W}: This creature gets +0/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Daru Cavalier",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 31846,
+  "text": "First strike\nWhen this creature enters, you may search your library for a card named Daru Cavalier, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "eff:search-library",
+   "kw:first strike",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Smuggler Captain",
+  "type": "Creature — Human Pirate",
+  "cost": "{3}{B}",
+  "rank": 31849,
+  "text": "Draft this card face up.\nAs you draft a card, you may reveal it, note its name, then turn this card face down.\nWhen this creature enters, you may search your library for a card with a name you noted for cards named Smuggler Captain, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "eff:search-library",
+   "rec:partial",
+   "sub:human",
+   "sub:human pirate",
+   "sub:pirate",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kjeldoran War Cry",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 31850,
+  "text": "Creatures you control get +X/+X until end of turn, where X is 1 plus the number of cards named Kjeldoran War Cry in all graveyards.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Jeweled Spirit",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}{W}",
+  "rank": 31851,
+  "text": "Flying\nSacrifice two lands: This creature gains protection from artifacts or from the color of your choice until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:land",
+   "cost:sacrifice",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "scope:all",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skyrider Trainee",
+  "type": "Creature — Human Soldier",
+  "cost": "{4}{W}",
+  "rank": 31853,
+  "text": "This creature has flying as long as it's enchanted.",
+  "facets": [
+   "cares:type:enchantment",
+   "grants:flying",
+   "kw:flying",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Surging Sentinels",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 31857,
+  "text": "First strike\nRipple 4 (When you cast this spell, you may reveal the top four cards of your library. You may cast spells with the same name as this spell from among those cards without paying their mana costs. Put the rest on the bottom of your library.)",
+  "facets": [
+   "kw:first strike",
+   "kw:ripple",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Craven Knight",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{B}",
+  "rank": 31860,
+  "text": "This creature can't block.",
+  "facets": [
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lore Seeker",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 31864,
+  "text": "Reveal this card as you draft it. After you draft this card, you may add a booster pack to the draft. (Your next pick is from that booster pack. Pass it to the next player and it's drafted this draft round.)",
+  "facets": [
+   "col:none",
+   "mv:cheap",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cursed Monstrosity",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}",
+  "rank": 31868,
+  "text": "Flying\nWhenever this creature becomes the target of a spell or ability, sacrifice it unless you discard a land card.",
+  "facets": [
+   "cares:type:land",
+   "cost:discard",
+   "kw:flying",
+   "rec:partial",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battlefield Percher",
+  "type": "Creature — Bird",
+  "cost": "{3}{B}{B}",
+  "rank": 31872,
+  "text": "Flying\nThis creature can block only creatures with flying.\n{1}{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Goham Djinn",
+  "type": "Creature — Djinn",
+  "cost": "{5}{B}",
+  "rank": 31880,
+  "text": "{1}{B}: Regenerate this creature.\nThis creature gets -2/-2 as long as black is the most common color among all permanents or is tied for most common.",
+  "facets": [
+   "acost:2",
+   "kw:regenerate",
+   "mv:big",
+   "pt:big",
+   "sub:djinn",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marsh Lurker",
+  "type": "Creature — Beast",
+  "cost": "{3}{B}",
+  "rank": 31889,
+  "text": "Sacrifice a Swamp: This creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:swamp",
+   "cost:sacrifice",
+   "eff:pump",
+   "grants:fear",
+   "kw:fear",
+   "rec:full",
+   "scope:all",
+   "sub:beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tar Pit Warrior",
+  "type": "Creature — Cyclops Warrior",
+  "cost": "{2}{B}",
+  "rank": 31895,
+  "text": "When this creature becomes the target of a spell or ability, sacrifice it.",
+  "facets": [
+   "sub:cyclops",
+   "sub:cyclops warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Psychic Spear",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 31898,
+  "text": "Target player reveals their hand. You choose a Spirit or Arcane card from it. That player discards that card.",
+  "facets": [
+   "cares:sub:spirit",
+   "cares:zone:hand",
+   "eff:discard",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Tethered Skirge",
+  "type": "Creature — Phyrexian Imp",
+  "cost": "{2}{B}",
+  "rank": 31904,
+  "text": "Flying\nWhenever this creature becomes the target of a spell or ability, you lose 1 life.",
+  "facets": [
+   "kw:flying",
+   "rec:partial",
+   "sub:imp",
+   "sub:phyrexian",
+   "sub:phyrexian imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ruham Djinn",
+  "type": "Creature — Djinn",
+  "cost": "{5}{W}",
+  "rank": 31907,
+  "text": "First strike\nThis creature gets -2/-2 as long as white is the most common color among all permanents or is tied for most common.",
+  "facets": [
+   "kw:first strike",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:djinn",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Town Sentry",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 31917,
+  "text": "Whenever this creature blocks, it gets +0/+2 until end of turn.",
+  "facets": [
+   "eff:pump",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skittering Monstrosity",
+  "type": "Creature — Horror",
+  "cost": "{3}{B}{B}",
+  "rank": 31929,
+  "text": "When you cast a creature spell, sacrifice this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:sacrifice",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:creature",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rend Spirit",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 31931,
+  "text": "Destroy target Spirit.",
+  "facets": [
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ }
+]

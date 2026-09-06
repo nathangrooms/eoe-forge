@@ -1,0 +1,875 @@
+[
+ {
+  "name": "Farsight Adept",
+  "type": "Creature — Kor Wizard",
+  "cost": "{2}{W}",
+  "rank": 20612,
+  "text": "When this creature enters, you and target opponent each draw a card.",
+  "facets": [
+   "eff:draw",
+   "rec:full",
+   "sub:kor",
+   "sub:kor wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tyrannical Pitlord",
+  "type": "Creature — Demon",
+  "cost": "{4}{B}{B}",
+  "rank": 20613,
+  "text": "Flying, trample\nAs this creature enters, choose another creature you control.\nThe chosen creature gets +3/+3 and has flying.\nWhen this creature leaves the battlefield, sacrifice the chosen creature.",
+  "facets": [
+   "eff:pump",
+   "kw:flying",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Renegade's Getaway",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 20615,
+  "text": "Target permanent gains indestructible until end of turn. Create a 1/1 colorless Servo artifact creature token. (Effects that say \"destroy\" don't destroy a permanent with indestructible, and if it's a creature, it can't be destroyed by damage.)",
+  "facets": [
+   "eff:create-token",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:full",
+   "tok:servo",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Timely Reinforcements",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 20617,
+  "text": "If you have less life than an opponent, you gain 6 life. If you control fewer creatures than an opponent, create three 1/1 white Soldier creature tokens.",
+  "facets": [
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Stonebinder's Familiar",
+  "type": "Creature — Spirit Dog",
+  "cost": "{W}",
+  "rank": 20618,
+  "text": "Whenever one or more cards are put into exile during your turn, put a +1/+1 counter on this creature. This ability triggers only once each turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "sub:dog",
+   "sub:spirit",
+   "sub:spirit dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dredge",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 20619,
+  "text": "Sacrifice a creature or land.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:draw",
+   "eff:sacrifice",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Defensive Formation",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 20620,
+  "text": "Rather than the attacking player, you assign the combat damage of each creature attacking you. You can divide that creature's combat damage as you choose among any of the creatures blocking it.",
+  "facets": [
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Deal Gone Bad",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 20623,
+  "text": "Target creature gets -3/-3 until end of turn. Target player mills three cards. (They put the top three cards of their library into their graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:mill",
+   "eff:shrink",
+   "kw:mill",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Book of Rass",
+  "type": "Artifact — Book",
+  "cost": "{6}",
+  "rank": 20625,
+  "text": "{2}, Pay 2 life: Draw a card.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "cost:life",
+   "eff:draw",
+   "mv:big",
+   "rec:full",
+   "sub:book",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Boonweaver Giant",
+  "type": "Creature — Giant Monk",
+  "cost": "{6}{W}",
+  "rank": 20626,
+  "text": "When this creature enters, you may search your graveyard, hand, and/or library for an Aura card and put it onto the battlefield attached to this creature. If you search your library this way, shuffle.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:search-library",
+   "mv:big",
+   "rec:partial",
+   "sub:giant",
+   "sub:giant monk",
+   "sub:monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shrine of Burning Rage",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 20627,
+  "text": "At the beginning of your upkeep and whenever you cast a red spell, put a charge counter on this artifact.\n{3}, {T}, Sacrifice this artifact: It deals damage equal to the number of charge counters on it to any target.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:damage",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Criminal Enterprise",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 20628,
+  "text": "When this enchantment enters, create a 2/1 black Villain creature token with menace. (It can't be blocked except by two or more creatures.)\nWhenever a Villain you control dies, this enchantment deals 1 damage to each opponent and you gain 1 life.",
+  "facets": [
+   "cares:sub:villain",
+   "eff:create-token",
+   "eff:damage",
+   "eff:gain-life",
+   "rec:full",
+   "scope:all",
+   "tok:villain",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Reave Soul",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 20629,
+  "text": "Destroy target creature with power 3 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Parting Thoughts",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 20630,
+  "text": "Destroy target creature. You draw X cards and you lose X life, where X is the number of counters on that creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:draw",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Creeping Chill",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 20631,
+  "text": "Creeping Chill deals 3 damage to each opponent and you gain 3 life.\nWhen Creeping Chill is put into your graveyard from your library, you may exile it. If you do, Creeping Chill deals 3 damage to each opponent and you gain 3 life.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blessed Spirits",
+  "type": "Creature — Spirit",
+  "cost": "{2}{W}",
+  "rank": 20632,
+  "text": "Flying\nWhenever you cast an enchantment spell, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:zone:stack",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:spirit",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:enchantment",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Valkyrie's Sword",
+  "type": "Artifact — Equipment",
+  "cost": "{1}{W}",
+  "rank": 20633,
+  "text": "When this Equipment enters, you may pay {4}{W}. If you do, create a 4/4 white Angel Warrior creature token with flying and vigilance, then attach this Equipment to it.\nEquipped creature gets +2/+1.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:sub:angel",
+   "cares:sub:equipment",
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Infinite Hourglass",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 20635,
+  "text": "At the beginning of your upkeep, put a time counter on this artifact.\nAll creatures get +1/+0 for each time counter on this artifact.\n{3}: Remove a time counter from this artifact. Any player may activate this ability but only during any upkeep step.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "ctr:time",
+   "ctr:time-self",
+   "eff:add-counters-self",
+   "eff:pump",
+   "eff:remove-counters",
+   "rec:partial",
+   "scope:all",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hemlock Vial",
+  "type": "Artifact",
+  "cost": "{1}{B}",
+  "rank": 20637,
+  "text": "When this artifact enters, you draw a card and you lose 1 life.\n{B}, {T}, Sacrifice this artifact: Each equipped creature and Equipment you control gains deathtouch until end of turn.",
+  "facets": [
+   "cares:sub:equipment",
+   "eff:draw",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Infernal Scarring",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 20640,
+  "text": "Enchant creature\nEnchanted creature gets +2/+0 and has \"When this creature dies, draw a card.\"",
+  "facets": [
+   "eff:draw",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Angel's Tomb",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 20641,
+  "text": "Whenever a creature you control enters, you may have this artifact become a 3/3 white Angel artifact creature with flying until end of turn.",
+  "facets": [
+   "cares:sub:angel",
+   "cares:type:creature",
+   "col:none",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ashnod's Harvester",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 20643,
+  "text": "Whenever this creature attacks, exile target card from a graveyard.\nUnearth {1}{B} ({1}{B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:exile-graveyard",
+   "eff:recur-self",
+   "eff:return-from",
+   "kw:unearth",
+   "mv:cheap",
+   "rec:full",
+   "sub:construct",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cliffhaven Sell-Sword",
+  "type": "Creature — Kor Warrior",
+  "cost": "{1}{W}",
+  "rank": 20646,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:kor",
+   "sub:kor warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Circle of Protection: Black",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 20653,
+  "text": "{1}: The next time a black source of your choice would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:1",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Runaway Trash-Bot",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 20659,
+  "text": "Trample\nThis creature gets +1/+0 for each artifact and/or enchantment card in your graveyard.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:pump",
+   "kw:trample",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shining Armor",
+  "type": "Artifact — Equipment",
+  "cost": "{1}{W}",
+  "rank": 20665,
+  "text": "Flash\nWhen this Equipment enters, attach it to target Knight you control.\nEquipped creature gets +0/+2 and has vigilance.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:sub:knight",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:flash",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Speakeasy Server",
+  "type": "Creature — Bird Citizen",
+  "cost": "{4}{W}",
+  "rank": 20666,
+  "text": "Flying\nWhen this creature enters, you gain 1 life for each other creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:bird citizen",
+   "sub:citizen",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arnim Zola, Bio-Fanatic",
+  "type": "Legendary Artifact Creature — Scientist Villain",
+  "cost": "{2}{B}",
+  "rank": 20669,
+  "text": "{3}, {T}: Create a tapped 2/1 black Villain creature token with menace. Activate only if there are two or more creature cards in your graveyard. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "acost:3",
+   "cares:sub:villain",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:create-token",
+   "rec:full",
+   "sub:scientist",
+   "sub:scientist villain",
+   "sub:villain",
+   "tok:villain",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Paragon of New Dawns",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 20674,
+  "text": "Other white creatures you control get +1/+1.\n{W}, {T}: Another target white creature you control gains vigilance until end of turn. (Attacking doesn't cause it to tap.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Salt Flats",
+  "type": "Land",
+  "cost": "",
+  "rank": 20679,
+  "text": "This land enters tapped.\n{T}: Add {C}.\n{T}: Add {W} or {B}. This land deals 1 damage to you.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:damage-self",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Adaptive Gemguard",
+  "type": "Artifact Creature — Gnome",
+  "cost": "{3}{W}",
+  "rank": 20683,
+  "text": "Tap two untapped artifacts and/or creatures you control: Put a +1/+1 counter on this creature. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:tap-others",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "scope:all",
+   "sub:gnome",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cloak and Dagger, Entwined",
+  "type": "Legendary Creature — Human Hero",
+  "cost": "{1}{W}{B}",
+  "rank": 20684,
+  "text": "Deathtouch, lifelink\nWhen Cloak and Dagger enter, choose target opponent and up to one target creature they control. They reveal their hand. You may exile a nonland card from their hand or the chosen creature until Cloak and Dagger leave the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:gain-life",
+   "kw:deathtouch",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:hero",
+   "sub:human",
+   "sub:human hero",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Charge",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 20686,
+  "text": "Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Sandskitter Outrider",
+  "type": "Creature — Goblin Soldier",
+  "cost": "{3}{B}",
+  "rank": 20687,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature enters, it endures 2. (Put two +1/+1 counters on it or create a 2/2 white Spirit creature token.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:endure",
+   "kw:menace",
+   "rec:partial",
+   "sub:goblin",
+   "sub:goblin soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flutterfox",
+  "type": "Creature — Fox",
+  "cost": "{1}{W}",
+  "rank": 20689,
+  "text": "As long as you control an artifact or enchantment, this creature has flying.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:fox",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Reinforcements",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 20690,
+  "text": "Put up to three target creature cards from your graveyard on top of your library.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:move-zone",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Skull Collector",
+  "type": "Creature — Ogre Warrior",
+  "cost": "{1}{B}{B}",
+  "rank": 20691,
+  "text": "At the beginning of your upkeep, return a black creature you control to its owner's hand.\n{1}{B}: Regenerate this creature.",
+  "facets": [
+   "acost:2",
+   "cares:color:b",
+   "eff:bounce-own",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:ogre",
+   "sub:ogre warrior",
+   "sub:warrior",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Navigator's Compass",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 20694,
+  "text": "When this artifact enters, you gain 3 life.\n{T}: Until end of turn, target land you control becomes the basic land type of your choice in addition to its other types.",
+  "facets": [
+   "acost:1",
+   "cares:type:land",
+   "col:none",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cosmium Blast",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 20697,
+  "text": "Cosmium Blast deals 4 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Myr Servitor",
+  "type": "Artifact Creature — Myr",
+  "cost": "{1}",
+  "rank": 20699,
+  "text": "At the beginning of your upkeep, if this creature is on the battlefield, each player returns all cards named Myr Servitor from their graveyard to the battlefield.",
+  "facets": [
+   "cares:sub:myr",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:partial",
+   "sub:myr",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Quantum Entanglement",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 20703,
+  "text": "Flash\nWhen this enchantment enters and at the beginning of your end step, you may pay {1}{W}. When you do, exile target creature you control, then return that card to the battlefield under its owner's control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:protect",
+   "kw:flash",
+   "mv:cheap",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Nefashu",
+  "type": "Creature — Zombie Mutant",
+  "cost": "{4}{B}{B}",
+  "rank": 20708,
+  "text": "Whenever this creature attacks, up to five target creatures each get -1/-1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:mutant",
+   "sub:zombie",
+   "sub:zombie mutant",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Knight of New Benalia",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 20709,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fodder Launch",
+  "type": "Kindred Sorcery — Goblin",
+  "cost": "{3}{B}",
+  "rank": 20713,
+  "text": "As an additional cost to cast this spell, sacrifice a Goblin.\nTarget creature gets -5/-5 until end of turn. Fodder Launch deals 5 damage to that creature's controller.",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:damage",
+   "eff:shrink",
+   "rec:partial",
+   "scope:all",
+   "sub:goblin",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Chilling Shade",
+  "type": "Snow Creature — Shade",
+  "cost": "{2}{B}",
+  "rank": 20716,
+  "text": "Flying\n{S}: This creature gets +1/+1 until end of turn. ({S} can be paid with one mana from a snow source.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:shade",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Alabaster Mage",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 20732,
+  "text": "{1}{W}: Target creature you control gains lifelink until end of turn. (Damage dealt by the creature also causes its controller to gain that much life.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:lifelink",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unstable Frontier",
+  "type": "Land",
+  "cost": "",
+  "rank": 20734,
+  "text": "{T}: Add {C}.\n{T}: Target land you control becomes the basic land type of your choice until end of turn.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:type:land",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Automatic Librarian",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 20735,
+  "text": "When this creature enters, scry 2. (Look at the top two cards of your library, then put any number of them on the bottom and the rest on top in any order.)",
+  "facets": [
+   "col:none",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Basilica Bell-Haunt",
+  "type": "Creature — Spirit",
+  "cost": "{W}{W}{B}{B}",
+  "rank": 20738,
+  "text": "When this creature enters, each opponent discards a card and you gain 3 life.",
+  "facets": [
+   "eff:discard",
+   "eff:gain-life",
+   "rec:full",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Death Ward",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 20740,
+  "text": "Regenerate target creature.",
+  "facets": [
+   "eff:protect",
+   "kw:regenerate",
+   "mv:cheap",
+   "type:instant"
+  ]
+ }
+]

@@ -1,0 +1,923 @@
+[
+ {
+  "name": "Kindred Dominance",
+  "type": "Sorcery",
+  "cost": "{5}{B}{B}",
+  "rank": 707,
+  "text": "Choose a creature type. Destroy all creatures that aren't of the chosen type.",
+  "facets": [
+   "cares:sub:chosen",
+   "cares:type:creature",
+   "eff:choose",
+   "eff:destroy",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Snuff Out",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 709,
+  "text": "If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.\nDestroy target nonblack creature. It can't be regenerated.",
+  "facets": [
+   "cares:sub:swamp",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Whip of Erebos",
+  "type": "Legendary Enchantment Artifact",
+  "cost": "{2}{B}{B}",
+  "rank": 711,
+  "text": "Creatures you control have lifelink.\n{2}{B}{B}, {T}: Return target creature card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step. If it would leave the battlefield, exile it instead of putting it anywhere else. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:return-from",
+   "grants:lifelink",
+   "kw:lifelink",
+   "rec:partial",
+   "scope:all",
+   "type:artifact",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Riveteers Overlook",
+  "type": "Land",
+  "cost": "",
+  "rank": 713,
+  "text": "When this land enters, sacrifice it. When you do, search your library for a basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "facets": [
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Sheoldred, Whispering One",
+  "type": "Legendary Creature — Phyrexian Praetor",
+  "cost": "{5}{B}{B}",
+  "rank": 715,
+  "text": "Swampwalk (This creature can't be blocked as long as defending player controls a Swamp.)\nAt the beginning of your upkeep, return target creature card from your graveyard to the battlefield.\nAt the beginning of each opponent's upkeep, that player sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "eff:sacrifice",
+   "kw:landwalk",
+   "kw:swampwalk",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:phyrexian",
+   "sub:phyrexian praetor",
+   "sub:praetor",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Howling Mine",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 716,
+  "text": "At the beginning of each player's draw step, if this artifact is untapped, that player draws an additional card.",
+  "facets": [
+   "col:none",
+   "mv:cheap",
+   "rec:partial",
+   "trig:step",
+   "trig:step:draw",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Forbidden Orchard",
+  "type": "Land",
+  "cost": "",
+  "rank": 719,
+  "text": "{T}: Add one mana of any color.\nWhenever you tap this land for mana, target opponent creates a 1/1 colorless Spirit creature token.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "mana:1",
+   "rec:full",
+   "tok:spirit",
+   "trig:tapped-for-mana",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Drannith Magistrate",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 722,
+  "text": "Your opponents can't cast spells from anywhere other than their hands.",
+  "facets": [
+   "eff:cant-cast",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Archaeomancer's Map",
+  "type": "Artifact",
+  "cost": "{2}{W}",
+  "rank": 724,
+  "text": "When this artifact enters, search your library for up to two basic Plains cards, reveal them, put them into your hand, then shuffle.\nWhenever a land an opponent controls enters, if that player controls more lands than you, you may put a land card from your hand onto the battlefield.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:type:land",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:extra-land-drop",
+   "eff:search-library",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Elspeth, Storm Slayer",
+  "type": "Legendary Planeswalker — Elspeth",
+  "cost": "{3}{W}{W}",
+  "rank": 731,
+  "text": "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n+1: Create a 1/1 white Soldier creature token.\n0: Put a +1/+1 counter on each creature you control. Those creatures gain flying until your next turn.\n−3: Destroy target creature an opponent controls with mana value 3 or greater.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:add-counters",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:destroy",
+   "rec:partial",
+   "scope:all",
+   "sub:elspeth",
+   "tok:soldier",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Lion's Eye Diamond",
+  "type": "Artifact",
+  "cost": "{0}",
+  "rank": 734,
+  "text": "Discard your hand, Sacrifice this artifact: Add three mana of any one color. Activate only as an instant.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:add-mana",
+   "eff:discard-self",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hammer of Nazahn",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 738,
+  "text": "Whenever Hammer of Nazahn or another Equipment you control enters, you may attach that Equipment to target creature you control.\nEquipped creature gets +2/+0 and has indestructible.\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:equip",
+   "kw:indestructible",
+   "rec:partial",
+   "scope:all",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Enduring Innocence",
+  "type": "Enchantment Creature — Sheep Glimmer",
+  "cost": "{1}{W}{W}",
+  "rank": 739,
+  "text": "Lifelink\nWhenever one or more other creatures you control with power 2 or less enter, draw a card. This ability triggers only once each turn.\nWhen Enduring Innocence dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)",
+  "facets": [
+   "kw:lifelink",
+   "rec:partial",
+   "sub:glimmer",
+   "sub:sheep",
+   "sub:sheep glimmer",
+   "trig:dies",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Flare of Fortitude",
+  "type": "Instant",
+  "cost": "{2}{W}{W}",
+  "rank": 740,
+  "text": "You may sacrifice a nontoken white creature rather than pay this spell's mana cost.\nUntil end of turn, your life total can't change, and permanents you control gain hexproof and indestructible.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:prevent-damage",
+   "eff:protect",
+   "eff:set-life",
+   "grants:hexproof",
+   "grants:indestructible",
+   "kw:indestructible",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Scoured Barrens",
+  "type": "Land",
+  "cost": "",
+  "rank": 742,
+  "text": "This land enters tapped.\nWhen this land enters, you gain 1 life.\n{T}: Add {W} or {B}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Palladium Myr",
+  "type": "Artifact Creature — Myr",
+  "cost": "{3}",
+  "rank": 743,
+  "text": "{T}: Add {C}{C}.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "rec:full",
+   "sub:myr",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Isochron Scepter",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 744,
+  "text": "Imprint — When this artifact enters, you may exile an instant card with mana value 2 or less from your hand.\n{2}, {T}: You may copy the exiled card. If you do, you may cast the copy without paying its mana cost.",
+  "facets": [
+   "acost:3",
+   "cares:type:instant",
+   "col:none",
+   "kw:imprint",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Champion's Helm",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 748,
+  "text": "Equipped creature gets +2/+2.\nAs long as equipped creature is legendary, it has hexproof. (It can't be the target of spells or abilities your opponents control.)\nEquip {1}",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Idyllic Tutor",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 751,
+  "text": "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:zone:library",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Starting Town",
+  "type": "Land — Town",
+  "cost": "",
+  "rank": 752,
+  "text": "This land enters tapped unless it's your first, second, or third turn of the game.\n{T}: Add {C}.\n{T}, Pay 1 life: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:town",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Bloodchief Ascension",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 753,
+  "text": "At the beginning of each end step, if an opponent lost 2 or more life this turn, you may put a quest counter on this enchantment. (Damage causes loss of life.)\nWhenever a card is put into an opponent's graveyard from anywhere, if this enchantment has three or more quest counters on it, you may have that player lose 2 life. If you do, you gain 2 life.",
+  "facets": [
+   "ctr:quest-self",
+   "eff:add-counters-self",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Chimil, the Inner Sun",
+  "type": "Legendary Artifact",
+  "cost": "{6}",
+  "rank": 759,
+  "text": "Spells you control can't be countered.\nAt the beginning of your end step, discover 5. (Exile cards from the top of your library until you exile a nonland card with mana value 5 or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "facets": [
+   "col:none",
+   "kw:discover",
+   "mv:big",
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Kaya's Ghostform",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 764,
+  "text": "Enchant creature or planeswalker you control\nWhen enchanted permanent dies or is put into exile, return that card to the battlefield under your control.",
+  "facets": [
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:dies",
+   "trig:leaves",
+   "trig:leaves-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Avacyn, Angel of Hope",
+  "type": "Legendary Creature — Angel",
+  "cost": "{5}{W}{W}{W}",
+  "rank": 769,
+  "text": "Flying, vigilance, indestructible\nOther permanents you control have indestructible.",
+  "facets": [
+   "grants:indestructible",
+   "kw:flying",
+   "kw:indestructible",
+   "kw:vigilance",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Ornithopter",
+  "type": "Artifact Creature — Thopter",
+  "cost": "{0}",
+  "rank": 771,
+  "text": "Flying",
+  "facets": [
+   "col:none",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:thopter",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Reassembling Skeleton",
+  "type": "Creature — Skeleton Warrior",
+  "cost": "{1}{B}",
+  "rank": 772,
+  "text": "{1}{B}: Return this card from your graveyard to the battlefield tapped.",
+  "facets": [
+   "acost:2",
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "mv:cheap",
+   "sub:skeleton",
+   "sub:skeleton warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cloudshift",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 783,
+  "text": "Exile target creature you control, then return that card to the battlefield under your control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "eff:exile-own",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ranger-Captain of Eos",
+  "type": "Creature — Human Soldier Ranger",
+  "cost": "{1}{W}{W}",
+  "rank": 786,
+  "text": "When this creature enters, you may search your library for a creature card with mana value 1 or less, reveal it, put it into your hand, then shuffle.\nSacrifice this creature: Your opponents can't cast noncreature spells this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:library",
+   "eff:cant-cast",
+   "eff:search-library",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier ranger",
+   "sub:ranger",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Castle Locthwain",
+  "type": "Land",
+  "cost": "",
+  "rank": 788,
+  "text": "This land enters tapped unless you control a Swamp.\n{T}: Add {B}.\n{1}{B}{B}, {T}: Draw a card, then you lose life equal to the number of cards in your hand.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:swamp",
+   "cares:zone:hand",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:lose-life",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Meteor Golem",
+  "type": "Artifact Creature — Golem",
+  "cost": "{7}",
+  "rank": 791,
+  "text": "When this creature enters, destroy target nonland permanent an opponent controls.",
+  "facets": [
+   "col:none",
+   "eff:destroy",
+   "mv:big",
+   "rec:full",
+   "sub:golem",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Inkshield",
+  "type": "Instant",
+  "cost": "{3}{W}{B}",
+  "rank": 792,
+  "text": "Prevent all combat damage that would be dealt to you this turn. For each 1 damage prevented this way, create a 2/1 white and black Inkling creature token with flying.",
+  "facets": [
+   "cares:sub:inkling",
+   "cares:type:creature",
+   "eff:prevent-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Danitha Capashen, Paragon",
+  "type": "Legendary Creature — Human Knight",
+  "cost": "{2}{W}",
+  "rank": 793,
+  "text": "First strike, vigilance, lifelink\nAura and Equipment spells you cast cost {1} less to cast.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:gain-life",
+   "eff:reduce-cost",
+   "kw:first strike",
+   "kw:lifelink",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Flowering of the White Tree",
+  "type": "Legendary Enchantment",
+  "cost": "{W}{W}",
+  "rank": 800,
+  "text": "Legendary creatures you control get +2/+1 and have ward {1}.\nNonlegendary creatures you control get +1/+1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Liliana, Dreadhorde General",
+  "type": "Legendary Planeswalker — Liliana",
+  "cost": "{4}{B}{B}",
+  "rank": 801,
+  "text": "Whenever a creature you control dies, draw a card.\n+1: Create a 2/2 black Zombie creature token.\n−4: Each player sacrifices two creatures of their choice.\n−9: Each opponent chooses a permanent they control of each permanent type and sacrifices the rest.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:add-counters",
+   "eff:create-token",
+   "eff:draw",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:liliana",
+   "tok:zombie",
+   "trig:dies",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Brightclimb Pathway // Grimclimb Pathway",
+  "type": "Land // Land",
+  "cost": "",
+  "rank": 804,
+  "text": "{T}: Add {W}.\n//\n{T}: Add {B}.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Mesa Enchantress",
+  "type": "Creature — Human Druid",
+  "cost": "{1}{W}{W}",
+  "rank": 806,
+  "text": "Whenever you cast an enchantment spell, you may draw a card.",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:zone:stack",
+   "eff:draw",
+   "rec:full",
+   "scope:all",
+   "sub:druid",
+   "sub:human",
+   "sub:human druid",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:enchantment",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vanquish the Horde",
+  "type": "Sorcery",
+  "cost": "{6}{W}{W}",
+  "rank": 809,
+  "text": "This spell costs {1} less to cast for each creature on the battlefield.\nDestroy all creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Steel Overseer",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 810,
+  "text": "{T}: Put a +1/+1 counter on each artifact creature you control.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fleshbag Marauder",
+  "type": "Creature — Zombie Warrior",
+  "cost": "{2}{B}",
+  "rank": 812,
+  "text": "When this creature enters, each player sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "rec:partial",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Enduring Tenacity",
+  "type": "Enchantment Creature — Snake Glimmer",
+  "cost": "{2}{B}{B}",
+  "rank": 813,
+  "text": "Whenever you gain life, target opponent loses that much life.\nWhen Enduring Tenacity dies, if it was a creature, return it to the battlefield under its owner's control. It's an enchantment. (It's not a creature.)",
+  "facets": [
+   "eff:lose-life",
+   "rec:partial",
+   "sub:glimmer",
+   "sub:snake",
+   "sub:snake glimmer",
+   "trig:dies",
+   "trig:gains-life",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Escape Tunnel",
+  "type": "Land",
+  "cost": "",
+  "rank": 814,
+  "text": "{T}, Sacrifice this land: Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.\n{T}, Sacrifice this land: Target creature with power 2 or less can't be blocked this turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:cant-be-blocked",
+   "eff:search-library",
+   "rec:partial",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ghost Quarter",
+  "type": "Land",
+  "cost": "",
+  "rank": 819,
+  "text": "{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:destroy",
+   "eff:search-library",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Bleachbone Verge",
+  "type": "Land",
+  "cost": "",
+  "rank": 822,
+  "text": "{T}: Add {B}.\n{T}: Add {W}. Activate only if you control a Plains or a Swamp.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Elspeth, Sun's Champion",
+  "type": "Legendary Planeswalker — Elspeth",
+  "cost": "{4}{W}{W}",
+  "rank": 824,
+  "text": "+1: Create three 1/1 white Soldier creature tokens.\n−3: Destroy all creatures with power 4 or greater.\n−7: You get an emblem with \"Creatures you control get +2/+2 and have flying.\"",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:create-token",
+   "eff:destroy",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:elspeth",
+   "tok:soldier",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Colossus Hammer",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 827,
+  "text": "Equipped creature gets +10/+10 and loses flying.\nEquip {8} ({8}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Tocasia's Welcome",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 828,
+  "text": "Whenever one or more creatures you control with mana value 3 or less enter, draw a card. This ability triggers only once each turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "trig:enters",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sigarda's Aid",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 830,
+  "text": "You may cast Aura and Equipment spells as though they had flash.\nWhenever an Equipment you control enters, you may attach it to target creature you control.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "eff:attach",
+   "grants:flash",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Yawgmoth, Thran Physician",
+  "type": "Legendary Creature — Human Cleric",
+  "cost": "{2}{B}{B}",
+  "rank": 834,
+  "text": "Protection from Humans\nPay 1 life, Sacrifice another creature: Put a -1/-1 counter on up to one target creature and draw a card.\n{B}{B}, Discard a card: Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:life",
+   "cost:sacrifice",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "eff:draw",
+   "eff:proliferate",
+   "kw:proliferate",
+   "kw:protection",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Soul's Attendant",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 837,
+  "text": "Whenever another creature enters, you may gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Delney, Streetwise Lookout",
+  "type": "Legendary Creature — Human Scout",
+  "cost": "{2}{W}",
+  "rank": 839,
+  "text": "Creatures you control with power 2 or less can't be blocked by creatures with power 3 or greater.\nIf a triggered ability of a creature you control with power 2 or less triggers, that ability triggers an additional time.",
+  "facets": [
+   "eff:cant-be-blocked",
+   "eff:multiply",
+   "eff:multiply-triggers",
+   "sub:human",
+   "sub:human scout",
+   "sub:scout",
+   "type:creature",
+   "type:legendary"
+  ]
+ }
+]

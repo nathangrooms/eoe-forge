@@ -1,0 +1,865 @@
+[
+ {
+  "name": "Lotus-Eye Mystics",
+  "type": "Creature — Human Monk",
+  "cost": "{3}{W}",
+  "rank": 24340,
+  "text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhen this creature enters, return target enchantment card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:prowess",
+   "rec:full",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zhalfirin Lancer",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}",
+  "rank": 24343,
+  "text": "Whenever another Knight you control enters, this creature gets +1/+1 and gains vigilance until end of turn.",
+  "facets": [
+   "cares:sub:knight",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ixalan's Binding",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 24344,
+  "text": "When this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield.\nYour opponents can't cast spells with the same name as the exiled card.",
+  "facets": [
+   "eff:exile",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Guardian Kirin",
+  "type": "Creature — Kirin",
+  "cost": "{3}{W}",
+  "rank": 24352,
+  "text": "Flying\nWhenever another creature you control dies, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:kirin",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flight of Equenauts",
+  "type": "Creature — Human Knight",
+  "cost": "{7}{W}",
+  "rank": 24353,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nFlying",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "cost:cast-tap-others",
+   "kw:convoke",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Necropolis",
+  "type": "Artifact Creature — Wall",
+  "cost": "{5}",
+  "rank": 24354,
+  "text": "Defender (This creature can't attack.)\nExile a creature card from your graveyard: Put X +0/+1 counters on this creature, where X is the exiled card's mana value.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:exile",
+   "eff:add-counters",
+   "kw:defender",
+   "rec:partial",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ballista Squad",
+  "type": "Creature — Human Rebel",
+  "cost": "{3}{W}",
+  "rank": 24359,
+  "text": "{X}{W}, {T}: This creature deals X damage to target attacking or blocking creature.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:damage",
+   "rec:full",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nezumi Ronin",
+  "type": "Creature — Rat Samurai",
+  "cost": "{2}{B}",
+  "rank": 24361,
+  "text": "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)",
+  "facets": [
+   "eff:pump",
+   "kw:bushido",
+   "rec:full",
+   "sub:rat",
+   "sub:rat samurai",
+   "sub:samurai",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Origin of Black Widow",
+  "type": "Enchantment — Saga",
+  "cost": "{2}{B}",
+  "rank": 24363,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Each opponent sacrifices a creature of their choice.\nII — Creatures you control gain deathtouch until end of turn.\nIII — Each opponent loses 1 life for each creature card in their graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "grants:deathtouch",
+   "kw:iii",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Caligo Skin-Witch",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{B}",
+  "rank": 24364,
+  "text": "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nWhen this creature enters, if it was kicked, each opponent discards two cards.",
+  "facets": [
+   "eff:discard",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shield Dancer",
+  "type": "Creature — Human Rebel",
+  "cost": "{2}{W}",
+  "rank": 24367,
+  "text": "{2}{W}: The next time target attacking creature would deal combat damage to this creature this turn, that creature deals that damage to itself instead.",
+  "facets": [
+   "acost:3",
+   "eff:redirect-damage",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mourning Thrull",
+  "type": "Creature — Thrull",
+  "cost": "{1}{W/B}",
+  "rank": 24368,
+  "text": "({W/B} can be paid with either {W} or {B}.)\nFlying\nWhenever this creature deals damage, you gain that much life.",
+  "facets": [
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:thrull",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Glyph of Life",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 24369,
+  "text": "Choose target Wall creature. Whenever that creature is dealt damage by an attacking creature this turn, you gain that much life.",
+  "facets": [
+   "cares:sub:wall",
+   "eff:gain-life",
+   "mv:cheap",
+   "trig:dealt-damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Boomerang, Blade Flinger",
+  "type": "Legendary Creature — Human Villain",
+  "cost": "{1}{B}",
+  "rank": 24371,
+  "text": "Whenever Boomerang attacks, he deals 1 damage to each opponent and you gain 1 life.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human villain",
+   "sub:villain",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Glaze Fiend",
+  "type": "Artifact Creature — Illusion",
+  "cost": "{1}{B}",
+  "rank": 24372,
+  "text": "Flying\nWhenever another artifact you control enters, this creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:illusion",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fendeep Summoner",
+  "type": "Creature — Treefolk Shaman",
+  "cost": "{4}{B}",
+  "rank": 24378,
+  "text": "{T}: Up to two target Swamps each become 3/5 Treefolk Warrior creatures in addition to their other types until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:sub:treefolk",
+   "cares:sub:warrior",
+   "cares:type:land",
+   "sub:shaman",
+   "sub:treefolk",
+   "sub:treefolk shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mountain Stronghold",
+  "type": "Land",
+  "cost": "",
+  "rank": 24379,
+  "text": "Red legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:legendary",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Grim Captain's Call",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 24381,
+  "text": "Return a Pirate card from your graveyard to your hand, then do the same for Vampire, Dinosaur, and Merfolk.",
+  "facets": [
+   "cares:sub:dinosaur",
+   "cares:sub:merfolk",
+   "cares:sub:pirate",
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ivory Crane Netsuke",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 24386,
+  "text": "At the beginning of your upkeep, if you have seven or more cards in hand, you gain 4 life.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Soul Parry",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24394,
+  "text": "Prevent all damage one or two target creatures would deal this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rune of Protection: Green",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 24397,
+  "text": "{W}: The next time a green source of your choice would deal damage to you this turn, prevent that damage.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Suspicious Shambler",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 24398,
+  "text": "{4}{B}{B}, Exile this card from your graveyard: Create two 2/2 black Zombie creature tokens. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cares:sub:zombie",
+   "cost:exile-self",
+   "eff:create-token",
+   "rec:full",
+   "sub:zombie",
+   "tok:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unholy Hunger",
+  "type": "Instant",
+  "cost": "{3}{B}{B}",
+  "rank": 24400,
+  "text": "Destroy target creature.\nSpell mastery — If there are two or more instant and/or sorcery cards in your graveyard, you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:gain-life",
+   "kw:spell mastery",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Blightspeaker",
+  "type": "Creature — Human Rebel Cleric",
+  "cost": "{1}{B}",
+  "rank": 24402,
+  "text": "{T}: Target player loses 1 life.\n{4}, {T}: Search your library for a Rebel permanent card with mana value 3 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:rebel",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:lose-life",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human rebel cleric",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Throne of Bone",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 24403,
+  "text": "Whenever a player casts a black spell, you may pay {1}. If you do, you gain 1 life.",
+  "facets": [
+   "cares:color:b",
+   "cares:zone:stack",
+   "col:none",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Unraveling Mummy",
+  "type": "Creature — Zombie",
+  "cost": "{1}{W}{B}",
+  "rank": 24405,
+  "text": "{1}{W}: Target attacking Zombie gains lifelink until end of turn.\n{1}{B}: Target attacking Zombie gains deathtouch until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:sub:zombie",
+   "eff:pump",
+   "grants:deathtouch",
+   "grants:lifelink",
+   "kw:deathtouch",
+   "kw:lifelink",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Enshrouding Mist",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 24406,
+  "text": "Target creature gets +1/+1 until end of turn. Prevent all damage that would be dealt to it this turn. If it's renowned, untap it.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:untap",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Warren Pilferers",
+  "type": "Creature — Goblin Rogue",
+  "cost": "{4}{B}",
+  "rank": 24408,
+  "text": "When this creature enters, return target creature card from your graveyard to your hand. If that card is a Goblin card, this creature gains haste until end of turn.",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "sub:goblin",
+   "sub:goblin rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Felhide Brawler",
+  "type": "Creature — Minotaur",
+  "cost": "{1}{B}",
+  "rank": 24410,
+  "text": "This creature can't block unless you control another Minotaur.",
+  "facets": [
+   "cares:sub:minotaur",
+   "cares:type:creature",
+   "eff:cant-block-self",
+   "mv:cheap",
+   "sub:minotaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Choking Sands",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 24413,
+  "text": "Destroy target non-Swamp land. If that land was nonbasic, Choking Sands deals 2 damage to the land's controller.",
+  "facets": [
+   "cares:type:land",
+   "eff:damage",
+   "eff:destroy",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Complete Disregard",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 24415,
+  "text": "Devoid (This card has no color.)\nExile target creature with power 3 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "kw:devoid",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dominaria's Judgment",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 24416,
+  "text": "Until end of turn, creatures you control gain protection from white if you control a Plains, from blue if you control an Island, from black if you control a Swamp, from red if you control a Mountain, and from green if you control a Forest.",
+  "facets": [
+   "cares:color:r",
+   "cares:color:w",
+   "cares:type:land",
+   "eff:protect",
+   "grants:protection",
+   "kw:protection",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ramosian Revivalist",
+  "type": "Creature — Human Rebel Cleric",
+  "cost": "{3}{W}",
+  "rank": 24417,
+  "text": "{6}, {T}: Return target Rebel permanent card with mana value 5 or less from your graveyard to the battlefield.",
+  "facets": [
+   "acost:3",
+   "cares:sub:rebel",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:return-from",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human rebel cleric",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hedron Rover",
+  "type": "Artifact Creature — Construct",
+  "cost": "{4}",
+  "rank": 24419,
+  "text": "Landfall — Whenever a land you control enters, this creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "eff:pump",
+   "kw:landfall",
+   "rec:full",
+   "scope:all",
+   "sub:construct",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Leonin Sun Standard",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 24420,
+  "text": "{1}{W}: Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cultist's Staff",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 24424,
+  "text": "Equipped creature gets +2/+2.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Meditation Puzzle",
+  "type": "Instant",
+  "cost": "{3}{W}{W}",
+  "rank": 24429,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nYou gain 8 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:convoke",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Coordinated Charge",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 24434,
+  "text": "Creatures you control get +2/+1 until end of turn.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:pump",
+   "kw:cycling",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Sun-Crested Pterodon",
+  "type": "Creature — Dinosaur",
+  "cost": "{4}{W}",
+  "rank": 24437,
+  "text": "Flying\nThis creature has vigilance as long as you control another Dinosaur.",
+  "facets": [
+   "cares:sub:dinosaur",
+   "cares:type:creature",
+   "grants:vigilance",
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "sub:dinosaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nemesis Trap",
+  "type": "Instant — Trap",
+  "cost": "{4}{B}{B}",
+  "rank": 24439,
+  "text": "If a white creature is attacking, you may pay {B}{B} rather than pay this spell's mana cost.\nExile target attacking creature. Create a token that's a copy of that creature. Exile it at the beginning of the next end step.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "eff:exile",
+   "mv:big",
+   "rec:partial",
+   "sub:trap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Skeleton Scavengers",
+  "type": "Creature — Skeleton",
+  "cost": "{2}{B}",
+  "rank": 24440,
+  "text": "This creature enters with a +1/+1 counter on it.\nPay {1} for each +1/+1 counter on this creature: Regenerate this creature. When it regenerates this way, put a +1/+1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Longbow Archer",
+  "type": "Creature — Human Soldier Archer",
+  "cost": "{W}{W}",
+  "rank": 24442,
+  "text": "Reach (This creature can block creatures with flying.)\nFirst strike",
+  "facets": [
+   "kw:first strike",
+   "kw:reach",
+   "mv:cheap",
+   "rec:full",
+   "sub:archer",
+   "sub:human",
+   "sub:human soldier archer",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wall of Forgotten Pharaohs",
+  "type": "Artifact Creature — Wall",
+  "cost": "{2}",
+  "rank": 24444,
+  "text": "Defender\n{T}: This creature deals 1 damage to target player or planeswalker. Activate only if you control a Desert or there is a Desert card in your graveyard.",
+  "facets": [
+   "acost:1",
+   "cares:sub:desert",
+   "cares:type:planeswalker",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:damage",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Highborn Ghoul",
+  "type": "Creature — Zombie",
+  "cost": "{B}{B}",
+  "rank": 24445,
+  "text": "Intimidate (This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.)",
+  "facets": [
+   "kw:intimidate",
+   "mv:cheap",
+   "rec:full",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gideon's Resolve",
+  "type": "Enchantment",
+  "cost": "{4}{W}",
+  "rank": 24448,
+  "text": "When this enchantment enters, you may search your library and/or graveyard for a card named Gideon, Martial Paragon, reveal it, and put it into your hand. If you search your library this way, shuffle.\nCreatures you control get +1/+1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Serra Aviary",
+  "type": "World Enchantment",
+  "cost": "{3}{W}",
+  "rank": 24451,
+  "text": "Creatures with flying get +1/+1.",
+  "facets": [
+   "cares:kw:flying",
+   "cares:type:creature",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "type:enchantment",
+   "type:world"
+  ]
+ },
+ {
+  "name": "Brink of Disaster",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}{B}",
+  "rank": 24452,
+  "text": "Enchant creature or land\nWhen enchanted permanent becomes tapped, destroy it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:destroy",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:tapped",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Proclamation of Rebirth",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 24453,
+  "text": "Return up to three target creature cards with mana value 1 or less from your graveyard to the battlefield.\nForecast — {5}{W}, Reveal this card from your hand: Return target creature card with mana value 1 or less from your graveyard to the battlefield. (Activate only during your upkeep and only once each turn.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:forecast",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Deathknell Berserker",
+  "type": "Creature — Elf Berserker",
+  "cost": "{1}{B}",
+  "rank": 24461,
+  "text": "When this creature dies, if its power was 3 or greater, create a 2/2 black Zombie Berserker creature token.",
+  "facets": [
+   "cares:sub:berserker",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:partial",
+   "sub:berserker",
+   "sub:elf",
+   "sub:elf berserker",
+   "tok:berserker",
+   "tok:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Apothecary Geist",
+  "type": "Creature — Spirit",
+  "cost": "{3}{W}",
+  "rank": 24462,
+  "text": "Flying\nWhen this creature enters, if you control another Spirit, you gain 3 life.",
+  "facets": [
+   "cares:sub:spirit",
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ }
+]

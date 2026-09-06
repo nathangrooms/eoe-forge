@@ -1,0 +1,901 @@
+[
+ {
+  "name": "Arco-Flagellant",
+  "type": "Creature — Human",
+  "cost": "{2}{B}",
+  "rank": 14628,
+  "text": "Squad {2} (As an additional cost to cast this spell, you may pay {2} any number of times. When this creature enters, create that many tokens that are copies of it.)\nThis creature can't block.\nEndurant — Pay 3 life: This creature gains indestructible until end of turn.",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "eff:copy",
+   "eff:create-token",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:endurant",
+   "kw:indestructible",
+   "kw:squad",
+   "rec:full",
+   "sub:human",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gift of Fangs",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 14629,
+  "text": "Enchant creature\nEnchanted creature gets +2/+2 as long as it's a Vampire. Otherwise, it gets -2/-2.",
+  "facets": [
+   "cares:sub:vampire",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Malevolent Witchkite",
+  "type": "Creature — Dragon Warlock",
+  "cost": "{4}{B}{B}",
+  "rank": 14633,
+  "text": "Flying\nWhen this creature enters, sacrifice any number of artifacts, enchantments, and/or tokens, then draw that many cards.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:type:token",
+   "eff:draw",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:dragon",
+   "sub:dragon warlock",
+   "sub:warlock",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Demystify",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 14636,
+  "text": "Destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Saw",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 14642,
+  "text": "Equipped creature gets +2/+0.\nWhenever equipped creature attacks, you may sacrifice a permanent other than that creature or this Equipment. If you do, draw a card.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Banish to Another Universe",
+  "type": "Enchantment",
+  "cost": "{4}{W}",
+  "rank": 14643,
+  "text": "Affinity for historic permanents (This spell costs {1} less to cast for each artifact, legendary, and/or Saga permanent you control.)\nWhen this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield.",
+  "facets": [
+   "cares:type:artifact",
+   "kw:affinity",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Pennon Blade",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 14646,
+  "text": "Equipped creature gets +1/+1 for each creature you control.\nEquip {4} ({4}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Triceraton Commander",
+  "type": "Creature — Dinosaur Soldier",
+  "cost": "{X}{X}{W}{W}",
+  "rank": 14653,
+  "text": "Flying\nWhenever this creature attacks, Dinosaurs you control other than this creature get +1/+1 and gain flying until end of turn.\nWhen this creature enters, create X 2/2 white Dinosaur Soldier creature tokens.",
+  "facets": [
+   "cares:sub:dinosaur",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:dinosaur",
+   "sub:dinosaur soldier",
+   "sub:soldier",
+   "tok:dinosaur",
+   "tok:soldier",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vermin Gorger",
+  "type": "Creature — Vampire",
+  "cost": "{1}{B}",
+  "rank": 14654,
+  "text": "{T}, Sacrifice another creature: Each opponent loses 2 life and you gain 2 life.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Demonic Bargain",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 14655,
+  "text": "Exile the top thirteen cards of your library, then search your library for a card. Put that card into your hand, then shuffle.",
+  "facets": [
+   "eff:search-library",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Demon of Wailing Agonies",
+  "type": "Creature — Demon",
+  "cost": "{3}{B}{B}",
+  "rank": 14656,
+  "text": "Flying\nLieutenant — As long as you control your commander, this creature gets +2/+2 and has \"Whenever this creature deals combat damage to a player, that player sacrifices a creature of their choice.\"",
+  "facets": [
+   "cares:commander",
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:flying",
+   "kw:lieutenant",
+   "rec:partial",
+   "sub:demon",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skeletal Vampire",
+  "type": "Creature — Vampire Skeleton",
+  "cost": "{4}{B}{B}",
+  "rank": 14661,
+  "text": "Flying\nWhen this creature enters, create two 1/1 black Bat creature tokens with flying.\n{3}{B}{B}, Sacrifice a Bat: Create two 1/1 black Bat creature tokens with flying.\nSacrifice a Bat: Regenerate this creature.",
+  "facets": [
+   "acost:3",
+   "cares:sub:bat",
+   "cost:sacrifice",
+   "eff:create-token",
+   "kw:flying",
+   "kw:regenerate",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:skeleton",
+   "sub:vampire",
+   "sub:vampire skeleton",
+   "tok:bat",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Monoist Sentry",
+  "type": "Artifact Creature — Robot",
+  "cost": "{B}",
+  "rank": 14667,
+  "text": "Defender",
+  "facets": [
+   "kw:defender",
+   "mv:cheap",
+   "rec:full",
+   "sub:robot",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thrór's Map",
+  "type": "Legendary Artifact",
+  "cost": "{2}",
+  "rank": 14668,
+  "text": "When Thrór's Map enters, search your library for a basic land card, reveal it, put it into your hand, then shuffle.\n{2}, {T}: Draw a card, then discard a card.",
+  "facets": [
+   "acost:2",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "cost:tap",
+   "eff:discard-self",
+   "eff:draw",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Vault 13: Dweller's Journey",
+  "type": "Enchantment — Saga",
+  "cost": "{3}{W}",
+  "rank": 14672,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — For each player, exile up to one other target enchantment or creature that player controls until this Saga leaves the battlefield.\nII — You gain 2 life and scry 2.\nIII — Return two cards exiled with this Saga to the battlefield under their owners' control and put the rest on the bottom of their owners' libraries.",
+  "facets": [
+   "cares:sub:saga",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:exile",
+   "eff:exile-own",
+   "eff:gain-life",
+   "eff:move-zone",
+   "eff:return-from",
+   "eff:scry",
+   "kw:iii",
+   "kw:scry",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rooftop Percher",
+  "type": "Creature — Shapeshifter",
+  "cost": "{5}",
+  "rank": 14682,
+  "text": "Changeling (This card is every creature type.)\nFlying\nWhen this creature enters, exile up to two target cards from graveyards. You gain 3 life.",
+  "facets": [
+   "col:none",
+   "eff:exile",
+   "eff:gain-life",
+   "kw:changeling",
+   "kw:flying",
+   "rec:full",
+   "sub:shapeshifter",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Potion of Healing",
+  "type": "Artifact",
+  "cost": "{1}{W}",
+  "rank": 14683,
+  "text": "When this artifact enters, draw a card.\n{W}, {T}, Sacrifice this artifact: You gain 3 life.",
+  "facets": [
+   "acost:1",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lethal Protection",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 14685,
+  "text": "Destroy target creature. Return up to one target creature card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Delaying Shield",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 14690,
+  "text": "If damage would be dealt to you, put that many delay counters on this enchantment instead.\nAt the beginning of your upkeep, remove all delay counters from this enchantment. For each delay counter removed this way, you lose 1 life unless you pay {1}{W}.",
+  "facets": [
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Phyrexian Juggernaut",
+  "type": "Artifact Creature — Phyrexian Juggernaut",
+  "cost": "{6}",
+  "rank": 14691,
+  "text": "Infect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)\nThis creature attacks each combat if able.",
+  "facets": [
+   "col:none",
+   "eff:poison",
+   "kw:infect",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:juggernaut",
+   "sub:phyrexian",
+   "sub:phyrexian juggernaut",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Isareth the Awakener",
+  "type": "Legendary Creature — Human Wizard",
+  "cost": "{1}{B}{B}",
+  "rank": 14692,
+  "text": "Deathtouch\nWhenever Isareth attacks, you may pay {X}. When you do, return target creature card with mana value X from your graveyard to the battlefield with a corpse counter on it. If that creature would leave the battlefield, exile it instead of putting it anywhere else.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:deathtouch",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Ultimate Price",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 14694,
+  "text": "Destroy target monocolored creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Jump Scare",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 14696,
+  "text": "Until end of turn, target creature gets +2/+2, gains flying, and becomes a Horror enchantment creature in addition to its other types.",
+  "facets": [
+   "cares:sub:horror",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Break the Spell",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 14700,
+  "text": "Destroy target enchantment. If a permanent you controlled or a token was destroyed this way, draw a card.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dockworker Drone",
+  "type": "Artifact Creature — Robot",
+  "cost": "{1}{W}",
+  "rank": 14702,
+  "text": "This creature enters with a +1/+1 counter on it.\nWhen this creature dies, put its counters on target creature you control.",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:robot",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Final Payment",
+  "type": "Instant",
+  "cost": "{W}{B}",
+  "rank": 14704,
+  "text": "As an additional cost to cast this spell, pay 5 life or sacrifice a creature or enchantment.\nDestroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Soul-Shackled Zombie",
+  "type": "Creature — Zombie",
+  "cost": "{3}{B}",
+  "rank": 14710,
+  "text": "When this creature enters, exile up to two target cards from a single graveyard. If at least one creature card was exiled this way, each opponent loses 2 life and you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:partial",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Howl from Beyond",
+  "type": "Instant",
+  "cost": "{X}{B}",
+  "rank": 14711,
+  "text": "Target creature gets +X/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Triarch Stalker",
+  "type": "Artifact Creature — Necron",
+  "cost": "{3}{B}{B}",
+  "rank": 14712,
+  "text": "Targeting Relay — At the beginning of combat on your turn, choose an opponent.\nCreatures attacking the last chosen player have menace.",
+  "facets": [
+   "eff:choose",
+   "kw:targeting relay",
+   "rec:partial",
+   "sub:necron",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mechanical Mobster",
+  "type": "Artifact Creature — Human Robot Villain",
+  "cost": "{3}",
+  "rank": 14713,
+  "text": "When this creature enters, exile up to one target card from a graveyard. Target creature you control connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)",
+  "facets": [
+   "col:none",
+   "eff:add-counters",
+   "eff:exile-graveyard",
+   "kw:connive",
+   "rec:partial",
+   "sub:human",
+   "sub:human robot villain",
+   "sub:robot",
+   "sub:villain",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sanctuary Lockdown",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 14714,
+  "text": "Humans you control get +1/+1.\n{2}, Tap two untapped Humans you control: Tap target creature an opponent controls.",
+  "facets": [
+   "acost:2",
+   "cares:sub:human",
+   "cares:type:creature",
+   "cost:tap-others",
+   "eff:pump",
+   "eff:tap",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Runed Stalactite",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 14715,
+  "text": "Equipped creature gets +1/+1 and is every creature type.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Priest of the Haunted Edge",
+  "type": "Snow Creature — Zombie Cleric",
+  "cost": "{1}{B}",
+  "rank": 14717,
+  "text": "{T}, Sacrifice this creature: Target creature gets -X/-X until end of turn, where X is the number of snow lands you control. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:type:snow",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Pulling Teeth",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 14718,
+  "text": "Clash with an opponent. If you win, target player discards two cards. Otherwise, that player discards a card. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+  "facets": [
+   "cares:zone:library",
+   "eff:discard",
+   "kw:clash",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Prickly Boggart",
+  "type": "Creature — Goblin Rogue",
+  "cost": "{B}",
+  "rank": 14721,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "kw:fear",
+   "mv:cheap",
+   "rec:full",
+   "sub:goblin",
+   "sub:goblin rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rest for the Weary",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 14722,
+  "text": "Target player gains 4 life.\nLandfall — If you had a land enter the battlefield under your control this turn, that player gains 8 life instead.",
+  "facets": [
+   "eff:gain-life",
+   "kw:landfall",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Skeleton Shard",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 14725,
+  "text": "{3}, {T} or {B}, {T}: Return target artifact creature card from your graveyard to your hand.",
+  "facets": [
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Outlaw Medic",
+  "type": "Creature — Human Rogue",
+  "cost": "{1}{W}",
+  "rank": 14728,
+  "text": "Lifelink\nWhen this creature dies, draw a card.",
+  "facets": [
+   "eff:draw",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Momo, Rambunctious Rascal",
+  "type": "Legendary Creature — Lemur Bat Ally",
+  "cost": "{2}{W}",
+  "rank": 14730,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nWhen Momo enters, he deals 4 damage to target tapped creature an opponent controls.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "kw:flying",
+   "rec:full",
+   "sub:ally",
+   "sub:bat",
+   "sub:lemur",
+   "sub:lemur bat ally",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Escape from Orthanc",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 14732,
+  "text": "Target creature gets +1/+3 and gains flying until end of turn. Untap it.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "eff:untap",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Soaring Sandwing",
+  "type": "Creature — Dinosaur",
+  "cost": "{4}{W}{W}",
+  "rank": 14734,
+  "text": "Flying\nWhen this creature enters, you gain 3 life.\nPlainscycling {2} ({2}, Discard this card: Search your library for a Plains card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:gain-life",
+   "eff:search-library",
+   "kw:cycling",
+   "kw:flying",
+   "kw:landcycling",
+   "kw:plainscycling",
+   "kw:typecycling",
+   "mv:big",
+   "rec:partial",
+   "sub:dinosaur",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zombie Trailblazer",
+  "type": "Creature — Zombie Scout",
+  "cost": "{B}{B}{B}",
+  "rank": 14740,
+  "text": "Tap an untapped Zombie you control: Target land becomes a Swamp until end of turn.\nTap an untapped Zombie you control: Target creature gains swampwalk until end of turn. (It can't be blocked as long as defending player controls a Swamp.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:type:land",
+   "cost:tap-others",
+   "eff:pump",
+   "grants:swampwalk",
+   "kw:swampwalk",
+   "rec:partial",
+   "scope:all",
+   "sub:scout",
+   "sub:zombie",
+   "sub:zombie scout",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nullstone Gargoyle",
+  "type": "Artifact Creature — Gargoyle",
+  "cost": "{9}",
+  "rank": 14745,
+  "text": "Flying\nWhenever the first noncreature spell of a turn is cast, counter that spell.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "eff:counter",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:gargoyle",
+   "trig:cast",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "High Ground",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 14749,
+  "text": "Each creature you control can block an additional creature each combat.",
+  "facets": [
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Arcbound Bruiser",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 14752,
+  "text": "Modular 3 (This creature enters with three +1/+1 counters on it. When it dies, you may put its +1/+1 counters on target artifact creature.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:modular",
+   "rec:full",
+   "sub:golem",
+   "trig:dies",
+   "trig:leaves",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thornbow Archer",
+  "type": "Creature — Elf Archer",
+  "cost": "{B}",
+  "rank": 14753,
+  "text": "Whenever this creature attacks, each opponent who doesn't control an Elf loses 1 life.",
+  "facets": [
+   "cares:sub:elf",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:archer",
+   "sub:elf",
+   "sub:elf archer",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Killian's Confidence",
+  "type": "Sorcery",
+  "cost": "{W}{B}",
+  "rank": 14754,
+  "text": "Target creature gets +1/+1 until end of turn. Draw a card.\nWhenever one or more creatures you control deal combat damage to a player, you may pay {W/B}. If you do, return this card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:draw",
+   "eff:pump",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ruin Ghost",
+  "type": "Creature — Spirit",
+  "cost": "{1}{W}",
+  "rank": 14755,
+  "text": "{W}, {T}: Exile target land you control, then return it to the battlefield under your control.",
+  "facets": [
+   "acost:1",
+   "cares:type:land",
+   "cares:zone:exile",
+   "cost:tap",
+   "eff:exile-own",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Beaming Defiance",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 14756,
+  "text": "Target creature you control gets +2/+2 and gains hexproof until end of turn. (It can't be the target of spells or abilities your opponents control.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:hexproof",
+   "kw:hexproof",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Noxious Field",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}{B}",
+  "rank": 14758,
+  "text": "Enchant land\nEnchanted land has \"{T}: This land deals 1 damage to each creature and each player.\"",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "kw:enchant",
+   "rec:partial",
+   "scope:all",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ }
+]

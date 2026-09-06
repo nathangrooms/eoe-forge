@@ -1,0 +1,849 @@
+[
+ {
+  "name": "Vengeful Archon",
+  "type": "Creature — Archon",
+  "cost": "{4}{W}{W}{W}",
+  "rank": 25654,
+  "text": "Flying\n{X}: Prevent the next X damage that would be dealt to you this turn. If damage is prevented this way, this creature deals that much damage to target player or planeswalker.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "cares:type:planeswalker",
+   "eff:damage",
+   "eff:redirect-damage",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:archon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Champion of Arashin",
+  "type": "Creature — Dog Warrior",
+  "cost": "{3}{W}",
+  "rank": 25655,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:lifelink",
+   "rec:full",
+   "sub:dog",
+   "sub:dog warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gemini Engine",
+  "type": "Artifact Creature — Construct",
+  "cost": "{6}",
+  "rank": 25658,
+  "text": "Whenever this creature attacks, create a colorless Construct artifact creature token named Twin that's attacking. Its power is equal to this creature's power and its toughness is equal to this creature's toughness. Sacrifice the token at end of combat.",
+  "facets": [
+   "cares:power",
+   "cares:sub:construct",
+   "col:none",
+   "eff:create-token",
+   "mv:big",
+   "rec:partial",
+   "sub:construct",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Catacomb Crocodile",
+  "type": "Creature — Crocodile",
+  "cost": "{4}{B}",
+  "rank": 25659,
+  "text": "",
+  "facets": [
+   "sub:crocodile",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon Bell Monk",
+  "type": "Creature — Human Monk",
+  "cost": "{2}{W}",
+  "rank": 25663,
+  "text": "Vigilance\nProwess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)",
+  "facets": [
+   "kw:prowess",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sunglasses of Urza",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 25664,
+  "text": "You may spend white mana as though it were red mana.",
+  "facets": [
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Tapestry of the Ages",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 25665,
+  "text": "{2}, {T}: Draw a card. Activate only if you've cast a noncreature spell this turn.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "cost:tap",
+   "eff:draw",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nebelgast Beguiler",
+  "type": "Creature — Spirit",
+  "cost": "{4}{W}",
+  "rank": 25668,
+  "text": "{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lawless Broker",
+  "type": "Creature — Aetherborn Rogue",
+  "cost": "{2}{B}",
+  "rank": 25669,
+  "text": "When this creature dies, put a +1/+1 counter on target creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:full",
+   "sub:aetherborn",
+   "sub:aetherborn rogue",
+   "sub:rogue",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Virtue's Ruin",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 25671,
+  "text": "Destroy all white creatures.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gerrard's Verdict",
+  "type": "Sorcery",
+  "cost": "{W}{B}",
+  "rank": 25677,
+  "text": "Target player discards two cards. You gain 3 life for each land card discarded this way.",
+  "facets": [
+   "eff:discard",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Great Teacher's Decree",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 25678,
+  "text": "Creatures you control get +2/+1 until end of turn.\nRebound (If you cast this spell from your hand, exile it as it resolves. At the beginning of your next upkeep, you may cast this card from exile without paying its mana cost.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:rebound",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Malakir Soothsayer",
+  "type": "Creature — Vampire Shaman Ally",
+  "cost": "{4}{B}",
+  "rank": 25679,
+  "text": "Cohort — {T}, Tap an untapped Ally you control: You draw a card and you lose 1 life.",
+  "facets": [
+   "acost:0",
+   "cares:sub:ally",
+   "cost:tap",
+   "cost:tap-others",
+   "eff:draw",
+   "eff:lose-life",
+   "kw:cohort",
+   "rec:full",
+   "scope:all",
+   "sub:ally",
+   "sub:shaman",
+   "sub:vampire",
+   "sub:vampire shaman ally",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spinning Darkness",
+  "type": "Instant",
+  "cost": "{4}{B}{B}",
+  "rank": 25684,
+  "text": "You may exile the top three black cards of your graveyard rather than pay this spell's mana cost.\nSpinning Darkness deals 3 damage to target nonblack creature. You gain 3 life.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "mv:big",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Gavony Dawnguard",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}{W}",
+  "rank": 25685,
+  "text": "Ward {1}\nIf it's neither day nor night, it becomes day as this creature enters.\nWhenever day becomes night or night becomes day, look at the top four cards of your library. You may reveal a creature card with mana value 3 or less from among them and put it into your hand. Put the rest on the bottom of your library in any order.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:library",
+   "eff:look-and-pick",
+   "kw:ward",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Searing Light",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 25690,
+  "text": "Destroy target attacking or blocking creature with power 2 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Crowd of True Believers",
+  "type": "Creature — Human Citizen",
+  "cost": "{W}",
+  "rank": 25695,
+  "text": "{T}: Target creature you control that's attacking alone gets +1/+0 until end of turn. You gain 1 life.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:citizen",
+   "sub:human",
+   "sub:human citizen",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Perimeter Sergeant",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 25696,
+  "text": "Whenever this creature attacks, other Humans you control get +1/+0 until end of turn.",
+  "facets": [
+   "cares:sub:human",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Corpse Traders",
+  "type": "Creature — Human Rogue",
+  "cost": "{3}{B}",
+  "rank": 25697,
+  "text": "{2}{B}, Sacrifice a creature: Target opponent reveals their hand. You choose a card from it. That player discards that card. Activate only as a sorcery.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cost:sacrifice",
+   "cost:sacrifice-self",
+   "eff:discard",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Underworld Charger",
+  "type": "Creature — Nightmare Horse",
+  "cost": "{2}{B}",
+  "rank": 25699,
+  "text": "This creature can't block.\nEscape—{4}{B}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)\nThis creature escapes with two +1/+1 counters on it.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:add-counters-self",
+   "eff:recur-self",
+   "kw:escape",
+   "rec:partial",
+   "sub:horse",
+   "sub:nightmare",
+   "sub:nightmare horse",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Razortip Whip",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 25700,
+  "text": "{1}, {T}: This artifact deals 1 damage to target opponent or planeswalker.",
+  "facets": [
+   "acost:2",
+   "cares:type:planeswalker",
+   "col:none",
+   "eff:damage",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Runeforge Champion",
+  "type": "Creature — Dwarf Warrior",
+  "cost": "{2}{W}",
+  "rank": 25704,
+  "text": "When this creature enters, you may search your library and/or graveyard for a Rune card, reveal it, and put it into your hand. If you search your library this way, shuffle.\nYou may pay {1} rather than pay the mana cost for Rune spells you cast.",
+  "facets": [
+   "eff:search-library",
+   "rec:partial",
+   "sub:dwarf",
+   "sub:dwarf warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Final Strike",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 25706,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nFinal Strike deals damage to target opponent or planeswalker equal to the sacrificed creature's power.",
+  "facets": [
+   "cares:type:planeswalker",
+   "eff:damage",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Twinning Glass",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 25708,
+  "text": "{1}, {T}: You may cast a spell from your hand without paying its mana cost if it has the same name as a spell that was cast this turn.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Glarecaster",
+  "type": "Creature — Bird Cleric",
+  "cost": "{4}{W}{W}",
+  "rank": 25710,
+  "text": "Flying\n{5}{W}: The next time damage would be dealt to this creature and/or you this turn, that damage is dealt to any target instead.",
+  "facets": [
+   "acost:3",
+   "eff:redirect-damage",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird cleric",
+   "sub:cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fathom Fleet Cutthroat",
+  "type": "Creature — Human Pirate",
+  "cost": "{3}{B}",
+  "rank": 25716,
+  "text": "When this creature enters, destroy target creature an opponent controls that was dealt damage this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "sub:human",
+   "sub:human pirate",
+   "sub:pirate",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ragged Recluse // Odious Witch",
+  "type": "Creature — Human Peasant // Creature — Human Warlock",
+  "cost": "",
+  "rank": 25724,
+  "text": "At the beginning of your end step, if you discarded a card this turn, transform this creature.\n//\nWhenever this creature attacks, defending player loses 1 life and you gain 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:transform",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human peasant",
+   "sub:human warlock",
+   "sub:peasant",
+   "sub:warlock",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nezumi Shadow-Watcher",
+  "type": "Creature — Rat Warrior",
+  "cost": "{B}",
+  "rank": 25725,
+  "text": "Sacrifice this creature: Destroy target Ninja.",
+  "facets": [
+   "acost:0",
+   "cares:sub:ninja",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:rat",
+   "sub:rat warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Festive Funeral",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 25727,
+  "text": "Target creature gets -X/-X until end of turn, where X is the number of cards in your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:shrink",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ramosian Sky Marshal",
+  "type": "Creature — Human Rebel",
+  "cost": "{3}{W}{W}",
+  "rank": 25736,
+  "text": "Flying\n{7}, {T}: Search your library for a Rebel permanent card with mana value 6 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:rebel",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:search-library",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Faceless One",
+  "type": "Legendary Enchantment Creature — Background",
+  "cost": "{5}",
+  "rank": 25741,
+  "text": "If Faceless One is your commander, choose a color before the game begins. Faceless One is the chosen color.\nChoose a Background (You can have a Background as a second commander.)",
+  "facets": [
+   "cares:sub:background",
+   "col:none",
+   "kw:choose a background",
+   "sub:background",
+   "type:creature",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Shu Cavalry",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 25743,
+  "text": "Horsemanship (This creature can't be blocked except by creatures with horsemanship.)",
+  "facets": [
+   "kw:horsemanship",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Minion Missile",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 25748,
+  "text": "As an additional cost to cast this spell, sacrifice a creature or discard a card.\nDestroy target creature. Minion Missile deals 2 damage to that creature's controller.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Skull Catapult",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 25749,
+  "text": "{1}, {T}, Sacrifice a creature: This artifact deals 2 damage to any target.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:damage",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Clockwork Gnomes",
+  "type": "Artifact Creature — Gnome",
+  "cost": "{4}",
+  "rank": 25751,
+  "text": "{3}, {T}: Regenerate target artifact creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "kw:regenerate",
+   "sub:gnome",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ritual of Hope",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 25756,
+  "text": "Creatures you control get +1/+1 until end of turn.\nCoven — If you control three or more creatures with different powers, creatures you control get +2/+1 until end of turn instead.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:pump",
+   "kw:coven",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Choking Fumes",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 25757,
+  "text": "Put a -1/-1 counter on each attacking creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Serra Advocate",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}",
+  "rank": 25762,
+  "text": "Flying\n{T}: Target attacking or blocking creature gets +2/+2 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vile Deacon",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{B}{B}",
+  "rank": 25763,
+  "text": "Whenever this creature attacks, it gets +X/+X until end of turn, where X is the number of Clerics on the battlefield.",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Beloved Beggar // Generous Soul",
+  "type": "Creature — Human Peasant // Creature — Spirit",
+  "cost": "",
+  "rank": 25766,
+  "text": "Disturb {4}{W}{W} (You may cast this card from your graveyard transformed for its disturb cost.)\n//\nFlying, vigilance\nIf Generous Soul would be put into a graveyard from anywhere, exile it instead.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:recur-self",
+   "kw:disturb",
+   "kw:flying",
+   "kw:transform",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human peasant",
+   "sub:peasant",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aphetto Exterminator",
+  "type": "Creature — Human Wizard",
+  "cost": "{2}{B}",
+  "rank": 25767,
+  "text": "Morph {3}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature gets -3/-3 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:morph",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Advance Scout",
+  "type": "Creature — Human Soldier Scout",
+  "cost": "{1}{W}",
+  "rank": 25769,
+  "text": "First strike\n{W}: Target creature gains first strike until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier scout",
+   "sub:scout",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Courageous Outrider",
+  "type": "Creature — Human Scout",
+  "cost": "{3}{W}",
+  "rank": 25771,
+  "text": "When this creature enters, look at the top four cards of your library. You may reveal a Human card from among them and put it into your hand. Put the rest on the bottom of your library in any order.",
+  "facets": [
+   "cares:sub:human",
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "rec:full",
+   "sub:human",
+   "sub:human scout",
+   "sub:scout",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Never Happened",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 25772,
+  "text": "Target opponent reveals their hand. You choose a nonland card from that player's graveyard or hand and exile it.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:exile-graveyard",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Origin of Captain America",
+  "type": "Enchantment — Saga",
+  "cost": "{2}{W}",
+  "rank": 25775,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after III.)\nI — Put a +1/+1 counter on target creature you control. It gains first strike and vigilance until end of turn.\nII — Create a colorless Equipment artifact token named Sturdy Shield with \"Equipped creature gets +1/+2\" and equip {2}.\nIII — Tap up to one target creature and put a stun counter on it.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:tap",
+   "grants:first strike",
+   "grants:vigilance",
+   "kw:iii",
+   "kw:vigilance",
+   "sub:saga",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Green Scarab",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 25777,
+  "text": "Enchant creature\nEnchanted creature can't be blocked by green creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a green permanent.",
+  "facets": [
+   "eff:cant-be-blocked",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Archdemon of Unx",
+  "type": "Creature — Demon",
+  "cost": "{5}{B}{B}",
+  "rank": 25778,
+  "text": "Flying, trample\nAt the beginning of your upkeep, sacrifice a non-Zombie creature, then create a 2/2 black Zombie creature token.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:sacrifice",
+   "kw:flying",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:demon",
+   "tok:zombie",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Null Chamber",
+  "type": "World Enchantment",
+  "cost": "{3}{W}",
+  "rank": 25779,
+  "text": "As this enchantment enters, you and an opponent each choose a card name other than a basic land card name.\nSpells with the chosen names can't be cast and lands with the chosen names can't be played.",
+  "facets": [
+   "eff:cant-cast",
+   "type:enchantment",
+   "type:world"
+  ]
+ },
+ {
+  "name": "Disease Carriers",
+  "type": "Creature — Rat",
+  "cost": "{2}{B}{B}",
+  "rank": 25782,
+  "text": "When this creature dies, target creature gets -2/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "sub:rat",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Half-Elf Monk",
+  "type": "Creature — Human Elf Monk",
+  "cost": "{3}{W}",
+  "rank": 25783,
+  "text": "Vigilance\nStunning Strike — {1}{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "kw:stunning strike",
+   "kw:vigilance",
+   "rec:full",
+   "sub:elf",
+   "sub:human",
+   "sub:human elf monk",
+   "sub:monk",
+   "type:creature"
+  ]
+ }
+]

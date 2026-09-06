@@ -1,0 +1,814 @@
+[
+ {
+  "name": "Hagra Sharpshooter",
+  "type": "Creature — Human Assassin Ally",
+  "cost": "{2}{B}",
+  "rank": 29857,
+  "text": "{4}{B}: Target creature gets -1/-1 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "sub:ally",
+   "sub:assassin",
+   "sub:human",
+   "sub:human assassin ally",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Moorland Inquisitor",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 29860,
+  "text": "{2}{W}: This creature gains first strike until end of turn. (It deals combat damage before creatures without first strike.)",
+  "facets": [
+   "acost:3",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dovin's Automaton",
+  "type": "Artifact Creature — Homunculus",
+  "cost": "{4}",
+  "rank": 29863,
+  "text": "As long as you control a Dovin planeswalker, this creature gets +2/+2 and has vigilance. (Attacking doesn't cause it to tap.)",
+  "facets": [
+   "cares:sub:dovin",
+   "cares:type:planeswalker",
+   "col:none",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "sub:homunculus",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Withstand",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 29864,
+  "text": "Prevent the next 3 damage that would be dealt to any target this turn.\nDraw a card.",
+  "facets": [
+   "eff:draw",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Wolf in _____ Clothing",
+  "type": "Creature — Wolf Guest",
+  "cost": "{3}{B}",
+  "rank": 29867,
+  "text": "When this creature enters, you may put a name sticker on it. When you do, up to X target creatures each get -1/-1 until end of turn, where X is the number of unique vowels on that sticker. (The vowels are A, E, I, O, U, and Y.)",
+  "facets": [
+   "rec:partial",
+   "sub:guest",
+   "sub:wolf",
+   "sub:wolf guest",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sword Dancer",
+  "type": "Creature — Human Rebel",
+  "cost": "{1}{W}",
+  "rank": 29870,
+  "text": "{W}{W}: Target attacking creature gets -1/-0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kor Sky Climber",
+  "type": "Creature — Kor Soldier Ally",
+  "cost": "{2}{W}",
+  "rank": 29874,
+  "text": "{1}{W}: This creature gains flying until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:ally",
+   "sub:kor",
+   "sub:kor soldier ally",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scarred Vinebreeder",
+  "type": "Creature — Elf Shaman",
+  "cost": "{1}{B}",
+  "rank": 29879,
+  "text": "{2}{B}, Exile an Elf card from your graveyard: This creature gets +3/+3 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:sub:elf",
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:elf",
+   "sub:elf shaman",
+   "sub:shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mana Skimmer",
+  "type": "Creature — Leech",
+  "cost": "{3}{B}",
+  "rank": 29881,
+  "text": "Flying\nWhenever this creature deals damage to a player, tap target land that player controls. That land doesn't untap during its controller's next untap step.",
+  "facets": [
+   "kw:flying",
+   "rec:partial",
+   "sub:leech",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Reaver Ambush",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 29884,
+  "text": "Exile target creature with power 3 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cyclopean Snare",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 29885,
+  "text": "{3}, {T}: Tap target creature, then return this artifact to its owner's hand.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "col:none",
+   "cost:tap",
+   "eff:move-zone",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lost Order of Jarkeld",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}{W}",
+  "rank": 29886,
+  "text": "As this creature enters, choose an opponent.\nLost Order of Jarkeld's power and toughness are each equal to 1 plus the number of creatures the chosen player controls.",
+  "facets": [
+   "eff:choose",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wall of Putrid Flesh",
+  "type": "Creature — Wall",
+  "cost": "{2}{B}",
+  "rank": 29887,
+  "text": "Defender (This creature can't attack.)\nProtection from white\nPrevent all damage that would be dealt to this creature by enchanted creatures.",
+  "facets": [
+   "cares:color:w",
+   "eff:prevent-damage",
+   "kw:defender",
+   "kw:protection",
+   "rec:partial",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "City in a Bottle",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 29888,
+  "text": "Whenever one or more other nontoken permanents with a name originally printed in the Arabian Nights expansion are on the battlefield, their controllers sacrifice them.\nPlayers can't cast spells or play lands with a name originally printed in the Arabian Nights expansion.",
+  "facets": [
+   "col:none",
+   "eff:cant-cast",
+   "eff:sacrifice",
+   "mv:cheap",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sunrise Seeker",
+  "type": "Creature — Human Scout",
+  "cost": "{4}{W}",
+  "rank": 29890,
+  "text": "Vigilance\nWhen this creature enters, it explores. (Reveal the top card of your library. Put that card into your hand if it's a land. Otherwise, put a +1/+1 counter on this creature, then put the card back or put it into your graveyard.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:explore",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:human",
+   "sub:human scout",
+   "sub:scout",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "King Suleiman",
+  "type": "Creature — Human Noble",
+  "cost": "{1}{W}",
+  "rank": 29894,
+  "text": "{T}: Destroy target Djinn or Efreet.",
+  "facets": [
+   "acost:0",
+   "cares:sub:djinn",
+   "cares:sub:efreet",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human noble",
+   "sub:noble",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seasoned Marshal",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}{W}",
+  "rank": 29895,
+  "text": "Whenever this creature attacks, you may tap target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kitsune Riftwalker",
+  "type": "Creature — Fox Wizard",
+  "cost": "{1}{W}{W}",
+  "rank": 29899,
+  "text": "Protection from Spirits and from Arcane",
+  "facets": [
+   "cares:type:creature",
+   "kw:protection",
+   "rec:full",
+   "sub:fox",
+   "sub:fox wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Topple",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 29905,
+  "text": "Exile target creature with the greatest power among creatures on the battlefield. (If two or more creatures are tied for greatest power, target any one of them.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Tar Snare",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 29906,
+  "text": "Target creature gets -3/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Enemy of the Guildpact",
+  "type": "Creature — Spirit",
+  "cost": "{4}{B}",
+  "rank": 29917,
+  "text": "Protection from multicolored",
+  "facets": [
+   "kw:protection",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Squadron Hawk",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 29920,
+  "text": "Flying\nWhen this creature enters, you may search your library for up to three cards named Squadron Hawk, reveal them, put them into your hand, then shuffle.",
+  "facets": [
+   "eff:search-library",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nova Pentacle",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 29924,
+  "text": "{3}, {T}: The next time a source of your choice would deal damage to you this turn, that damage is dealt to target creature of an opponent's choice instead.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:redirect-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Samite Sanctuary",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 29925,
+  "text": "{2}: Prevent the next 1 damage that would be dealt to target creature this turn. Any player may activate this ability.",
+  "facets": [
+   "acost:2",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fleet-Footed Monk",
+  "type": "Creature — Human Monk",
+  "cost": "{1}{W}",
+  "rank": 29926,
+  "text": "This creature can't be blocked by creatures with power 2 or greater.",
+  "facets": [
+   "mv:cheap",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warrior's Honor",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 29929,
+  "text": "Creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Knowledge Vault",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 29932,
+  "text": "{2}, {T}: Exile the top card of your library face down.\n{0}: Sacrifice this artifact. If you do, discard your hand, then put all cards exiled with this artifact into their owner's hand.\nWhen this artifact leaves the battlefield, put all cards exiled with it into their owner's graveyard.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "col:none",
+   "eff:sacrifice",
+   "rec:partial",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Necrogen Censer",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 29936,
+  "text": "This artifact enters with two charge counters on it.\n{T}, Remove a charge counter from this artifact: Target player loses 2 life.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:remove-counters",
+   "cost:tap",
+   "ctr:charge",
+   "eff:add-counters",
+   "eff:lose-life",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Steadfastness",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 29939,
+  "text": "Creatures you control get +0/+3 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Vibrating Sphere",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 29941,
+  "text": "During your turn, creatures you control get +2/+0.\nDuring turns other than yours, creatures you control get -0/-2.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Haazda Officer",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 29944,
+  "text": "When this creature enters, target creature you control gets +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Broken Visage",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 29945,
+  "text": "Destroy target nonartifact attacking creature. It can't be regenerated. Create a black Spirit creature token. Its power is equal to that creature's power and its toughness is equal to that creature's toughness. Sacrifice the token at the beginning of the next end step.",
+  "facets": [
+   "cares:power",
+   "cares:sub:spirit",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Pang Tong, \"Young Phoenix\"",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{1}{W}{W}",
+  "rank": 29947,
+  "text": "{T}: Target creature gets +0/+2 until end of turn. Activate only during your turn, before attackers are declared.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "rec:partial",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Moriok Scavenger",
+  "type": "Creature — Human Rogue",
+  "cost": "{3}{B}",
+  "rank": 29950,
+  "text": "When this creature enters, you may return target artifact creature card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ghostly Sentinel",
+  "type": "Creature — Kor Spirit",
+  "cost": "{4}{W}",
+  "rank": 29952,
+  "text": "Flying, vigilance",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "sub:kor",
+   "sub:kor spirit",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scavenging Harpy",
+  "type": "Creature — Harpy",
+  "cost": "{2}{B}",
+  "rank": 29953,
+  "text": "Flying\nWhen this creature enters, exile target card from an opponent's graveyard.",
+  "facets": [
+   "eff:exile",
+   "kw:flying",
+   "rec:full",
+   "sub:harpy",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bala Ged Scorpion",
+  "type": "Creature — Scorpion",
+  "cost": "{3}{B}",
+  "rank": 29958,
+  "text": "When this creature enters, you may destroy target creature with power 1 or less.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "sub:scorpion",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gustrider Exuberant",
+  "type": "Creature — Human Wizard",
+  "cost": "{2}{W}",
+  "rank": 29961,
+  "text": "Flying\nSacrifice this creature: Creatures you control with power 5 or greater gain flying until end of turn.",
+  "facets": [
+   "cost:sacrifice-self",
+   "grants:flying",
+   "kw:flying",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skeletal Snake",
+  "type": "Creature — Snake Skeleton",
+  "cost": "{1}{B}",
+  "rank": 29963,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:skeleton",
+   "sub:snake",
+   "sub:snake skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deathlace",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 29966,
+  "text": "Target spell or permanent becomes black. (Mana symbols on that permanent remain unchanged.)",
+  "facets": [
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nightguard Patrol",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 29970,
+  "text": "First strike, vigilance",
+  "facets": [
+   "kw:first strike",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sandstone Deadfall",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 29971,
+  "text": "{T}, Sacrifice two lands and this artifact: Destroy target attacking creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:type:land",
+   "col:none",
+   "cost:sacrifice",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Andradite Leech",
+  "type": "Creature — Leech",
+  "cost": "{2}{B}",
+  "rank": 29972,
+  "text": "Black spells you cast cost {B} more to cast.\n{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:partial",
+   "sub:leech",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Quickening Licid",
+  "type": "Creature — Licid",
+  "cost": "{1}{W}",
+  "rank": 29975,
+  "text": "{1}{W}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {W} to end this effect.\nEnchanted creature has first strike.",
+  "facets": [
+   "acost:3",
+   "cares:sub:aura",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:partial",
+   "sub:licid",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Haunting Echoes",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 29978,
+  "text": "Exile all cards from target player's graveyard other than basic land cards. For each card exiled this way, search that player's library for all cards with the same name as that card and exile them. Then that player shuffles.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:exile-graveyard",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sun Sentinel",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 29983,
+  "text": "Vigilance (Attacking doesn't cause this creature to tap.)",
+  "facets": [
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mounted Archers",
+  "type": "Creature — Human Soldier Archer",
+  "cost": "{3}{W}",
+  "rank": 29984,
+  "text": "Reach (This creature can block creatures with flying.)\n{W}: This creature can block an additional creature this turn.",
+  "facets": [
+   "acost:1",
+   "kw:reach",
+   "rec:partial",
+   "sub:archer",
+   "sub:human",
+   "sub:human soldier archer",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wayward Angel",
+  "type": "Creature — Angel Horror",
+  "cost": "{4}{W}{W}",
+  "rank": 29988,
+  "text": "Flying, vigilance\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +3/+3, is black, has trample, and has \"At the beginning of your upkeep, sacrifice a creature.\"",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice",
+   "grants:trample",
+   "kw:flying",
+   "kw:threshold",
+   "kw:trample",
+   "kw:vigilance",
+   "mv:big",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel horror",
+   "sub:horror",
+   "trig:step",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Night Market Aeronaut",
+  "type": "Creature — Aetherborn Warrior",
+  "cost": "{3}{B}",
+  "rank": 29990,
+  "text": "Flying\nRevolt — This creature enters with a +1/+1 counter on it if a permanent left the battlefield under your control this turn.",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:flying",
+   "kw:revolt",
+   "rec:partial",
+   "sub:aetherborn",
+   "sub:aetherborn warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tattered Apparition",
+  "type": "Creature — Shade",
+  "cost": "{3}{B}",
+  "rank": 29996,
+  "text": "Flying\n{1}{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "sub:shade",
+   "type:creature"
+  ]
+ }
+]

@@ -1,0 +1,966 @@
+[
+ {
+  "name": "MacCready, Lamplight Mayor",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{W}{B}",
+  "rank": 3699,
+  "text": "Whenever a creature you control with power 2 or less attacks, it gains skulk until end of turn. (It can't be blocked by creatures with greater power.)\nWhenever a creature with power 4 or greater attacks you, its controller loses 2 life and you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Dread Summons",
+  "type": "Sorcery",
+  "cost": "{X}{B}{B}",
+  "rank": 3704,
+  "text": "Each player mills X cards. For each creature card put into a graveyard this way, you create a tapped 2/2 black Zombie creature token. (To mill a card, a player puts the top card of their library into their graveyard.)",
+  "facets": [
+   "cares:sub:zombie",
+   "eff:mill",
+   "kw:mill",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Haunting Voyage",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 3706,
+  "text": "Choose a creature type. Return up to two creature cards of that type from your graveyard to the battlefield. If this spell was foretold, return all creature cards of that type from your graveyard to the battlefield instead.\nForetell {5}{B}{B} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+  "facets": [
+   "cares:sub:chosen",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:choose",
+   "eff:return-from",
+   "kw:foretell",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Astarion, the Decadent",
+  "type": "Legendary Creature — Vampire Elf Rogue",
+  "cost": "{4}{W}{B}",
+  "rank": 3711,
+  "text": "Deathtouch, lifelink\nAt the beginning of your end step, choose one —\n• Feed — Target opponent loses life equal to the amount of life they lost this turn.\n• Friends — You gain life equal to the amount of life you gained this turn.",
+  "facets": [
+   "eff:lose-life",
+   "eff:multiply",
+   "kw:deathtouch",
+   "kw:feed",
+   "kw:friends",
+   "kw:lifelink",
+   "mv:big",
+   "rec:partial",
+   "sub:elf",
+   "sub:rogue",
+   "sub:vampire",
+   "sub:vampire elf rogue",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Reckoner Bankbuster",
+  "type": "Artifact — Vehicle",
+  "cost": "{2}",
+  "rank": 3712,
+  "text": "This Vehicle enters with three charge counters on it.\n{2}, {T}, Remove a charge counter from this Vehicle: Draw a card. Then if there are no charge counters on this Vehicle, create a Treasure token and a 1/1 colorless Pilot creature token with \"This token crews Vehicles as though its power were 2 greater.\"\nCrew 3",
+  "facets": [
+   "cares:sub:pilot",
+   "cares:sub:treasure",
+   "cares:sub:vehicle",
+   "col:none",
+   "ctr:charge",
+   "eff:add-counters",
+   "eff:draw",
+   "kw:crew",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:partial",
+   "sub:vehicle",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lux Artillery",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 3714,
+  "text": "Whenever you cast an artifact creature spell, it gains sunburst. (It enters with a +1/+1 counter on it for each color of mana spent to cast it.)\nAt the beginning of your end step, if there are thirty or more counters among artifacts and creatures you control, this artifact deals 10 damage to each opponent.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "eff:add-counters",
+   "eff:damage",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:artifact",
+   "trig:cast:creature",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gravebreaker Lamia",
+  "type": "Enchantment Creature — Snake Lamia",
+  "cost": "{4}{B}",
+  "rank": 3717,
+  "text": "Lifelink\nWhen this creature enters, search your library for a card, put it into your graveyard, then shuffle.\nSpells you cast from your graveyard cost {1} less to cast.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:reduce-cost",
+   "eff:search-library",
+   "kw:lifelink",
+   "rec:partial",
+   "scope:all",
+   "sub:lamia",
+   "sub:snake",
+   "sub:snake lamia",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Speaker of the Heavens",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 3719,
+  "text": "Vigilance, lifelink (Attacking doesn't cause this creature to tap. Damage dealt by this creature also causes you to gain that much life.)\n{T}: Create a 4/4 white Angel creature token with flying. Activate only if you have at least 7 life more than your starting life total and only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:create-token",
+   "kw:lifelink",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "tok:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Whisper of the Dross",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 3722,
+  "text": "Target creature gets -1/-1 until end of turn. Proliferate. (Choose any number of permanents and/or players, then give each another counter of each kind already there.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:proliferate",
+   "eff:shrink",
+   "kw:proliferate",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Court of Ardenvale",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 3725,
+  "text": "When this enchantment enters, you become the monarch.\nAt the beginning of your upkeep, return target permanent card with mana value 3 or less from your graveyard to your hand. If you're the monarch, return that permanent card to the battlefield instead.",
+  "facets": [
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "eff:set-monarch",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Alisaie Leveilleur",
+  "type": "Legendary Creature — Elf Wizard",
+  "cost": "{2}{W}",
+  "rank": 3728,
+  "text": "Partner with Alphinaud Leveilleur (When this creature enters, target player may put Alphinaud Leveilleur into their hand from their library, then shuffle.)\nFirst strike\nDualcast — The second spell you cast each turn costs {2} less to cast.",
+  "facets": [
+   "eff:reduce-cost",
+   "kw:dualcast",
+   "kw:first strike",
+   "kw:partner",
+   "kw:partner with",
+   "rec:partial",
+   "sub:elf",
+   "sub:elf wizard",
+   "sub:wizard",
+   "trig:cast",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Eden, Seat of the Sanctum",
+  "type": "Land — Town",
+  "cost": "",
+  "rank": 3729,
+  "text": "{T}: Add {C}.\n{5}, {T}: Mill two cards. Then you may sacrifice this land. When you do, return another target permanent card from your graveyard to your hand.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:mill",
+   "eff:return-from",
+   "eff:sacrifice",
+   "kw:mill",
+   "mana:1",
+   "rec:partial",
+   "sub:town",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Darksteel Reactor",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 3732,
+  "text": "Indestructible (Effects that say \"destroy\" don't destroy this artifact.)\nAt the beginning of your upkeep, you may put a charge counter on this artifact.\nWhen this artifact has twenty or more charge counters on it, you win the game.",
+  "facets": [
+   "col:none",
+   "ctr:charge-self",
+   "eff:add-counters-self",
+   "kw:indestructible",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Infiltration Lens",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 3734,
+  "text": "Whenever equipped creature becomes blocked by a creature, you may draw two cards.\nEquip {1}",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Phyresis Outbreak",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 3742,
+  "text": "Each opponent gets a poison counter. Then each creature your opponents control gets -1/-1 until end of turn for each poison counter its controller has.",
+  "facets": [
+   "eff:poison",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Divine Reckoning",
+  "type": "Sorcery",
+  "cost": "{2}{W}{W}",
+  "rank": 3743,
+  "text": "Each player chooses a creature they control. Destroy the rest.\nFlashback {5}{W}{W} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "kw:flashback",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kor Haven",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 3744,
+  "text": "{T}: Add {C}.\n{1}{W}, {T}: Prevent all combat damage that would be dealt by target attacking creature this turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hour of Revelation",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}{W}",
+  "rank": 3746,
+  "text": "This spell costs {3} less to cast if there are ten or more nonland permanents on the battlefield.\nDestroy all nonland permanents.",
+  "facets": [
+   "eff:destroy",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Krang, Utrom Warlord",
+  "type": "Legendary Artifact Creature — Utrom Robot",
+  "cost": "{9}",
+  "rank": 3750,
+  "text": "Flying, trample, indestructible, haste\nOther artifact creatures you control have flying, trample, indestructible, and haste.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "grants:flying",
+   "grants:haste",
+   "grants:indestructible",
+   "grants:trample",
+   "kw:flying",
+   "kw:haste",
+   "kw:indestructible",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:robot",
+   "sub:utrom",
+   "sub:utrom robot",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Sanctum of Eternity",
+  "type": "Land",
+  "cost": "",
+  "rank": 3751,
+  "text": "{T}: Add {C}.\n{2}, {T}: Return target commander you own from the battlefield to your hand. Activate only during your turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:commander",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Final Act",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 3752,
+  "text": "Choose one or more —\n• Destroy all creatures.\n• Destroy all planeswalkers.\n• Destroy all battles.\n• Exile all graveyards.\n• Each opponent loses all counters.",
+  "facets": [
+   "cares:type:battle",
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:exile-graveyard",
+   "eff:remove-counters",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Tempered Steel",
+  "type": "Enchantment",
+  "cost": "{1}{W}{W}",
+  "rank": 3754,
+  "text": "Artifact creatures you control get +2/+2.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Angel of Serenity",
+  "type": "Creature — Angel",
+  "cost": "{4}{W}{W}{W}",
+  "rank": 3755,
+  "text": "Flying\nWhen this creature enters, you may exile up to three other target creatures from the battlefield and/or creature cards from graveyards.\nWhen this creature leaves the battlefield, return the exiled cards to their owners' hands.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sanctum of Stone Fangs",
+  "type": "Legendary Enchantment — Shrine",
+  "cost": "{1}{B}",
+  "rank": 3756,
+  "text": "At the beginning of your first main phase, each opponent loses X life and you gain X life, where X is the number of Shrines you control.",
+  "facets": [
+   "cares:sub:shrine",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:shrine",
+   "trig:step",
+   "trig:step:precombat-main",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Brave the Elements",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 3757,
+  "text": "Choose a color. White creatures you control gain protection from the chosen color until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "The Masamune",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 3758,
+  "text": "As long as equipped creature is attacking, it has first strike and must be blocked if able.\nEquipped creature has \"If a creature dying causes a triggered ability of this creature or an emblem you own to trigger, that ability triggers an additional time.\"\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:multiply",
+   "eff:multiply-triggers",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Goldnight Commander",
+  "type": "Creature — Human Cleric Soldier",
+  "cost": "{3}{W}",
+  "rank": 3759,
+  "text": "Whenever another creature you control enters, creatures you control get +1/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Victory Chimes",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 3760,
+  "text": "Untap this artifact during each other player's untap step.\n{T}: A player of your choice adds {C}.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:add-mana",
+   "eff:untap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Animal Sanctuary",
+  "type": "Land",
+  "cost": "",
+  "rank": 3766,
+  "text": "{T}: Add {C}.\n{2}, {T}: Put a +1/+1 counter on target Bird, Cat, Dog, Goat, Ox, or Snake.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "cares:sub:bird",
+   "cares:sub:cat",
+   "cares:sub:dog",
+   "cares:sub:goat",
+   "cares:sub:ox",
+   "cares:sub:snake",
+   "cares:type:creature",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Capital City",
+  "type": "Land — Town",
+  "cost": "",
+  "rank": 3768,
+  "text": "{T}: Add {C}.\n{1}, {T}: Add one mana of any color.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "acost:2",
+   "cost:discard-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "kw:cycling",
+   "mana:1",
+   "rec:full",
+   "sub:town",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Reckoner's Bargain",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 3769,
+  "text": "As an additional cost to cast this spell, sacrifice an artifact or creature.\nYou gain life equal to the sacrificed permanent's mana value. Draw two cards.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:draw",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Experimental Confectioner",
+  "type": "Creature — Human Peasant",
+  "cost": "{2}{B}",
+  "rank": 3773,
+  "text": "When this creature enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nWhenever you sacrifice a Food, create a 1/1 black Rat creature token with \"This token can't block.\"",
+  "facets": [
+   "cares:sub:food",
+   "cares:sub:rat",
+   "eff:create-token",
+   "eff:gain-life",
+   "kw:food",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human peasant",
+   "sub:peasant",
+   "tok:food",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:sacrificed",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Martial Impetus",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 3775,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1 and is goaded. (It attacks each combat if able and attacks a player other than you if able.)\nWhenever enchanted creature attacks, each other creature that's attacking one of your opponents gets +1/+1 until end of turn.",
+  "facets": [
+   "kw:enchant",
+   "kw:goad",
+   "rec:partial",
+   "sub:aura",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Heliod's Pilgrim",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 3777,
+  "text": "When this creature enters, you may search your library for an Aura card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:zone:library",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Legion's Landing // Adanto, the First Fort",
+  "type": "Legendary Enchantment // Legendary Land",
+  "cost": "",
+  "rank": 3780,
+  "text": "When Legion's Landing enters, create a 1/1 white Vampire creature token with lifelink.\nWhen you attack with three or more creatures, transform Legion's Landing.\n//\n(Transforms from Legion's Landing.)\n{T}: Add {W}.\n{2}{W}, {T}: Create a 1/1 white Vampire creature token with lifelink.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "eff:create-token",
+   "kw:transform",
+   "rec:partial",
+   "tok:vampire",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Whitemane Lion",
+  "type": "Creature — Cat",
+  "cost": "{1}{W}",
+  "rank": 3781,
+  "text": "Flash\nWhen this creature enters, return a creature you control to its owner's hand.",
+  "facets": [
+   "eff:bounce-own",
+   "kw:flash",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cat",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dark Petition",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 3784,
+  "text": "Search your library for a card, put that card into your hand, then shuffle.\nSpell mastery — If there are two or more instant and/or sorcery cards in your graveyard, add {B}{B}{B}.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:add-mana",
+   "eff:search-library",
+   "kw:spell mastery",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lifecreed Duo",
+  "type": "Creature — Bat Bird",
+  "cost": "{1}{W}",
+  "rank": 3785,
+  "text": "Flying\nWhenever another creature you control enters, you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:bat",
+   "sub:bat bird",
+   "sub:bird",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Yes Man, Personal Securitron",
+  "type": "Legendary Artifact Creature — Robot",
+  "cost": "{2}{W}",
+  "rank": 3788,
+  "text": "{T}: Target opponent gains control of Yes Man. When they do, you draw two cards and put a quest counter on Yes Man. Activate only during your turn.\nWild Card — When Yes Man leaves the battlefield, its owner creates a tapped 1/1 white Soldier creature token for each quest counter on it.",
+  "facets": [
+   "acost:1",
+   "cares:sub:soldier",
+   "eff:draw",
+   "eff:give-control",
+   "kw:wild card",
+   "rec:partial",
+   "sub:robot",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Replenish",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 3789,
+  "text": "Return all enchantment cards from your graveyard to the battlefield. (Auras with nothing to enchant remain in your graveyard.)",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lossarnach Captain",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 3793,
+  "text": "First strike\nWhenever this creature or another Human you control enters, tap target creature an opponent controls.\nAt the beginning of your upkeep, create a 1/1 white Human Soldier creature token.",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:tap",
+   "kw:first strike",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:human",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mavren Fein, Dusk Apostle",
+  "type": "Legendary Creature — Vampire Cleric",
+  "cost": "{2}{W}",
+  "rank": 3794,
+  "text": "Whenever one or more nontoken Vampires you control attack, create a 1/1 white Vampire creature token with lifelink.",
+  "facets": [
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:gain-life",
+   "sub:cleric",
+   "sub:vampire",
+   "sub:vampire cleric",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Stonehewer Giant",
+  "type": "Creature — Giant Warrior",
+  "cost": "{3}{W}{W}",
+  "rank": 3799,
+  "text": "Vigilance\n{1}{W}, {T}: Search your library for an Equipment card, put it onto the battlefield, attach it to a creature you control, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "eff:attach",
+   "eff:search-library",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:giant",
+   "sub:giant warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Planetarium of Wan Shi Tong",
+  "type": "Legendary Artifact",
+  "cost": "{6}",
+  "rank": 3800,
+  "text": "{1}, {T}: Scry 2.\nWhenever you scry or surveil, look at the top card of your library. You may cast that card without paying its mana cost. Do this only once each turn. (Look at the card after you scry or surveil.)",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "cost:tap",
+   "eff:scry",
+   "kw:scry",
+   "mv:big",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Mishra's Workshop",
+  "type": "Land",
+  "cost": "",
+  "rank": 3806,
+  "text": "{T}: Add {C}{C}{C}. Spend this mana only to cast artifact spells.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:3",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Arahbo, the First Fang",
+  "type": "Legendary Creature — Cat Avatar",
+  "cost": "{2}{W}",
+  "rank": 3808,
+  "text": "Other Cats you control get +1/+1.\nWhenever Arahbo or another nontoken Cat you control enters, create a 1/1 white Cat creature token.",
+  "facets": [
+   "cares:sub:cat",
+   "eff:create-token",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:avatar",
+   "sub:cat",
+   "sub:cat avatar",
+   "tok:cat",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Salvation Engine",
+  "type": "Artifact — Vehicle",
+  "cost": "{4}{W}",
+  "rank": 3811,
+  "text": "Other artifact creatures you control get +2/+2.\nWhenever this Vehicle attacks, return up to one target artifact card from your graveyard to the battlefield.\nCrew 6",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "eff:return-from",
+   "kw:crew",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:vehicle",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Rite of Oblivion",
+  "type": "Sorcery",
+  "cost": "{W}{B}",
+  "rank": 3816,
+  "text": "As an additional cost to cast this spell, sacrifice a nonland permanent.\nExile target nonland permanent.\nFlashback {2}{W}{B} (You may cast this card from your graveyard for its flashback cost and any additional costs. Then exile it.)",
+  "facets": [
+   "cost:cast-sacrifice",
+   "eff:exile",
+   "kw:flashback",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Extinguish All Hope",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 3817,
+  "text": "Destroy all nonenchantment creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Putrid Goblin",
+  "type": "Creature — Zombie Goblin",
+  "cost": "{1}{B}",
+  "rank": 3818,
+  "text": "Persist (When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's control with a -1/-1 counter on it.)",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:return-from",
+   "kw:persist",
+   "mv:cheap",
+   "rec:full",
+   "sub:goblin",
+   "sub:zombie",
+   "sub:zombie goblin",
+   "trig:dies",
+   "type:creature"
+  ]
+ }
+]

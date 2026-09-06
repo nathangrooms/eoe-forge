@@ -1,0 +1,972 @@
+[
+ {
+  "name": "Horizon of Progress",
+  "type": "Land",
+  "cost": "",
+  "rank": 1526,
+  "text": "{T}, Pay 1 life: Add one mana of any type that a land you control could produce.\n{3}, {T}: You may put a land card from your hand onto the battlefield tapped.\n{1}, {T}, Sacrifice this land: Draw a card.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "acost:3",
+   "cares:type:land",
+   "cares:zone:hand",
+   "cost:life",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:extra-land-drop",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Hangarback Walker",
+  "type": "Artifact Creature — Construct",
+  "cost": "{X}{X}",
+  "rank": 1530,
+  "text": "This creature enters with X +1/+1 counters on it.\nWhen this creature dies, create a 1/1 colorless Thopter artifact creature token with flying for each +1/+1 counter on this creature.\n{1}, {T}: Put a +1/+1 counter on this creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "ctr:+1/+1",
+   "ctr:+1/+1-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:construct",
+   "tok:thopter",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Creeping Bloodsucker",
+  "type": "Creature — Vampire",
+  "cost": "{1}{B}",
+  "rank": 1534,
+  "text": "At the beginning of your upkeep, this creature deals 1 damage to each opponent. You gain life equal to the damage dealt this way.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:vampire",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Marionette Master",
+  "type": "Creature — Human Artificer",
+  "cost": "{4}{B}{B}",
+  "rank": 1539,
+  "text": "Fabricate 3 (When this creature enters, put three +1/+1 counters on it or create three 1/1 colorless Servo artifact creature tokens.)\nWhenever an artifact you control is put into a graveyard from the battlefield, target opponent loses life equal to this creature's power.",
+  "facets": [
+   "cares:power",
+   "cares:type:artifact",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "eff:lose-life",
+   "kw:fabricate",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer",
+   "tok:servo",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Codsworth, Handy Helper",
+  "type": "Legendary Artifact Creature — Robot",
+  "cost": "{2}{W}",
+  "rank": 1540,
+  "text": "Commanders you control have ward {2}.\n{T}: Add {W}{W}. Spend this mana only to cast Aura and/or Equipment spells.\n{T}: Attach target Aura or Equipment you control to target creature you control. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:commander",
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:attach",
+   "mana:2",
+   "rec:partial",
+   "sub:robot",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Rumor Gatherer",
+  "type": "Creature — Elf Wizard",
+  "cost": "{1}{W}{W}",
+  "rank": 1541,
+  "text": "Alliance — Whenever another creature you control enters, scry 1. If this is the second time this ability has resolved this turn, draw a card instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:scry",
+   "kw:alliance",
+   "kw:scry",
+   "rec:partial",
+   "scope:all",
+   "sub:elf",
+   "sub:elf wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tortured Existence",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 1544,
+  "text": "{B}, Discard a creature card: Return target creature card from your graveyard to your hand.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "cost:discard",
+   "eff:bounce-own",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rebuff the Wicked",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 1549,
+  "text": "Counter target spell that targets a permanent you control.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:counter",
+   "eff:protect",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Pawn of Ulamog",
+  "type": "Creature — Vampire Shaman",
+  "cost": "{1}{B}{B}",
+  "rank": 1551,
+  "text": "Whenever this creature or another nontoken creature you control dies, you may create a 0/1 colorless Eldrazi Spawn creature token. It has \"Sacrifice this token: Add {C}.\"",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "rec:partial",
+   "scope:all",
+   "sub:shaman",
+   "sub:vampire",
+   "sub:vampire shaman",
+   "tok:eldrazi",
+   "tok:spawn",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "It That Betrays",
+  "type": "Creature — Eldrazi",
+  "cost": "{12}",
+  "rank": 1553,
+  "text": "Annihilator 2 (Whenever this creature attacks, defending player sacrifices two permanents of their choice.)\nWhenever an opponent sacrifices a nontoken permanent, put that card onto the battlefield under your control.",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "eff:gain-control",
+   "eff:sacrifice",
+   "kw:annihilator",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Grey Havens",
+  "type": "Legendary Land",
+  "cost": "",
+  "rank": 1557,
+  "text": "When The Grey Havens enters, scry 1.\n{T}: Add {C}.\n{T}: Add one mana of any color among legendary creature cards in your graveyard.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:scry",
+   "kw:scry",
+   "mana:1",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Unstoppable Slasher",
+  "type": "Creature — Zombie Assassin",
+  "cost": "{2}{B}",
+  "rank": 1559,
+  "text": "Deathtouch\nWhenever this creature deals combat damage to a player, they lose half their life, rounded up.\nWhen this creature dies, if it had no counters on it, return it to the battlefield tapped under its owner's control with two stun counters on it.",
+  "facets": [
+   "kw:deathtouch",
+   "rec:partial",
+   "sub:assassin",
+   "sub:zombie",
+   "sub:zombie assassin",
+   "trig:deals-damage",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Adventurer's Inn",
+  "type": "Land — Town",
+  "cost": "",
+  "rank": 1560,
+  "text": "When this land enters, you gain 2 life.\n{T}: Add {C}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "sub:town",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Monastery Mentor",
+  "type": "Creature — Human Monk",
+  "cost": "{2}{W}",
+  "rank": 1561,
+  "text": "Prowess (Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn.)\nWhenever you cast a noncreature spell, create a 1/1 white Monk creature token with prowess.",
+  "facets": [
+   "cares:sub:monk",
+   "cares:zone:stack",
+   "eff:create-token",
+   "kw:prowess",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "tok:monk",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tergrid, God of Fright // Tergrid's Lantern",
+  "type": "Legendary Creature — God // Legendary Artifact",
+  "cost": "",
+  "rank": 1562,
+  "text": "Menace\nWhenever an opponent sacrifices a nontoken permanent or discards a permanent card, you may put that card from a graveyard onto the battlefield under your control.\n//\n{T}: Target player loses 3 life unless they sacrifice a nonland permanent of their choice or discard a card.\n{3}{B}: Untap Tergrid's Lantern.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:zone:graveyard",
+   "eff:lose-life",
+   "eff:return-from",
+   "eff:untap",
+   "kw:menace",
+   "rec:partial",
+   "sub:god",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Return to Dust",
+  "type": "Instant",
+  "cost": "{2}{W}{W}",
+  "rank": 1563,
+  "text": "Exile target artifact or enchantment. If you cast this spell during your main phase, you may exile up to one other target artifact or enchantment.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:exile",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Crux of Fate",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 1564,
+  "text": "Choose one —\n• Destroy all Dragon creatures.\n• Destroy all non-Dragon creatures.",
+  "facets": [
+   "cares:sub:dragon",
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kozilek, the Great Distortion",
+  "type": "Legendary Creature — Eldrazi",
+  "cost": "{8}{C}{C}",
+  "rank": 1568,
+  "text": "When you cast this spell, if you have fewer than seven cards in hand, draw cards equal to the difference.\nMenace\nDiscard a card with mana value X: Counter target spell with mana value X.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "eff:counter",
+   "eff:discard-self",
+   "eff:draw",
+   "kw:menace",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:cast",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Shriekmaw",
+  "type": "Creature — Elemental",
+  "cost": "{4}{B}",
+  "rank": 1569,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhen this creature enters, destroy target nonartifact, nonblack creature.\nEvoke {1}{B} (You may cast this spell for its evoke cost. If you do, it's sacrificed when it enters.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:evoke",
+   "kw:fear",
+   "rec:partial",
+   "sub:elemental",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phelia, Exuberant Shepherd",
+  "type": "Legendary Creature — Dog",
+  "cost": "{1}{W}",
+  "rank": 1571,
+  "text": "Flash\nWhenever Phelia attacks, exile up to one other target nonland permanent. At the beginning of the next end step, return that card to the battlefield under its owner's control. If it entered under your control, put a +1/+1 counter on Phelia.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:exile",
+   "eff:return-from",
+   "kw:flash",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dog",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Archfiend of Depravity",
+  "type": "Creature — Demon",
+  "cost": "{3}{B}{B}",
+  "rank": 1572,
+  "text": "Flying\nAt the beginning of each opponent's end step, that player chooses up to two creatures they control, then sacrifices the rest.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:flying",
+   "pt:big",
+   "rec:full",
+   "sub:demon",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Null Elemental Blast",
+  "type": "Instant",
+  "cost": "{C}",
+  "rank": 1574,
+  "text": "Choose one —\n• Counter target multicolored spell.\n• Destroy target multicolored permanent.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "eff:counter",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Radiant Fountain",
+  "type": "Land",
+  "cost": "",
+  "rank": 1577,
+  "text": "When this land enters, you gain 2 life.\n{T}: Add {C}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ulamog, the Defiler",
+  "type": "Legendary Creature — Eldrazi",
+  "cost": "{10}",
+  "rank": 1579,
+  "text": "When you cast this spell, target opponent exiles the top half of their library, rounded up.\nWard—Sacrifice two permanents.\nUlamog enters with a number of +1/+1 counters on it equal to the greatest mana value among cards in exile.\nUlamog has annihilator X, where X is the number of +1/+1 counters on it.",
+  "facets": [
+   "cares:zone:exile",
+   "cares:zone:library",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters-self",
+   "eff:mill",
+   "eff:sacrifice",
+   "kw:ward",
+   "mv:big",
+   "pt:big",
+   "sub:eldrazi",
+   "trig:attacks",
+   "trig:cast",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Losheel, Clockwork Scholar",
+  "type": "Legendary Creature — Elephant Artificer",
+  "cost": "{2}{W}",
+  "rank": 1580,
+  "text": "Prevent all combat damage that would be dealt to attacking artifact creatures you control.\nWhenever one or more artifact creatures you control enter, draw a card. This ability triggers only once each turn.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:draw",
+   "eff:prevent-damage",
+   "sub:artificer",
+   "sub:elephant",
+   "sub:elephant artificer",
+   "trig:attacks",
+   "trig:enters",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Haliya, Guided by Light",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 1581,
+  "text": "Whenever Haliya or another creature or artifact you control enters, you gain 1 life.\nAt the beginning of your end step, draw a card if you've gained 3 or more life this turn.\nWarp {W} (You may cast this card from your hand for its warp cost. Exile this creature at the beginning of the next end step, then you may cast it from exile on a later turn.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:gain-life",
+   "kw:warp",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-other",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Sword of Vengeance",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 1585,
+  "text": "Equipped creature gets +2/+0 and has first strike, vigilance, trample, and haste.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:first strike",
+   "grants:haste",
+   "grants:trample",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:first strike",
+   "kw:haste",
+   "kw:trample",
+   "kw:vigilance",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Thran Power Suit",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 1593,
+  "text": "Equipped creature gets +1/+1 for each Aura and Equipment attached to it and has ward {2}. (Whenever equipped creature becomes the target of a spell or ability an opponent controls, counter it unless that player pays {2}.)\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ondu Spiritdancer",
+  "type": "Creature — Kor Cleric",
+  "cost": "{4}{W}",
+  "rank": 1595,
+  "text": "Whenever an enchantment you control enters, you may create a token that's a copy of it. Do this only once each turn.",
+  "facets": [
+   "cares:type:enchantment",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:kor",
+   "sub:kor cleric",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eldrazi Conscription",
+  "type": "Kindred Enchantment — Eldrazi Aura",
+  "cost": "{8}",
+  "rank": 1598,
+  "text": "Enchant creature\nEnchanted creature gets +10/+10 and has trample and annihilator 2. (Whenever it attacks, defending player sacrifices two permanents of their choice.)",
+  "facets": [
+   "col:none",
+   "eff:pump",
+   "eff:sacrifice",
+   "grants:trample",
+   "kw:enchant",
+   "kw:trample",
+   "mv:big",
+   "rec:partial",
+   "sub:aura",
+   "sub:eldrazi",
+   "sub:eldrazi aura",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Replicating Ring",
+  "type": "Snow Artifact",
+  "cost": "{3}",
+  "rank": 1599,
+  "text": "{T}: Add one mana of any color.\nAt the beginning of your upkeep, put a night counter on this artifact. Then if it has eight or more night counters on it, remove all of them and create eight colorless snow artifact tokens named Replicated Ring with \"{T}: Add one mana of any color.\"",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "ctr:night-self",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Call the Coppercoats",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 1602,
+  "text": "Strive — This spell costs {1}{W} more to cast for each target beyond the first.\nChoose any number of target opponents. Create X 1/1 white Human Soldier creature tokens, where X is the number of creatures those opponents control.",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "kw:strive",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Chronicle of Victory",
+  "type": "Legendary Artifact",
+  "cost": "{6}",
+  "rank": 1603,
+  "text": "As Chronicle of Victory enters, choose a creature type.\nCreatures you control of the chosen type get +2/+2 and have first strike and trample.\nWhenever you cast a spell of the chosen type, draw a card.",
+  "facets": [
+   "cares:sub:chosen",
+   "col:none",
+   "eff:choose",
+   "mv:big",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bloodforged Battle-Axe",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 1604,
+  "text": "Equipped creature gets +2/+0.\nWhenever equipped creature deals combat damage to a player, create a token that's a copy of this Equipment.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:copy",
+   "eff:create-token",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Resourceful Defense",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 1608,
+  "text": "Whenever a permanent you control leaves the battlefield, if it had counters on it, put those counters on target permanent you control.\n{4}{W}: Move any number of counters from target permanent you control onto a second target permanent you control.",
+  "facets": [
+   "acost:3",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Unmarked Grave",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 1609,
+  "text": "Search your library for a nonlegendary card, put that card into your graveyard, then shuffle.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Deserted Temple",
+  "type": "Land",
+  "cost": "",
+  "rank": 1612,
+  "text": "{T}: Add {C}.\n{1}, {T}: Untap target land.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:type:land",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:untap",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Fomori Vault",
+  "type": "Land",
+  "cost": "",
+  "rank": 1614,
+  "text": "{T}: Add {C}.\n{3}, {T}, Discard a card: Look at the top X cards of your library, where X is the number of artifacts you control. Put one of those cards into your hand and the rest on the bottom of your library in a random order.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:look-and-pick",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Urza's Ruinous Blast",
+  "type": "Legendary Sorcery",
+  "cost": "{4}{W}",
+  "rank": 1615,
+  "text": "(You may cast a legendary sorcery only if you control a legendary creature or planeswalker.)\nExile all nonland permanents that aren't legendary.",
+  "facets": [
+   "cares:type:legendary",
+   "eff:exile",
+   "scope:all",
+   "type:legendary",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Illusionist's Bracers",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 1616,
+  "text": "Whenever an ability of equipped creature is activated, if it isn't a mana ability, copy that ability. You may choose new targets for the copy.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sting, the Glinting Dagger",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 1617,
+  "text": "Equipped creature gets +1/+1 and has haste.\nAt the beginning of each combat, untap equipped creature.\nEquipped creature has first strike as long as it's blocking or blocked by a Goblin or Orc.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:goblin",
+   "cares:sub:orc",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "eff:untap",
+   "grants:haste",
+   "kw:equip",
+   "kw:haste",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Rhox Faithmender",
+  "type": "Creature — Rhino Monk",
+  "cost": "{3}{W}",
+  "rank": 1621,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)\nIf you would gain life, you gain twice that much life instead.",
+  "facets": [
+   "eff:gain-life",
+   "eff:multiply",
+   "kw:lifelink",
+   "rec:partial",
+   "sub:monk",
+   "sub:rhino",
+   "sub:rhino monk",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cloud, Midgar Mercenary",
+  "type": "Legendary Creature — Human Soldier Mercenary",
+  "cost": "{W}{W}",
+  "rank": 1625,
+  "text": "When Cloud enters, search your library for an Equipment card, reveal it, put it into your hand, then shuffle.\nAs long as Cloud is equipped, if a triggered ability of Cloud or an Equipment attached to it triggers, that ability triggers an additional time.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:zone:library",
+   "eff:multiply",
+   "eff:multiply-triggers",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier mercenary",
+   "sub:mercenary",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Masterwork of Ingenuity",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 1626,
+  "text": "You may have this Equipment enter as a copy of any Equipment on the battlefield.",
+  "facets": [
+   "cares:sub:equipment",
+   "col:none",
+   "eff:copy",
+   "mv:cheap",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ugin, the Spirit Dragon",
+  "type": "Legendary Planeswalker — Ugin",
+  "cost": "{8}",
+  "rank": 1627,
+  "text": "+2: Ugin deals 3 damage to any target.\n−X: Exile each permanent with mana value X or less that's one or more colors.\n−10: You gain 7 life, draw seven cards, then put up to seven permanent cards from your hand onto the battlefield.",
+  "facets": [
+   "acost:0",
+   "cares:sub:ugin",
+   "col:none",
+   "cost:add-counters",
+   "eff:damage",
+   "eff:draw",
+   "eff:exile",
+   "mv:big",
+   "rec:partial",
+   "sub:ugin",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Stitch Together",
+  "type": "Sorcery",
+  "cost": "{B}{B}",
+  "rank": 1634,
+  "text": "Return target creature card from your graveyard to your hand.\nThreshold — Return that card from your graveyard to the battlefield instead if there are seven or more cards in your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:battlefield",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:move-zone",
+   "eff:return-from",
+   "kw:threshold",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Loyal Warhound",
+  "type": "Creature — Dog",
+  "cost": "{1}{W}",
+  "rank": 1637,
+  "text": "Vigilance\nWhen this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "eff:search-library",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:dog",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Obscura Storefront",
+  "type": "Land",
+  "cost": "",
+  "rank": 1643,
+  "text": "When this land enters, sacrifice it. When you do, search your library for a basic Plains, Island, or Swamp card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "facets": [
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Winds of Rath",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 1645,
+  "text": "Destroy all creatures that aren't enchanted. They can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blast Zone",
+  "type": "Land",
+  "cost": "",
+  "rank": 1646,
+  "text": "This land enters with a charge counter on it.\n{T}: Add {C}.\n{X}{X}, {T}: Put X charge counters on this land.\n{3}, {T}, Sacrifice this land: Destroy each nonland permanent with mana value equal to the number of charge counters on this land.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "cost:tap",
+   "ctr:charge",
+   "ctr:charge-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "eff:destroy",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ }
+]

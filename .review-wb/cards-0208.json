@@ -1,0 +1,851 @@
+[
+ {
+  "name": "Lapis Lazuli Talisman",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 26359,
+  "text": "Whenever a player casts a blue spell, you may pay {3}. If you do, untap target permanent.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "eff:do-if-cost-paid",
+   "eff:untap",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Armed Response",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 26361,
+  "text": "Armed Response deals damage to target attacking creature equal to the number of Equipment you control.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:damage",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Plague Rats",
+  "type": "Creature — Rat",
+  "cost": "{2}{B}",
+  "rank": 26364,
+  "text": "Plague Rats's power and toughness are each equal to the number of creatures named Plague Rats on the battlefield.",
+  "facets": [
+   "cares:sub:rat",
+   "eff:set-pt",
+   "sub:rat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "White Ward",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 26368,
+  "text": "Enchant creature\nEnchanted creature has protection from white. This effect doesn't remove this Aura.",
+  "facets": [
+   "cares:color:w",
+   "cares:sub:aura",
+   "cares:type:creature",
+   "grants:protection",
+   "kw:enchant",
+   "kw:protection",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mindwhip Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{2}{B}",
+  "rank": 26374,
+  "text": "All Slivers have \"{2}, Sacrifice this permanent: Target player discards a card at random. Activate only as a sorcery.\"",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:sacrifice-self",
+   "eff:discard",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pardic Wanderer",
+  "type": "Artifact Creature — Golem",
+  "cost": "{6}",
+  "rank": 26377,
+  "text": "Trample",
+  "facets": [
+   "col:none",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hundred-Talon Strike",
+  "type": "Instant — Arcane",
+  "cost": "{W}",
+  "rank": 26380,
+  "text": "Target creature gets +1/+0 and gains first strike until end of turn.\nSplice onto Arcane—Tap an untapped white creature you control. (As you cast an Arcane spell, you may reveal this card from your hand and pay its splice cost. If you do, add this card's effects to that spell.)",
+  "facets": [
+   "cares:sub:arcane",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "kw:splice",
+   "mv:cheap",
+   "rec:partial",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Stench of Evil",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 26381,
+  "text": "Destroy all Plains. For each land destroyed this way, Stench of Evil deals 1 damage to that land's controller unless they pay {2}.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:type:land",
+   "eff:damage",
+   "eff:destroy",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "_____ _____ Rocketship",
+  "type": "Artifact — Vehicle",
+  "cost": "{4}",
+  "rank": 26387,
+  "text": "Flying\nWhen this Vehicle enters, you may put up to two name stickers on it.\nWhenever this Vehicle attacks, choose a letter. This Vehicle gets +1/+1 until end of turn for each name sticker on it that begins with the chosen letter.\nCrew 2",
+  "facets": [
+   "cares:sub:vehicle",
+   "col:none",
+   "kw:crew",
+   "kw:flying",
+   "rec:partial",
+   "sub:vehicle",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Isolation Zone",
+  "type": "Enchantment",
+  "cost": "{2}{W}{W}",
+  "rank": 26388,
+  "text": "When this enchantment enters, exile target creature or enchantment an opponent controls until this enchantment leaves the battlefield. (That permanent returns under its owner's control.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:exile",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rod of Ruin",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26389,
+  "text": "{3}, {T}: This artifact deals 1 damage to any target.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:damage",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Pitfall Trap",
+  "type": "Instant — Trap",
+  "cost": "{2}{W}",
+  "rank": 26396,
+  "text": "If exactly one creature is attacking, you may pay {W} rather than pay this spell's mana cost.\nDestroy target attacking creature without flying.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:partial",
+   "sub:trap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Phantom Nomad",
+  "type": "Creature — Spirit Nomad",
+  "cost": "{1}{W}",
+  "rank": 26397,
+  "text": "This creature enters with two +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:nomad",
+   "sub:spirit",
+   "sub:spirit nomad",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Swift Reckoning",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 26400,
+  "text": "Spell mastery — If there are two or more instant and/or sorcery cards in your graveyard, you may cast this spell as though it had flash. (You may cast it any time you could cast an instant.)\nDestroy target tapped creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "kw:spell mastery",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Court Homunculus",
+  "type": "Artifact Creature — Homunculus",
+  "cost": "{W}",
+  "rank": 26405,
+  "text": "This creature gets +1/+1 as long as you control another artifact.",
+  "facets": [
+   "cares:type:artifact",
+   "mv:cheap",
+   "sub:homunculus",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flying Carpet",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26407,
+  "text": "{2}, {T}: Target creature gains flying until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "General Jarkeld",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 26409,
+  "text": "{T}: Choose two target blocked attacking creatures. If each of those creatures could be blocked by all creatures that the other is blocked by, each creature that's blocking exactly one of those attacking creatures stops blocking it and is blocking the other attacking creature. Activate only during the declare blockers step.",
+  "facets": [
+   "acost:1",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Capashen Knight",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 26412,
+  "text": "First strike (This creature deals combat damage before creatures without first strike.)\n{1}{W}: This creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Perilous Predicament",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 26418,
+  "text": "Each opponent sacrifices an artifact creature and a nonartifact creature of their choice.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:sacrifice",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Wicked Pact",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 26422,
+  "text": "Destroy two target nonblack creatures. You lose 5 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:lose-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Manaforce Mace",
+  "type": "Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 26423,
+  "text": "Domain — Equipped creature gets +1/+1 for each basic land type among lands you control.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:domain",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Catacomb Dragon",
+  "type": "Creature — Dragon",
+  "cost": "{4}{B}{B}",
+  "rank": 26425,
+  "text": "Flying\nWhenever this creature becomes blocked by a nonartifact, non-Dragon creature, that creature gets -X/-0 until end of turn, where X is half the creature's power, rounded down.",
+  "facets": [
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:dragon",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Clockwork Condor",
+  "type": "Artifact Creature — Bird",
+  "cost": "{4}",
+  "rank": 26427,
+  "text": "Flying\nThis creature enters with three +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.",
+  "facets": [
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "trig:attacks",
+   "trig:blocks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Silverquill Apprentice",
+  "type": "Creature — Human Warlock",
+  "cost": "{W}{B}",
+  "rank": 26428,
+  "text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, target creature gets +1/+0 until end of turn.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "kw:magecraft",
+   "mv:cheap",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ondu War Cleric",
+  "type": "Creature — Human Cleric Ally",
+  "cost": "{1}{W}",
+  "rank": 26436,
+  "text": "Cohort — {T}, Tap an untapped Ally you control: You gain 2 life.",
+  "facets": [
+   "acost:0",
+   "cares:sub:ally",
+   "cost:tap",
+   "cost:tap-others",
+   "eff:gain-life",
+   "kw:cohort",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:ally",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric ally",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fixer, Techno Terror",
+  "type": "Legendary Creature — Human Artificer Villain",
+  "cost": "{1}{B}",
+  "rank": 26439,
+  "text": "{T}, Pay 2 life: Draw a card. Activate only if an artifact entered the battlefield under your control this turn.",
+  "facets": [
+   "acost:0",
+   "cost:life",
+   "cost:tap",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "sub:artificer",
+   "sub:human",
+   "sub:human artificer villain",
+   "sub:villain",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Velvetwing Butterflies // Gaze in Wonder",
+  "type": "Creature — Insect // Instant — Adventure",
+  "cost": "{2}{W} // {1}{W}",
+  "rank": 26442,
+  "text": "Flying\n//\nTap one or two target creatures. (Then exile this card. You may cast the creature later from exile.)",
+  "facets": [
+   "eff:tap",
+   "kw:flying",
+   "rec:partial",
+   "sub:adventure",
+   "sub:insect",
+   "type:creature",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Alms",
+  "type": "Enchantment",
+  "cost": "{W}",
+  "rank": 26443,
+  "text": "{1}, Exile the top card of your graveyard: Prevent the next 1 damage that would be dealt to target creature this turn.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cost:exile",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Eagle of the Watch",
+  "type": "Creature — Bird",
+  "cost": "{2}{W}",
+  "rank": 26444,
+  "text": "Flying, vigilance",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "War Barge",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 26445,
+  "text": "{3}: Target creature gains islandwalk until end of turn. When this artifact leaves the battlefield this turn, destroy that creature. A creature destroyed this way can't be regenerated. (A creature with islandwalk can't be blocked as long as defending player controls an Island.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:pump",
+   "grants:islandwalk",
+   "kw:islandwalk",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Reinforced Bulwark",
+  "type": "Artifact Creature — Wall",
+  "cost": "{3}",
+  "rank": 26446,
+  "text": "Defender\n{T}: Prevent the next 1 damage that would be dealt to you this turn.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "kw:defender",
+   "rec:partial",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Holy Armor",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 26447,
+  "text": "Enchant creature\nEnchanted creature gets +0/+2.\n{W}: Enchanted creature gets +0/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sergeant-at-Arms",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 26448,
+  "text": "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nWhen this creature enters, if it was kicked, create two 1/1 white Soldier creature tokens.",
+  "facets": [
+   "cares:sub:soldier",
+   "eff:create-token",
+   "kw:kicker",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Commander Greven il-Vec",
+  "type": "Legendary Creature — Phyrexian Human Warrior",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 26452,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nWhen Commander Greven il-Vec enters, sacrifice a creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:fear",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:phyrexian",
+   "sub:phyrexian human warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Wall of Caltrops",
+  "type": "Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 26453,
+  "text": "Defender (This creature can't attack.)\nWhenever this creature blocks a creature, if at least one other Wall creature is blocking that creature and no non-Wall creatures are blocking that creature, this creature gains banding until end of turn. (If any creatures with banding you control are blocking a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by.)",
+  "facets": [
+   "cares:sub:wall",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kemba's Legion",
+  "type": "Creature — Cat Soldier",
+  "cost": "{5}{W}{W}",
+  "rank": 26455,
+  "text": "Vigilance\nThis creature can block an additional creature each combat for each Equipment attached to this creature.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "kw:vigilance",
+   "mv:big",
+   "rec:partial",
+   "sub:cat",
+   "sub:cat soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hasran Ogress",
+  "type": "Creature — Ogre",
+  "cost": "{B}{B}",
+  "rank": 26456,
+  "text": "Whenever this creature attacks, it deals 3 damage to you unless you pay {2}.",
+  "facets": [
+   "eff:damage-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:ogre",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Henge Walker",
+  "type": "Artifact Creature — Golem",
+  "cost": "{3}",
+  "rank": 26457,
+  "text": "Adamant — If at least three mana of the same color was spent to cast this spell, this creature enters with a +1/+1 counter on it.",
+  "facets": [
+   "cares:mana-spent",
+   "col:none",
+   "eff:add-counters-self",
+   "kw:adamant",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hour of Glory",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 26459,
+  "text": "Exile target creature. If that creature was a God, its controller reveals their hand and exiles all cards from it with the same name as that creature.",
+  "facets": [
+   "cares:sub:god",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:exile",
+   "eff:exile-graveyard",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mageta's Boon",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 26460,
+  "text": "Flash\nEnchant creature\nEnchanted creature gets +1/+2.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "kw:flash",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Aven of Enduring Hope",
+  "type": "Creature — Bird Cleric",
+  "cost": "{4}{W}",
+  "rank": 26462,
+  "text": "Flying\nWhen this creature enters, you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:bird cleric",
+   "sub:cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bereavement",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 26463,
+  "text": "Whenever a green creature dies, its controller discards a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Stillmoon Cavalier",
+  "type": "Creature — Zombie Knight",
+  "cost": "{1}{W/B}{W/B}",
+  "rank": 26466,
+  "text": "Protection from white and from black\n{W/B}: This creature gains flying until end of turn.\n{W/B}: This creature gains first strike until end of turn.\n{W/B}{W/B}: This creature gets +1/+0 until end of turn.",
+  "facets": [
+   "acost:1",
+   "acost:2",
+   "cares:color:w",
+   "eff:pump",
+   "grants:first strike",
+   "grants:flying",
+   "kw:first strike",
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "sub:knight",
+   "sub:zombie",
+   "sub:zombie knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Benalish Faithbonder",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 26467,
+  "text": "Vigilance\nEnlist (As this creature attacks, you may tap a nonattacking creature you control without summoning sickness. When you do, add its power to this creature's until end of turn.)",
+  "facets": [
+   "cares:kw:haste",
+   "cost:tap-others",
+   "kw:enlist",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Split-Tail Miko",
+  "type": "Creature — Fox Cleric",
+  "cost": "{1}{W}",
+  "rank": 26471,
+  "text": "{W}, {T}: Prevent the next 2 damage that would be dealt to any target this turn.",
+  "facets": [
+   "acost:2",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:fox",
+   "sub:fox cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Zarichi Tiger",
+  "type": "Creature — Cat",
+  "cost": "{3}{W}",
+  "rank": 26473,
+  "text": "{1}{W}, {T}: You gain 2 life.",
+  "facets": [
+   "acost:2",
+   "cost:tap",
+   "eff:gain-life",
+   "rec:full",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flunk",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 26475,
+  "text": "Target creature gets -X/-X until end of turn, where X is 7 minus the number of cards in that creature's controller's hand.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Hand of Justice",
+  "type": "Creature — Avatar",
+  "cost": "{5}{W}",
+  "rank": 26476,
+  "text": "{T}, Tap three untapped white creatures you control: Destroy target creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "cost:tap-others",
+   "eff:destroy",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:avatar",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bloodrite Invoker",
+  "type": "Creature — Vampire Shaman",
+  "cost": "{2}{B}",
+  "rank": 26480,
+  "text": "{8}: Target player loses 3 life and you gain 3 life.",
+  "facets": [
+   "acost:3",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:full",
+   "sub:shaman",
+   "sub:vampire",
+   "sub:vampire shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Prismatic Ward",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 26481,
+  "text": "Enchant creature\nAs this Aura enters, choose a color.\nPrevent all damage that would be dealt to enchanted creature by sources of the chosen color.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:choose",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ }
+]

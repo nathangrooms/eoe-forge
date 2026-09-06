@@ -1,0 +1,931 @@
+[
+ {
+  "name": "Darksteel Splicer",
+  "type": "Creature — Phyrexian Artificer",
+  "cost": "{6}{W}",
+  "rank": 6687,
+  "text": "Whenever this creature or another nontoken Phyrexian you control enters, create X 3/3 colorless Phyrexian Golem artifact creature tokens, where X is the number of opponents you have.\nGolems you control have indestructible.",
+  "facets": [
+   "cares:sub:golem",
+   "cares:sub:phyrexian",
+   "eff:create-token",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "sub:artificer",
+   "sub:phyrexian",
+   "sub:phyrexian artificer",
+   "tok:golem",
+   "tok:phyrexian",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unexplained Absence",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 6689,
+  "text": "For each player, exile up to one target nonland permanent that player controls. For each permanent exiled this way, its controller cloaks the top card of their library. (To cloak a card, put it onto the battlefield face down as a 2/2 creature with ward {2}. Turn it face up any time for its mana cost if it's a creature card.)",
+  "facets": [
+   "cares:zone:library",
+   "eff:exile",
+   "kw:cloak",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Starscream, Power Hungry // Starscream, Seeker Leader",
+  "type": "Legendary Artifact Creature — Robot // Legendary Artifact — Vehicle",
+  "cost": "",
+  "rank": 6695,
+  "text": "More Than Meets the Eye {2}{B} (You may cast this card converted for {2}{B}.)\nFlying\nWhenever you draw a card, if you're the monarch, target opponent loses 2 life.\nWhenever one or more creatures deal combat damage to you, convert Starscream.\n//\nLiving metal (During your turn, this Vehicle is also a creature.)\nFlying, menace, haste\nWhenever Starscream deals combat damage to a player, if there is no monarch, that player becomes the monarch.\nWhenever you become the monarch, convert Starscream.",
+  "facets": [
+   "eff:lose-life",
+   "kw:convert",
+   "kw:flying",
+   "kw:haste",
+   "kw:living metal",
+   "kw:menace",
+   "kw:more than meets the eye",
+   "rec:partial",
+   "sub:robot",
+   "sub:vehicle",
+   "trig:draws-card",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Bloodthirsty Aerialist",
+  "type": "Creature — Vampire Rogue",
+  "cost": "{1}{B}{B}",
+  "rank": 6697,
+  "text": "Flying\nWhenever you gain life, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:full",
+   "sub:rogue",
+   "sub:vampire",
+   "sub:vampire rogue",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bone Saw",
+  "type": "Artifact — Equipment",
+  "cost": "{0}",
+  "rank": 6700,
+  "text": "Equipped creature gets +1/+0.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Moonsilver Spear",
+  "type": "Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 6701,
+  "text": "Equipped creature has first strike.\nWhenever equipped creature attacks, create a 4/4 white Angel creature token with flying.\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "grants:first strike",
+   "kw:equip",
+   "kw:first strike",
+   "rec:full",
+   "sub:equipment",
+   "tok:angel",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "The Rise of Sozin // Fire Lord Sozin",
+  "type": "Enchantment — Saga // Legendary Creature — Human Noble",
+  "cost": "",
+  "rank": 6702,
+  "text": "(As this Saga enters and after your draw step, add a lore counter.)\nI — Destroy all creatures.\nII — Choose a card name. Search target opponent's graveyard, hand, and library for up to four cards with that name and exile them. Then that player shuffles.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\nMenace, firebending 3 (Whenever this creature attacks, add {R}{R}{R}. This mana lasts until end of combat.)\nWhenever Fire Lord Sozin deals combat damage to a player, you may pay {X}. When you do, put any number of target creature cards with total mana value X or less from that player's graveyard onto the battlefield under your control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:add-mana",
+   "eff:destroy",
+   "eff:exile-graveyard",
+   "eff:return-from",
+   "kw:firebending",
+   "kw:iii",
+   "kw:menace",
+   "kw:transform",
+   "mv:big",
+   "scope:all",
+   "sub:human",
+   "sub:human noble",
+   "sub:noble",
+   "sub:saga",
+   "trig:attacks",
+   "trig:deals-damage",
+   "type:creature",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Retribution of the Ancients",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 6705,
+  "text": "{B}, Remove X +1/+1 counters from among creatures you control: Target creature gets -X/-X until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cost:remove-counters",
+   "eff:shrink",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shakedown Heavy",
+  "type": "Creature — Ogre Warrior",
+  "cost": "{2}{B}",
+  "rank": 6706,
+  "text": "Menace\nWhenever this creature attacks, defending player may have you draw a card. If they do, untap this creature and remove it from combat.",
+  "facets": [
+   "kw:menace",
+   "pt:big",
+   "rec:partial",
+   "sub:ogre",
+   "sub:ogre warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rankle's Prank",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 6707,
+  "text": "Choose one or more —\n• Each player discards two cards.\n• Each player loses 4 life.\n• Each player sacrifices two creatures of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "eff:lose-life",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Case of the Stashed Skeleton",
+  "type": "Enchantment — Case",
+  "cost": "{1}{B}",
+  "rank": 6708,
+  "text": "When this Case enters, create a 2/1 black Skeleton creature token and suspect it. (It has menace and can't block.)\nTo solve — You control no suspected Skeletons. (If unsolved, solve at the beginning of your end step.)\nSolved — {1}{B}, Sacrifice this Case: Search your library for a card, put it into your hand, then shuffle. Activate only as a sorcery.",
+  "facets": [
+   "acost:2",
+   "cares:sub:case",
+   "cares:sub:skeleton",
+   "cares:zone:library",
+   "cost:sacrifice-self",
+   "eff:search-library",
+   "kw:solved",
+   "kw:suspect",
+   "kw:to solve",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:case",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Tainted Remedy",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 6710,
+  "text": "If an opponent would gain life, that player loses that much life instead.",
+  "facets": [
+   "eff:lose-life",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Soulcatchers' Aerie",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 6712,
+  "text": "Whenever a Bird is put into your graveyard from the battlefield, put a feather counter on this enchantment.\nBird creatures get +1/+1 for each feather counter on this enchantment.",
+  "facets": [
+   "cares:sub:bird",
+   "cares:type:creature",
+   "eff:pump",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Crumbling Ashes",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 6715,
+  "text": "At the beginning of your upkeep, destroy target creature with a -1/-1 counter on it.",
+  "facets": [
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rune of Sustenance",
+  "type": "Enchantment — Aura Rune",
+  "cost": "{1}{W}",
+  "rank": 6723,
+  "text": "Enchant permanent\nWhen this Aura enters, draw a card.\nAs long as enchanted permanent is a creature, it has lifelink.\nAs long as enchanted permanent is an Equipment, it has \"Equipped creature has lifelink.\"",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "eff:draw",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "sub:aura rune",
+   "sub:rune",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Nemesis Mask",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 6731,
+  "text": "All creatures able to block equipped creature do so.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Tome of the Guildpact",
+  "type": "Artifact — Book",
+  "cost": "{5}",
+  "rank": 6737,
+  "text": "Whenever you cast a multicolored spell, draw a card.\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "cares:zone:stack",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "sub:book",
+   "trig:cast",
+   "trig:cast-own",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Acclaimed Contender",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}",
+  "rank": 6738,
+  "text": "When this creature enters, if you control another Knight, look at the top five cards of your library. You may reveal a Knight, Aura, Equipment, or legendary artifact card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "cares:sub:knight",
+   "cares:type:artifact",
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Breathe Your Last",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 6739,
+  "text": "Destroy target creature or planeswalker. You gain 1 life for each of its colors.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Arc Reactor",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 6741,
+  "text": "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nThis artifact enters tapped.\n{T}: Add {C}{C}{C}.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:improvise",
+   "mana:3",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Call to the Netherworld",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 6742,
+  "text": "Return target black creature card from your graveyard to your hand.\nMadness {0} (If you discard this card, discard it into exile. When you do, cast it for its madness cost or put it into your graveyard.)",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:madness",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Exsanguinator Cavalry",
+  "type": "Creature — Vampire Knight",
+  "cost": "{2}{B}",
+  "rank": 6744,
+  "text": "Menace, lifelink\nWhenever a Knight you control deals combat damage to a player, put a +1/+1 counter on that creature and create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "cares:sub:blood",
+   "cares:sub:knight",
+   "eff:add-counters",
+   "kw:lifelink",
+   "kw:menace",
+   "rec:partial",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nexus of Becoming",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 6745,
+  "text": "At the beginning of combat on your turn, draw a card. Then you may exile an artifact or creature card from your hand. If you do, create a token that's a copy of the exiled card, except it's a 3/3 Golem artifact creature in addition to its other types.",
+  "facets": [
+   "cares:sub:golem",
+   "cares:type:artifact",
+   "col:none",
+   "eff:create-token",
+   "eff:draw",
+   "mv:big",
+   "rec:partial",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Kinsbaile Cavalier",
+  "type": "Creature — Kithkin Knight",
+  "cost": "{3}{W}",
+  "rank": 6746,
+  "text": "Knight creatures you control have double strike.",
+  "facets": [
+   "cares:sub:knight",
+   "cares:type:creature",
+   "grants:double strike",
+   "kw:double strike",
+   "rec:full",
+   "scope:all",
+   "sub:kithkin",
+   "sub:kithkin knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Stasis Coffin",
+  "type": "Legendary Artifact",
+  "cost": "{3}",
+  "rank": 6747,
+  "text": "{2}, {T}, Exile The Stasis Coffin: You gain protection from everything until your next turn.",
+  "facets": [
+   "col:none",
+   "eff:prevent-damage",
+   "kw:protection",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Keleth, Sunmane Familiar",
+  "type": "Legendary Creature — Horse",
+  "cost": "{1}{W}",
+  "rank": 6748,
+  "text": "Whenever a commander you control attacks, put a +1/+1 counter on it.\nPartner (You can have two commanders if both have partner.)",
+  "facets": [
+   "cares:commander",
+   "cares:type:creature",
+   "eff:add-counters",
+   "kw:partner",
+   "mv:cheap",
+   "rec:partial",
+   "sub:horse",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Consumed by Greed",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 6750,
+  "text": "Gift a card (You may promise an opponent a gift as you cast this spell. If you do, they draw a card before its other effects.)\nTarget opponent sacrifices a creature with the greatest power among creatures they control. If the gift was promised, return target creature card from your graveyard to your hand.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "eff:sacrifice",
+   "kw:gift",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Canoptek Wraith",
+  "type": "Artifact Creature — Wraith",
+  "cost": "{3}",
+  "rank": 6751,
+  "text": "Wraith Form — This creature can't be blocked.\nTransdimensional Scout — When this creature deals combat damage to a player, you may pay {3} and sacrifice it. If you do, choose a land you control. Then search your library for up to two basic land cards which have the same name as the chosen land, put them onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library-land",
+   "col:none",
+   "eff:search-library",
+   "kw:transdimensional scout",
+   "kw:wraith form",
+   "rec:partial",
+   "sub:wraith",
+   "trig:deals-damage",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voracious Fell Beast",
+  "type": "Creature — Drake Beast",
+  "cost": "{4}{B}{B}",
+  "rank": 6756,
+  "text": "Flying\nWhen this creature enters, each opponent sacrifices a creature of their choice. Create a Food token for each creature sacrificed this way. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+  "facets": [
+   "cares:sub:food",
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:sacrifice",
+   "kw:flying",
+   "kw:food",
+   "mv:big",
+   "rec:partial",
+   "sub:beast",
+   "sub:drake",
+   "sub:drake beast",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Knowledge Pool",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 6757,
+  "text": "Imprint — When this artifact enters, each player exiles the top three cards of their library.\nWhenever a player casts a spell from their hand, that player exiles it. If the player does, they may cast a spell from among other cards exiled with this artifact without paying its mana cost.",
+  "facets": [
+   "col:none",
+   "kw:imprint",
+   "mv:big",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dawnbringer Cleric",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 6758,
+  "text": "When this creature enters, choose one —\n• Cure Wounds — You gain 2 life.\n• Dispel Magic — Destroy target enchantment.\n• Gentle Repose — Exile target card from a graveyard.",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Partition",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 6759,
+  "text": "Exile target nonland permanent. For as long as that card remains exiled, its owner may play it. A spell cast by an opponent this way costs {2} more to cast.",
+  "facets": [
+   "eff:exile",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Bad River",
+  "type": "Land",
+  "cost": "",
+  "rank": 6761,
+  "text": "This land enters tapped.\n{T}, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:0",
+   "cares:sub:island",
+   "cares:sub:swamp",
+   "cares:zone:library",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Memory Jar",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 6762,
+  "text": "{T}, Sacrifice this artifact: Each player exiles all cards from their hand face down and draws seven cards. At the beginning of the next end step, each player discards their hand and returns to their hand each card they exiled this way.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:discard",
+   "eff:discard-self",
+   "eff:draw",
+   "eff:wheel",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Field-Tested Frying Pan",
+  "type": "Artifact — Equipment",
+  "cost": "{2}{W}",
+  "rank": 6763,
+  "text": "When this Equipment enters, create a Food token, then create a 1/1 white Halfling creature token and attach this Equipment to it.\nEquipped creature has \"Whenever you gain life, this creature gets +X/+X until end of turn, where X is the amount of life you gained.\"\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:sub:food",
+   "cares:sub:halfling",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:gain-life",
+   "kw:equip",
+   "kw:food",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "To Arms!",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 6764,
+  "text": "Untap all creatures you control.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:untap",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Introduction to Prophecy",
+  "type": "Sorcery — Lesson",
+  "cost": "{3}",
+  "rank": 6766,
+  "text": "Scry 2, then draw a card.",
+  "facets": [
+   "col:none",
+   "eff:draw",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "sub:lesson",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Archon of Coronation",
+  "type": "Creature — Archon",
+  "cost": "{4}{W}{W}",
+  "rank": 6767,
+  "text": "Flying\nWhen this creature enters, you become the monarch.\nAs long as you're the monarch, damage doesn't cause you to lose life. (When a creature deals combat damage to you, its controller still becomes the monarch.)",
+  "facets": [
+   "eff:set-monarch",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:archon",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vampire Cutthroat",
+  "type": "Creature — Vampire Rogue",
+  "cost": "{B}",
+  "rank": 6770,
+  "text": "Skulk (This creature can't be blocked by creatures with greater power.)\nLifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:lifelink",
+   "kw:skulk",
+   "mv:cheap",
+   "rec:full",
+   "sub:rogue",
+   "sub:vampire",
+   "sub:vampire rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Archfiend of the Dross",
+  "type": "Creature — Phyrexian Demon",
+  "cost": "{2}{B}{B}",
+  "rank": 6783,
+  "text": "Flying\nThis creature enters with four oil counters on it.\nAt the beginning of your upkeep, remove an oil counter from this creature. Then if it has no oil counters on it, you lose the game.\nWhenever a creature an opponent controls dies, its controller loses 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:oil",
+   "eff:add-counters",
+   "eff:lose-life",
+   "eff:remove-counters",
+   "kw:flying",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:demon",
+   "sub:phyrexian",
+   "sub:phyrexian demon",
+   "trig:dies",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Espers to Magicite",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 6789,
+  "text": "Exile each opponent's graveyard. When you do, choose up to one target creature card exiled this way. Create a token that's a copy of that card, except it's an artifact and it loses all other card types.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:exile-graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "The Prydwen, Steel Flagship",
+  "type": "Legendary Artifact — Vehicle",
+  "cost": "{4}{W}{W}",
+  "rank": 6791,
+  "text": "Flying\nWhenever another nontoken artifact you control enters, create a 2/2 white Human Knight creature token with \"This token gets +2/+2 as long as an artifact entered the battlefield under your control this turn.\"\nCrew 2",
+  "facets": [
+   "cares:sub:human",
+   "cares:sub:knight",
+   "cares:type:artifact",
+   "eff:create-token",
+   "kw:crew",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:vehicle",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Necrotic Hex",
+  "type": "Sorcery",
+  "cost": "{6}{B}",
+  "rank": 6792,
+  "text": "Each player sacrifices six creatures of their choice. You create six tapped 2/2 black Zombie creature tokens.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "mv:big",
+   "rec:partial",
+   "tok:zombie",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Adept Watershaper",
+  "type": "Creature — Merfolk Cleric",
+  "cost": "{2}{W}",
+  "rank": 6797,
+  "text": "Other tapped creatures you control have indestructible.",
+  "facets": [
+   "cares:type:creature",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:merfolk",
+   "sub:merfolk cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Orcrist, Goblin-cleaver",
+  "type": "Legendary Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 6798,
+  "text": "Equipped creature gets +2/+2 and has trample.\nWhenever equipped creature deals combat damage to a player, choose a creature type. Create a Treasure token for each creature you control of that type.\nEquip {3}",
+  "facets": [
+   "acost:3",
+   "cares:sub:chosen",
+   "cares:sub:treasure",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:choose",
+   "eff:create-token",
+   "eff:pump",
+   "grants:trample",
+   "kw:equip",
+   "kw:trample",
+   "kw:treasure",
+   "rec:partial",
+   "sub:equipment",
+   "tok:treasure",
+   "trig:deals-damage",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Wingmantle Chaplain",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 6799,
+  "text": "Defender\nWhen this creature enters, create a 1/1 white Bird creature token with flying for each creature with defender you control.\nWhenever another creature you control with defender enters, create a 1/1 white Bird creature token with flying.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "kw:defender",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "tok:bird",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Constricting Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{5}{W}",
+  "rank": 6801,
+  "text": "Sliver creatures you control have \"When this creature enters, you may exile target creature an opponent controls until this creature leaves the battlefield.\"",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "eff:exile",
+   "mv:big",
+   "sub:sliver",
+   "trig:etb",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Terror Tide",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 6802,
+  "text": "Fathomless descent — All creatures get -X/-X until end of turn, where X is the number of permanent cards in your graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:shrink",
+   "kw:fathomless descent",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Hellish Rebuke",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 6804,
+  "text": "Until end of turn, permanents your opponents control gain \"When this permanent deals damage to the player who cast Hellish Rebuke, sacrifice this permanent. You lose 2 life.\"",
+  "facets": [
+   "eff:lose-life",
+   "eff:sacrifice",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Legions to Ashes",
+  "type": "Sorcery",
+  "cost": "{1}{W}{B}",
+  "rank": 6805,
+  "text": "Exile target nonland permanent an opponent controls and all tokens that player controls with the same name as that permanent.",
+  "facets": [
+   "eff:exile",
+   "type:sorcery"
+  ]
+ }
+]

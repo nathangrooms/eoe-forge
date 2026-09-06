@@ -1,0 +1,850 @@
+[
+ {
+  "name": "Puca's Eye",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 22633,
+  "text": "When this artifact enters, draw a card, then choose a color. This artifact becomes the chosen color.\n{3}, {T}: Draw a card. Activate only if there are five colors among permanents you control.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:choose",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Tidy Conclusion",
+  "type": "Instant",
+  "cost": "{3}{B}{B}",
+  "rank": 22634,
+  "text": "Destroy target creature. You gain 1 life for each artifact you control.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nightmare Incursion",
+  "type": "Sorcery",
+  "cost": "{5}{B}",
+  "rank": 22643,
+  "text": "Search target player's library for up to X cards, where X is the number of Swamps you control, and exile them. Then that player shuffles.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library",
+   "mv:big",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Coffin Purge",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 22644,
+  "text": "Exile target card from a graveyard.\nFlashback {B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)",
+  "facets": [
+   "eff:exile-graveyard",
+   "kw:flashback",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Mage-Ring Responder",
+  "type": "Artifact Creature — Golem",
+  "cost": "{7}",
+  "rank": 22647,
+  "text": "This creature doesn't untap during your untap step.\n{7}: Untap this creature.\nWhenever this creature attacks, it deals 7 damage to target creature defending player controls.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:damage",
+   "eff:untap",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:golem",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phyrexian Archivist",
+  "type": "Artifact Creature — Phyrexian Construct",
+  "cost": "{6}",
+  "rank": 22653,
+  "text": "Reach\n{2}, {T}: Put target card from a graveyard on the bottom of its owner's library.",
+  "facets": [
+   "acost:2",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "col:none",
+   "cost:tap",
+   "eff:move-zone",
+   "kw:reach",
+   "mv:big",
+   "rec:full",
+   "sub:construct",
+   "sub:phyrexian",
+   "sub:phyrexian construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Elephant Graveyard",
+  "type": "Land",
+  "cost": "",
+  "rank": 22654,
+  "text": "{T}: Add {C}.\n{T}: Regenerate target Elephant.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:elephant",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:regenerate",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ramosian Sergeant",
+  "type": "Creature — Human Rebel",
+  "cost": "{W}",
+  "rank": 22656,
+  "text": "{3}, {T}: Search your library for a Rebel permanent card with mana value 2 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:rebel",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Forsaken City",
+  "type": "Land",
+  "cost": "",
+  "rank": 22660,
+  "text": "This land doesn't untap during your untap step.\nAt the beginning of your upkeep, you may exile a card from your hand. If you do, untap this land.\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:untap",
+   "mana:1",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Fretwork Colony",
+  "type": "Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 22666,
+  "text": "This creature can't block.\nAt the beginning of your upkeep, put a +1/+1 counter on this creature and you lose 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:insect",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wicker Witch",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{3}",
+  "rank": 22668,
+  "text": "",
+  "facets": [
+   "col:none",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thousand Moons Infantry",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 22670,
+  "text": "Untap this creature during each other player's untap step.",
+  "facets": [
+   "eff:untap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Markov Patrician",
+  "type": "Creature — Vampire",
+  "cost": "{2}{B}",
+  "rank": 22671,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:lifelink",
+   "rec:full",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Diversionary Tactics",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 22674,
+  "text": "Tap two untapped creatures you control: Tap target creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap-others",
+   "eff:tap",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Unified Strike",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 22675,
+  "text": "Exile target attacking creature if its power is less than or equal to the number of Soldiers on the battlefield.",
+  "facets": [
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:exile",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Island of Wak-Wak",
+  "type": "Land",
+  "cost": "",
+  "rank": 22677,
+  "text": "{T}: Target creature with flying has base power 0 until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:neutralise",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Roterothopter",
+  "type": "Artifact Creature — Thopter",
+  "cost": "{1}",
+  "rank": 22682,
+  "text": "Flying\n{2}: This creature gets +1/+0 until end of turn. Activate no more than twice each turn.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:thopter",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eye of Doom",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 22684,
+  "text": "When this artifact enters, each player chooses a nonland permanent and puts a doom counter on it.\n{2}, {T}, Sacrifice this artifact: Destroy each permanent with a doom counter on it.",
+  "facets": [
+   "col:none",
+   "eff:destroy",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Entrails Feaster",
+  "type": "Creature — Zombie Cat",
+  "cost": "{B}",
+  "rank": 22687,
+  "text": "At the beginning of your upkeep, you may exile a creature card from a graveyard. If you do, put a +1/+1 counter on this creature. If you don't, tap this creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "sub:zombie",
+   "sub:zombie cat",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Medicine Bag",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 22689,
+  "text": "{1}, {T}, Discard a card: Regenerate target creature.",
+  "facets": [
+   "col:none",
+   "eff:discard-self",
+   "eff:protect",
+   "kw:regenerate",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Befoul",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 22690,
+  "text": "Destroy target land or nonblack creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Festering March",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 22695,
+  "text": "Creatures your opponents control get -1/-1 until end of turn. Exile Festering March with three time counters on it.\nSuspend 3—{2}{B} (Rather than cast this card from your hand, you may pay {2}{B} and exile it with three time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:suspend",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Boarded Window",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 22697,
+  "text": "Creatures attacking you get -1/-0.\nAt the beginning of each end step, if you were dealt 4 or more damage this turn, exile this artifact.",
+  "facets": [
+   "col:none",
+   "eff:exile-self",
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Brain Weevil",
+  "type": "Creature — Insect",
+  "cost": "{3}{B}",
+  "rank": 22698,
+  "text": "Intimidate (This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nSacrifice this creature: Target player discards two cards. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "eff:discard",
+   "kw:intimidate",
+   "rec:full",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kemba's Skyguard",
+  "type": "Creature — Cat Knight",
+  "cost": "{1}{W}{W}",
+  "rank": 22699,
+  "text": "Flying\nWhen this creature enters, you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "sub:cat",
+   "sub:cat knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kjeldoran Skyknight",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}",
+  "rank": 22700,
+  "text": "Flying; first strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "kw:banding",
+   "kw:first strike",
+   "kw:flying",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Equipoise",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 22703,
+  "text": "At the beginning of your upkeep, for each land target player controls in excess of the number you control, choose a land that player controls, then the chosen permanents phase out. Repeat this process for artifacts and creatures. (While they're phased out, they're treated as though they don't exist. They phase in before that player untaps during their next untap step.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:land",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Deftblade Elite",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 22706,
+  "text": "Provoke (Whenever this creature attacks, you may have target creature defending player controls untap and block it if able.)\n{1}{W}: Prevent all combat damage that would be dealt to and dealt by this creature this turn.",
+  "facets": [
+   "acost:2",
+   "eff:force-block",
+   "kw:provoke",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ravenous Necrotitan",
+  "type": "Creature — Phyrexian Horror",
+  "cost": "{2}{B}{B}",
+  "rank": 22708,
+  "text": "Corrupted — When this creature enters, sacrifice a creature unless an opponent has three or more poison counters.",
+  "facets": [
+   "kw:corrupted",
+   "pt:big",
+   "rec:partial",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dreaded Bat-Cloud",
+  "type": "Creature — Bat",
+  "cost": "{4}{B}",
+  "rank": 22709,
+  "text": "This spell costs {3} less to cast if a creature died this turn.\nFlying, deathtouch",
+  "facets": [
+   "cares:type:creature",
+   "kw:deathtouch",
+   "kw:flying",
+   "rec:partial",
+   "sub:bat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Crumbling Sanctuary",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 22710,
+  "text": "If damage would be dealt to a player, that player exiles that many cards from the top of their library instead.",
+  "facets": [
+   "cares:zone:library",
+   "col:none",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Defiant Vanguard",
+  "type": "Creature — Human Rebel",
+  "cost": "{2}{W}",
+  "rank": 22713,
+  "text": "When this creature blocks, at end of combat, destroy it and all creatures it blocked this turn.\n{5}, {T}: Search your library for a Rebel permanent card with mana value 4 or less, put it onto the battlefield, then shuffle.",
+  "facets": [
+   "acost:3",
+   "cares:sub:rebel",
+   "cares:type:creature",
+   "cares:zone:library",
+   "cost:tap",
+   "eff:destroy",
+   "eff:search-library",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Self-Assembler",
+  "type": "Artifact Creature — Assembly-Worker",
+  "cost": "{5}",
+  "rank": 22718,
+  "text": "When this creature enters, you may search your library for an Assembly-Worker creature card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "cares:sub:assembly-worker",
+   "cares:type:creature",
+   "cares:zone:library",
+   "col:none",
+   "eff:search-library",
+   "rec:full",
+   "scope:all",
+   "sub:assembly-worker",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Urborg Justice",
+  "type": "Instant",
+  "cost": "{B}{B}",
+  "rank": 22721,
+  "text": "Target opponent sacrifices a creature of their choice for each creature put into your graveyard from the battlefield this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "mv:cheap",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Pikemen",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 22722,
+  "text": "First strike; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "kw:banding",
+   "kw:first strike",
+   "mv:cheap",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Canal Dredger",
+  "type": "Artifact Creature — Construct",
+  "cost": "{4}",
+  "rank": 22723,
+  "text": "Draft this card face up.\nEach player passes the last card from each booster pack to a player who drafted a card named Canal Dredger.\n{T}: Put target card from your graveyard on the bottom of your library.",
+  "facets": [
+   "acost:1",
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "col:none",
+   "eff:move-zone",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Needlebite Trap",
+  "type": "Instant — Trap",
+  "cost": "{5}{B}{B}",
+  "rank": 22725,
+  "text": "If an opponent gained life this turn, you may pay {B} rather than pay this spell's mana cost.\nTarget player loses 5 life and you gain 5 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:big",
+   "rec:partial",
+   "sub:trap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Phyrexian Splicer",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 22726,
+  "text": "{2}, {T}, Choose flying, first strike, trample, or shadow: Until end of turn, target creature with the chosen ability loses it and another target creature gains it.",
+  "facets": [
+   "cares:kw:double strike",
+   "cares:kw:first strike",
+   "cares:kw:flying",
+   "cares:kw:trample",
+   "cares:type:creature",
+   "col:none",
+   "grants:first strike",
+   "grants:flying",
+   "grants:shadow",
+   "grants:trample",
+   "kw:flying",
+   "kw:trample",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Blinding Souleater",
+  "type": "Artifact Creature — Phyrexian Cleric",
+  "cost": "{3}",
+  "rank": 22727,
+  "text": "{W/P}, {T}: Tap target creature. ({W/P} can be paid with either {W} or 2 life.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "rec:full",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Malicious Malfunction",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 22728,
+  "text": "All creatures get -2/-2 until end of turn. If a creature would die this turn, exile it instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "eff:shrink",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Nimbus Wings",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 22729,
+  "text": "Enchant creature\nEnchanted creature gets +1/+2 and has flying.",
+  "facets": [
+   "eff:pump",
+   "grants:flying",
+   "kw:enchant",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Warded Battlements",
+  "type": "Creature — Wall",
+  "cost": "{2}{W}",
+  "rank": 22731,
+  "text": "Defender (This creature can't attack.)\nAttacking creatures you control get +1/+0.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:defender",
+   "rec:full",
+   "scope:all",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skyhunter Prowler",
+  "type": "Creature — Cat Knight",
+  "cost": "{2}{W}",
+  "rank": 22732,
+  "text": "Flying, vigilance (This creature can't be blocked except by creatures with flying or reach, and attacking doesn't cause this creature to tap.)",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "sub:cat",
+   "sub:cat knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skeletal Wurm",
+  "type": "Creature — Skeleton Wurm",
+  "cost": "{7}{B}",
+  "rank": 22734,
+  "text": "{B}: Regenerate this creature.",
+  "facets": [
+   "acost:1",
+   "kw:regenerate",
+   "mv:big",
+   "pt:big",
+   "sub:skeleton",
+   "sub:skeleton wurm",
+   "sub:wurm",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Junkyo Bell",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 22735,
+  "text": "At the beginning of your upkeep, you may have target creature you control get +X/+X until end of turn, where X is the number of creatures you control. If you do, sacrifice that creature at the beginning of the next end step.",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Stockpiling Celebrant",
+  "type": "Creature — Dwarf Knight",
+  "cost": "{2}{W}",
+  "rank": 22737,
+  "text": "When this creature enters, you may return another target nonland permanent you control to its owner's hand. If you do, scry 2.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "sub:dwarf",
+   "sub:dwarf knight",
+   "sub:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Encampment Keeper",
+  "type": "Creature — Dog",
+  "cost": "{W}",
+  "rank": 22738,
+  "text": "First strike\n{7}{W}, {T}, Sacrifice this creature: Creatures you control get +2/+2 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:pump",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mind Carver",
+  "type": "Artifact — Equipment",
+  "cost": "{B}",
+  "rank": 22741,
+  "text": "When this Equipment enters, attach it to target creature you control.\nEquipped creature gets +1/+0. It gets +3/+1 instead as long as an opponent has eight or more cards in their graveyard.\nEquip {2}{B}",
+  "facets": [
+   "acost:3",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Phyrexian Snowcrusher",
+  "type": "Snow Artifact Creature — Phyrexian Juggernaut",
+  "cost": "{6}",
+  "rank": 22742,
+  "text": "This creature attacks each combat if able.\n{1}{S}: This creature gets +1/+0 until end of turn. ({S} can be paid with one mana from a snow source.)",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:pump",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:juggernaut",
+   "sub:phyrexian",
+   "sub:phyrexian juggernaut",
+   "type:artifact",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Kyoshi Warrior Guard",
+  "type": "Creature — Human Warrior Ally",
+  "cost": "{1}{W}",
+  "rank": 22743,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:ally",
+   "sub:human",
+   "sub:human warrior ally",
+   "sub:warrior",
+   "type:creature"
+  ]
+ }
+]

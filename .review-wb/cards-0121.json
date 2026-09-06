@@ -1,0 +1,888 @@
+[
+ {
+  "name": "Repentance",
+  "type": "Sorcery",
+  "cost": "{2}{W}",
+  "rank": 15544,
+  "text": "Target creature deals damage to itself equal to its power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:damage",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Blood Clock",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 15545,
+  "text": "At the beginning of each player's upkeep, that player returns a permanent they control to its owner's hand unless they pay 2 life.",
+  "facets": [
+   "col:none",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Martyr of Sands",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 15547,
+  "text": "{1}, Reveal X white cards from your hand, Sacrifice this creature: You gain three times X life.",
+  "facets": [
+   "cares:color:w",
+   "cost:sacrifice-self",
+   "eff:gain-life",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dingus Egg",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 15548,
+  "text": "Whenever a land is put into a graveyard from the battlefield, this artifact deals 2 damage to that land's controller.",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "eff:damage",
+   "rec:partial",
+   "scope:all",
+   "trig:dies",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dross Hopper",
+  "type": "Creature — Phyrexian Insect Horror",
+  "cost": "{1}{B}",
+  "rank": 15550,
+  "text": "Sacrifice a creature: This creature gains flying until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "sub:insect",
+   "sub:phyrexian",
+   "sub:phyrexian insect horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Leech Collector // Bloodletting",
+  "type": "Creature — Human Warlock // Sorcery",
+  "cost": "{1}{B} // {B}",
+  "rank": 15551,
+  "text": "Whenever you gain life for the first time each turn, this creature becomes prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\n//\nEach opponent loses 2 life.",
+  "facets": [
+   "cares:zone:exile",
+   "eff:lose-life",
+   "kw:prepared",
+   "mv:cheap",
+   "sub:human",
+   "sub:human warlock",
+   "sub:warlock",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Wanderer's Twig",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 15556,
+  "text": "{1}, Sacrifice this artifact: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.",
+  "facets": [
+   "acost:1",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Powerstone Shard",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 15557,
+  "text": "{T}: Add {C} for each artifact you control named Powerstone Shard.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "eff:add-mana",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Eyetwitch",
+  "type": "Creature — Eye Bat",
+  "cost": "{B}",
+  "rank": 15558,
+  "text": "Flying\nWhen this creature dies, learn. (You may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a card.)",
+  "facets": [
+   "kw:flying",
+   "kw:learn",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bat",
+   "sub:eye",
+   "sub:eye bat",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fungal Infection",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 15559,
+  "text": "Target creature gets -1/-1 until end of turn. Create a 1/1 green Saproling creature token.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "tok:saproling",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Aang's Defense",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 15560,
+  "text": "Target blocking creature you control gets +2/+2 until end of turn.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Precipitous Drop",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 15561,
+  "text": "Enchant creature\nWhen this Aura enters, venture into the dungeon. (Enter the first room or advance to the next room.)\nEnchanted creature gets -2/-2. It gets -5/-5 instead as long as you've completed a dungeon.",
+  "facets": [
+   "cares:sub:aura",
+   "kw:enchant",
+   "kw:venture into the dungeon",
+   "rec:partial",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Black Dragon",
+  "type": "Creature — Dragon",
+  "cost": "{5}{B}{B}",
+  "rank": 15562,
+  "text": "Flying\nAcid Breath — When this creature enters, target creature an opponent controls gets -3/-3 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:acid breath",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:dragon",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Anchovy & Banana Pizza",
+  "type": "Artifact — Food",
+  "cost": "{2}{B}{B}",
+  "rank": 15565,
+  "text": "When this artifact enters, destroy target creature.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:full",
+   "sub:food",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nihilith",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}{B}",
+  "rank": 15571,
+  "text": "Fear (This creature can't be blocked except by artifact creatures and/or black creatures.)\nSuspend 7—{1}{B} (Rather than cast this card from your hand, you may pay {1}{B} and exile it with seven time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)\nWhenever a card is put into an opponent's graveyard from anywhere, if this card is suspended, you may remove a time counter from this card.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "grants:haste",
+   "kw:fear",
+   "kw:haste",
+   "kw:suspend",
+   "mv:big",
+   "rec:partial",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nimraiser Paladin",
+  "type": "Creature — Phyrexian Knight",
+  "cost": "{4}{B}",
+  "rank": 15572,
+  "text": "Toxic 2 (Players dealt combat damage by this creature also get two poison counters.)\nWhen this creature enters, return target creature card with mana value 3 or less from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:poison",
+   "eff:return-from",
+   "kw:toxic",
+   "rec:full",
+   "sub:knight",
+   "sub:phyrexian",
+   "sub:phyrexian knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sai of the Shinobi",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 15574,
+  "text": "Equipped creature gets +1/+1.\nWhenever a creature you control enters, you may attach this Equipment to it.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "That's Rough Buddy",
+  "type": "Instant — Lesson",
+  "cost": "{1}{W}",
+  "rank": 15578,
+  "text": "Put a +1/+1 counter on target creature. Put two +1/+1 counters on that creature instead if a creature left the battlefield under your control this turn.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "sub:lesson",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Vraska, Scheming Gorgon",
+  "type": "Legendary Planeswalker — Vraska",
+  "cost": "{4}{B}{B}",
+  "rank": 15582,
+  "text": "+2: Creatures you control get +1/+0 until end of turn.\n−3: Destroy target creature.\n−10: Until end of turn, creatures you control gain deathtouch and \"Whenever this creature deals damage to an opponent, that player loses the game.\"",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:destroy",
+   "eff:pump",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:vraska",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Famished Paladin",
+  "type": "Creature — Vampire Knight",
+  "cost": "{1}{W}",
+  "rank": 15584,
+  "text": "This creature doesn't untap during your untap step.\nWhenever you gain life, untap this creature.",
+  "facets": [
+   "eff:untap",
+   "mv:cheap",
+   "rec:full",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Auntie's Sentence",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 15585,
+  "text": "Choose one —\n• Target opponent reveals their hand. You choose a nonland permanent card from it. That player discards that card.\n• Target creature gets -2/-2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:discard",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "High Sentinels of Arashin",
+  "type": "Creature — Bird Soldier",
+  "cost": "{3}{W}",
+  "rank": 15587,
+  "text": "Flying\nThis creature gets +1/+1 for each other creature you control with a +1/+1 counter on it.\n{3}{W}: Put a +1/+1 counter on target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spectral Grasp",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 15588,
+  "text": "Enchant creature\nEnchanted creature can't attack you or planeswalkers you control.\nEnchanted creature can't block creatures you control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:cant-attack",
+   "eff:cant-block",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bushmeat Poacher",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{B}",
+  "rank": 15595,
+  "text": "{1}, {T}, Sacrifice another creature: You gain life equal to the sacrificed creature's toughness. Draw a card.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:tap",
+   "eff:draw",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cruel Revival",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 15596,
+  "text": "Destroy target non-Zombie creature. It can't be regenerated. Return up to one target Zombie card from your graveyard to your hand.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Eat to Extinction",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 15598,
+  "text": "Exile target creature or planeswalker. Surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:exile",
+   "eff:surveil",
+   "kw:surveil",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "The Last Ride",
+  "type": "Legendary Artifact — Vehicle",
+  "cost": "{B}",
+  "rank": 15599,
+  "text": "The Last Ride gets -X/-X, where X is your life total.\n{2}{B}, Pay 2 life: Draw a card.\nCrew 2",
+  "facets": [
+   "acost:3",
+   "cost:life",
+   "eff:draw",
+   "eff:pump",
+   "kw:crew",
+   "mv:cheap",
+   "pt:big",
+   "rec:full",
+   "sub:vehicle",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Inner Demons Gangsters",
+  "type": "Creature — Human Rogue Villain",
+  "cost": "{3}{B}",
+  "rank": 15600,
+  "text": "Discard a card: This creature gets +1/+0 and gains menace until end of turn. Activate only as a sorcery. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "acost:0",
+   "cost:discard",
+   "eff:pump",
+   "grants:menace",
+   "kw:menace",
+   "rec:full",
+   "sub:human",
+   "sub:human rogue villain",
+   "sub:rogue",
+   "sub:villain",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Orazca Relic",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 15601,
+  "text": "Ascend (If you control ten or more permanents, you get the city's blessing for the rest of the game.)\n{T}: Add {C}.\n{T}, Sacrifice this artifact: You gain 3 life and draw a card. Activate only if you have the city's blessing.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:gain-life",
+   "kw:ascend",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bold Plagiarist",
+  "type": "Creature — Vampire Rogue",
+  "cost": "{3}{B}",
+  "rank": 15602,
+  "text": "Flash\nWhenever an opponent puts one or more counters on a creature they control, they put the same number and kind of counters on this creature.",
+  "facets": [
+   "eff:add-counters",
+   "kw:flash",
+   "rec:partial",
+   "sub:rogue",
+   "sub:vampire",
+   "sub:vampire rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Moira and Teshar",
+  "type": "Legendary Creature — Phyrexian Spirit Bird",
+  "cost": "{3}{W}{B}",
+  "rank": 15603,
+  "text": "Flying\nWhenever you cast a historic spell, return target nonland permanent card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step. If it would leave the battlefield, exile it instead of putting it anywhere else. (Artifacts, legendaries, and Sagas are historic.)",
+  "facets": [
+   "cares:sub:saga",
+   "cares:type:artifact",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "grants:haste",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:phyrexian",
+   "sub:phyrexian spirit bird",
+   "sub:spirit",
+   "trig:cast",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Peppersmoke",
+  "type": "Kindred Instant — Faerie",
+  "cost": "{B}",
+  "rank": 15607,
+  "text": "Target creature gets -1/-1 until end of turn. If you control a Faerie, draw a card.",
+  "facets": [
+   "cares:sub:faerie",
+   "cares:type:creature",
+   "eff:draw",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "sub:faerie",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Shaman en-Kor",
+  "type": "Creature — Kor Cleric Shaman",
+  "cost": "{1}{W}",
+  "rank": 15608,
+  "text": "{0}: The next 1 damage that would be dealt to this creature this turn is dealt to target creature you control instead.\n{1}{W}: The next time a source of your choice would deal damage to target creature this turn, that damage is dealt to this creature instead.",
+  "facets": [
+   "acost:0",
+   "acost:2",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:kor",
+   "sub:kor cleric shaman",
+   "sub:shaman",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angelic Cub",
+  "type": "Creature — Cat Angel",
+  "cost": "{1}{W}",
+  "rank": 15612,
+  "text": "Whenever this creature becomes the target of a spell or ability for the first time each turn, put a +1/+1 counter on it.\nAs long as this creature has three or more +1/+1 counters on it, it has flying.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "sub:angel",
+   "sub:cat",
+   "sub:cat angel",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Kraken's Eye",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 15614,
+  "text": "Whenever a player casts a blue spell, you may gain 1 life.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Phyrexian Gargantua",
+  "type": "Creature — Phyrexian Horror",
+  "cost": "{4}{B}{B}",
+  "rank": 15616,
+  "text": "When this creature enters, you draw two cards and you lose 2 life.",
+  "facets": [
+   "eff:draw",
+   "eff:lose-life",
+   "mv:big",
+   "rec:full",
+   "sub:horror",
+   "sub:phyrexian",
+   "sub:phyrexian horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Void Mirror",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 15618,
+  "text": "Whenever a player casts a spell, if no colored mana was spent to cast it, counter that spell.",
+  "facets": [
+   "cares:zone:stack",
+   "col:none",
+   "eff:counter",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Raptor Companion",
+  "type": "Creature — Dinosaur",
+  "cost": "{1}{W}",
+  "rank": 15620,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:dinosaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Contract Killing",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 15621,
+  "text": "Destroy target creature. Create two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "kw:treasure",
+   "rec:full",
+   "tok:treasure",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lich's Tomb",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 15622,
+  "text": "You don't lose the game for having 0 or less life.\nWhenever you lose life, sacrifice a permanent for each 1 life you lost. (Damage causes loss of life.)",
+  "facets": [
+   "col:none",
+   "rec:partial",
+   "trig:loses-life",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Angelic Overseer",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}{W}",
+  "rank": 15625,
+  "text": "Flying\nAs long as you control a Human, this creature has hexproof and indestructible.",
+  "facets": [
+   "cares:sub:human",
+   "cares:type:creature",
+   "grants:hexproof",
+   "grants:indestructible",
+   "kw:flying",
+   "kw:hexproof",
+   "kw:indestructible",
+   "pt:big",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shade's Form",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}{B}",
+  "rank": 15626,
+  "text": "Enchant creature\nEnchanted creature has \"{B}: This creature gets +1/+1 until end of turn.\"\nWhen enchanted creature dies, return that card to the battlefield under your control.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Elite Spellbinder",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 15632,
+  "text": "Flying\nWhen this creature enters, look at target opponent's hand. You may exile a nonland card from it. For as long as that card remains exiled, its owner may play it. A spell cast this way costs {2} more to cast.",
+  "facets": [
+   "cares:zone:hand",
+   "kw:flying",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fearless Fledgling",
+  "type": "Creature — Griffin",
+  "cost": "{1}{W}",
+  "rank": 15633,
+  "text": "Landfall — Whenever a land you control enters, put a +1/+1 counter on this creature. It gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "kw:landfall",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:griffin",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Assassin's Ink",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 15634,
+  "text": "This spell costs {1} less to cast if you control an artifact and {1} less to cast if you control an enchantment.\nDestroy target creature or planeswalker.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Drain Life",
+  "type": "Sorcery",
+  "cost": "{X}{1}{B}",
+  "rank": 15637,
+  "text": "Spend only black mana on X.\nDrain Life deals X damage to any target. You gain life equal to the damage dealt, but not more life than the player's life total before the damage was dealt, the planeswalker's loyalty before the damage was dealt, or the creature's toughness.",
+  "facets": [
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Rotlung Reanimator",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{2}{B}",
+  "rank": 15642,
+  "text": "Whenever this creature or another Cleric dies, create a 2/2 black Zombie creature token.",
+  "facets": [
+   "cares:sub:cleric",
+   "cares:sub:zombie",
+   "eff:create-token",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "tok:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unyielding Gatekeeper",
+  "type": "Creature — Elephant Cleric",
+  "cost": "{1}{W}",
+  "rank": 15643,
+  "text": "Disguise {1}{W} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)\nWhen this creature is turned face up, exile another target nonland permanent. If you controlled it, return it to the battlefield tapped. Otherwise, its controller creates a 2/2 white and blue Detective creature token.",
+  "facets": [
+   "cares:sub:detective",
+   "eff:create-token",
+   "eff:exile",
+   "kw:disguise",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:elephant",
+   "sub:elephant cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grim Discovery",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 15645,
+  "text": "Choose one or both —\n• Return target creature card from your graveyard to your hand.\n• Return target land card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Intervention Pact",
+  "type": "Instant",
+  "cost": "{0}",
+  "rank": 15646,
+  "text": "The next time a source of your choice would deal damage to you this turn, prevent that damage. You gain life equal to the damage prevented this way.\nAt the beginning of your next upkeep, pay {1}{W}{W}. If you don't, you lose the game.",
+  "facets": [
+   "eff:gain-life",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ }
+]

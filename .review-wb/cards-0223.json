@@ -1,0 +1,816 @@
+[
+ {
+  "name": "Keldon Battlewagon",
+  "type": "Artifact Creature — Juggernaut",
+  "cost": "{5}",
+  "rank": 28186,
+  "text": "Trample\nThis creature can't block.\nWhen this creature attacks, sacrifice it at end of combat.\nTap an untapped creature you control: This creature gets +X/+0 until end of turn, where X is the power of the creature tapped this way.",
+  "facets": [
+   "cares:power",
+   "col:none",
+   "eff:pump",
+   "kw:trample",
+   "rec:partial",
+   "sub:juggernaut",
+   "trig:attacks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aven Tactician",
+  "type": "Creature — Bird Soldier",
+  "cost": "{4}{W}",
+  "rank": 28190,
+  "text": "Flying\nWhen this creature enters, bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)",
+  "facets": [
+   "eff:add-counters",
+   "kw:bolster",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Freewind Equenaut",
+  "type": "Creature — Human Archer",
+  "cost": "{2}{W}",
+  "rank": 28196,
+  "text": "Flying\nAs long as this creature is enchanted, it has \"{T}: This creature deals 2 damage to target attacking or blocking creature.\"",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:damage",
+   "kw:flying",
+   "rec:partial",
+   "sub:archer",
+   "sub:human",
+   "sub:human archer",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Power Armor",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 28197,
+  "text": "Domain — {3}, {T}: Target creature gets +1/+1 until end of turn for each basic land type among lands you control.",
+  "facets": [
+   "col:none",
+   "eff:pump",
+   "kw:domain",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Emissary of the Sleepless",
+  "type": "Creature — Spirit",
+  "cost": "{4}{W}",
+  "rank": 28198,
+  "text": "Flying\nWhen this creature enters, if a creature died this turn, create a 1/1 white Spirit creature token with flying.",
+  "facets": [
+   "cares:sub:spirit",
+   "eff:create-token",
+   "kw:flying",
+   "rec:partial",
+   "sub:spirit",
+   "tok:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Martyrs' Tomb",
+  "type": "Enchantment",
+  "cost": "{2}{W}{B}",
+  "rank": 28200,
+  "text": "Pay 2 life: Prevent the next 1 damage that would be dealt to target creature this turn.",
+  "facets": [
+   "cost:life",
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Reaping the Rewards",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 28206,
+  "text": "Buyback—Sacrifice a land. (You may sacrifice a land in addition to any other costs as you cast this spell. If you do, put this card into your hand as it resolves.)\nYou gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:buyback",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Nearheath Chaplain",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 28207,
+  "text": "Lifelink\n{2}{W}, Exile this card from your graveyard: Create two 1/1 white Spirit creature tokens with flying. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cost:exile-self",
+   "eff:create-token",
+   "kw:lifelink",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "tok:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carrion Ants",
+  "type": "Creature — Insect",
+  "cost": "{2}{B}{B}",
+  "rank": 28208,
+  "text": "{1}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:full",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Army of Allah",
+  "type": "Instant",
+  "cost": "{1}{W}{W}",
+  "rank": 28209,
+  "text": "Attacking creatures get +2/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Harm's Way",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 28212,
+  "text": "The next 2 damage that a source of your choice would deal to you and/or permanents you control this turn is dealt to any target instead.",
+  "facets": [
+   "eff:prevent-damage",
+   "eff:redirect-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Horror of Horrors",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 28214,
+  "text": "Sacrifice a Swamp: Regenerate target black creature. (The next time that creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+  "facets": [
+   "cares:color:b",
+   "cares:type:land",
+   "cost:sacrifice",
+   "eff:protect",
+   "kw:heal",
+   "kw:regenerate",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "The Prismatic Piper",
+  "type": "Legendary Creature — Shapeshifter",
+  "cost": "{5}",
+  "rank": 28218,
+  "text": "If The Prismatic Piper is your commander, choose a color before the game begins. The Prismatic Piper is the chosen color.\nPartner (You can have two commanders if both have partner.)",
+  "facets": [
+   "col:none",
+   "kw:partner",
+   "rec:partial",
+   "sub:shapeshifter",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Benalish Missionary",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 28220,
+  "text": "{1}{W}, {T}: Prevent all combat damage that would be dealt by target blocked creature this turn.",
+  "facets": [
+   "acost:3",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "False Dawn",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 28223,
+  "text": "Until end of turn, spells and abilities you control that would add colored mana instead add that much white mana. Until end of turn, you may spend white mana as though it were mana of any color.\nDraw a card.",
+  "facets": [
+   "cares:type:land",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Feebleness",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 28224,
+  "text": "Flash\nEnchant creature\nEnchanted creature gets -2/-1.",
+  "facets": [
+   "eff:pump",
+   "kw:enchant",
+   "kw:flash",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Wicked Guardian",
+  "type": "Creature — Human Noble",
+  "cost": "{3}{B}",
+  "rank": 28226,
+  "text": "When this creature enters, you may have it deal 2 damage to another creature you control. If you do, draw a card.",
+  "facets": [
+   "eff:draw",
+   "rec:full",
+   "sub:human",
+   "sub:human noble",
+   "sub:noble",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Divebomber Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}{W}",
+  "rank": 28227,
+  "text": "Flying\n{T}, Sacrifice this creature: It deals 3 damage to target attacking or blocking creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:damage",
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Alabaster Kirin",
+  "type": "Creature — Kirin",
+  "cost": "{3}{W}",
+  "rank": 28228,
+  "text": "Flying, vigilance",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "sub:kirin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Silver Bolt",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 28229,
+  "text": "{3}, {T}, Sacrifice this artifact: It deals 3 damage to target creature. If a Werewolf is dealt damage this way, destroy it.",
+  "facets": [
+   "acost:3",
+   "cares:sub:werewolf",
+   "cares:type:creature",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:damage",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sip of Hemlock",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 28231,
+  "text": "Destroy target creature. Its controller loses 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:lose-life",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Graveyard Shovel",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 28233,
+  "text": "{2}, {T}: Target player exiles a card from their graveyard. If it's a creature card, you gain 2 life.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Carrion Screecher",
+  "type": "Creature — Zombie Bird",
+  "cost": "{3}{B}",
+  "rank": 28234,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:zombie",
+   "sub:zombie bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Induce Despair",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 28239,
+  "text": "As an additional cost to cast this spell, reveal a creature card from your hand.\nTarget creature gets -X/-X until end of turn, where X is the revealed card's mana value.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Oaken Brawler",
+  "type": "Creature — Treefolk Warrior",
+  "cost": "{3}{W}",
+  "rank": 28243,
+  "text": "When this creature enters, clash with an opponent. If you win, put a +1/+1 counter on this creature. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:clash",
+   "rec:partial",
+   "sub:treefolk",
+   "sub:treefolk warrior",
+   "sub:warrior",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Knight of the Tusk",
+  "type": "Creature — Human Knight",
+  "cost": "{4}{W}{W}",
+  "rank": 28245,
+  "text": "Vigilance (Attacking doesn't cause this creature to tap.)",
+  "facets": [
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cho-Arrim Legate",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 28246,
+  "text": "If an opponent controls a Swamp and you control a Plains, you may cast this spell without paying its mana cost.\nProtection from black",
+  "facets": [
+   "cares:type:land",
+   "kw:protection",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nacre Talisman",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 28249,
+  "text": "Whenever a player casts a white spell, you may pay {3}. If you do, untap target permanent.",
+  "facets": [
+   "cares:color:w",
+   "cares:zone:stack",
+   "col:none",
+   "eff:do-if-cost-paid",
+   "eff:untap",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Wooden Stake",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 28252,
+  "text": "Equipped creature gets +1/+0.\nWhenever equipped creature blocks or becomes blocked by a Vampire, destroy that creature. It can't be regenerated.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:destroy",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Niblis of the Mist",
+  "type": "Creature — Spirit",
+  "cost": "{2}{W}",
+  "rank": 28257,
+  "text": "Flying\nWhen this creature enters, you may tap target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battle Cry",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 28259,
+  "text": "Untap all white creatures you control.\nWhenever a creature blocks this turn, it gets +0/+1 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:untap",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dispossess",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 28260,
+  "text": "Choose an artifact card name. Search target opponent's graveyard, hand, and library for any number of cards with the chosen name and exile them. Then that player shuffles.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:exile-graveyard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Desiccated Naga",
+  "type": "Creature — Zombie Snake",
+  "cost": "{2}{B}",
+  "rank": 28262,
+  "text": "{3}{B}: Target opponent loses 2 life and you gain 2 life. Activate only if you control a Liliana planeswalker.",
+  "facets": [
+   "acost:3",
+   "cares:sub:liliana",
+   "cares:type:planeswalker",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:full",
+   "sub:snake",
+   "sub:zombie",
+   "sub:zombie snake",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bastion Mastodon",
+  "type": "Artifact Creature — Elephant",
+  "cost": "{5}",
+  "rank": 28263,
+  "text": "{W}: This creature gains vigilance until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "sub:elephant",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warmth",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 28268,
+  "text": "Whenever an opponent casts a red spell, you gain 2 life.",
+  "facets": [
+   "cares:color:r",
+   "cares:zone:stack",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Giant Fly",
+  "type": "Creature — Insect",
+  "cost": "{2}{B}",
+  "rank": 28269,
+  "text": "Flying\nWhenever you sacrifice another permanent, this creature gets +1/+0 until end of turn.",
+  "facets": [
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:insect",
+   "trig:sacrificed",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Prized Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{4}{W}",
+  "rank": 28271,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spined Fluke",
+  "type": "Creature — Worm Horror",
+  "cost": "{2}{B}",
+  "rank": 28272,
+  "text": "When this creature enters, sacrifice a creature.\n{B}: Regenerate this creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:regenerate",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:horror",
+   "sub:worm",
+   "sub:worm horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aven Liberator",
+  "type": "Creature — Bird Soldier",
+  "cost": "{2}{W}{W}",
+  "rank": 28273,
+  "text": "Flying\nMorph {3}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, target creature you control gains protection from the color of your choice until end of turn.",
+  "facets": [
+   "eff:protect",
+   "grants:protection",
+   "kw:flying",
+   "kw:morph",
+   "kw:protection",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aven Archer",
+  "type": "Creature — Bird Soldier Archer",
+  "cost": "{3}{W}{W}",
+  "rank": 28274,
+  "text": "Flying\n{2}{W}, {T}: This creature deals 2 damage to target attacking or blocking creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:damage",
+   "kw:flying",
+   "rec:full",
+   "sub:archer",
+   "sub:bird",
+   "sub:bird soldier archer",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ridged Kusite",
+  "type": "Creature — Horror Spellshaper",
+  "cost": "{B}",
+  "rank": 28275,
+  "text": "{1}{B}, {T}, Discard a card: Target creature gets +1/+0 and gains first strike until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:discard",
+   "cost:tap",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:horror",
+   "sub:horror spellshaper",
+   "sub:spellshaper",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Plague Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{2}{B}{B}",
+  "rank": 28276,
+  "text": "All Slivers have \"At the beginning of your upkeep, this permanent deals 1 damage to you.\"",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "eff:damage-self",
+   "pt:big",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jamuraan Lion",
+  "type": "Creature — Cat",
+  "cost": "{2}{W}",
+  "rank": 28280,
+  "text": "{W}, {T}: Target creature can't block this turn.",
+  "facets": [
+   "acost:2",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voiceless Spirit",
+  "type": "Creature — Spirit",
+  "cost": "{2}{W}",
+  "rank": 28283,
+  "text": "Flying, first strike",
+  "facets": [
+   "kw:first strike",
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vigil for the Lost",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 28284,
+  "text": "Whenever a creature you control dies, you may pay {X}. If you do, you gain X life.",
+  "facets": [
+   "cares:type:creature",
+   "rec:partial",
+   "scope:all",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Pretender's Claim",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 28285,
+  "text": "Enchant creature\nWhenever enchanted creature becomes blocked, tap all lands defending player controls.",
+  "facets": [
+   "eff:tap",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Terashi's Cry",
+  "type": "Sorcery — Arcane",
+  "cost": "{3}{W}",
+  "rank": 28292,
+  "text": "Tap up to three target creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "rec:full",
+   "sub:arcane",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Runaway Carriage",
+  "type": "Artifact Creature — Construct",
+  "cost": "{4}",
+  "rank": 28294,
+  "text": "Trample\nWhen this creature attacks or blocks, sacrifice it at end of combat.",
+  "facets": [
+   "col:none",
+   "kw:trample",
+   "pt:big",
+   "rec:partial",
+   "sub:construct",
+   "trig:attacks",
+   "trig:blocks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Unwavering Initiate",
+  "type": "Creature — Human Warrior",
+  "cost": "{2}{W}",
+  "rank": 28295,
+  "text": "Vigilance\nEmbalm {4}{W} ({4}{W}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a white Zombie Human Warrior with no mana cost. Embalm only as a sorcery.)",
+  "facets": [
+   "eff:copy",
+   "eff:create-token",
+   "kw:embalm",
+   "kw:vigilance",
+   "rec:full",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shady Traveler // Stalking Predator",
+  "type": "Creature — Human Werewolf // Creature — Werewolf",
+  "cost": "",
+  "rank": 28298,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nDaybound (If a player casts no spells during their own turn, it becomes night next turn.)\n//\nMenace (This creature can't be blocked except by two or more creatures.)\nNightbound (If a player casts at least two spells during their own turn, it becomes day next turn.)",
+  "facets": [
+   "eff:transform",
+   "kw:daybound",
+   "kw:menace",
+   "kw:nightbound",
+   "kw:transform",
+   "rec:partial",
+   "sub:human",
+   "sub:human werewolf",
+   "sub:werewolf",
+   "type:creature"
+  ]
+ }
+]

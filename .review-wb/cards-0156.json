@@ -1,0 +1,896 @@
+[
+ {
+  "name": "Primordial Gnawer",
+  "type": "Creature — Insect Horror",
+  "cost": "{4}{B}",
+  "rank": 19953,
+  "text": "When this creature dies, discover 3. (Exile cards from the top of your library until you exile a nonland card with mana value 3 or less. Cast it without paying its mana cost or put it into your hand. Put the rest on the bottom in a random order.)",
+  "facets": [
+   "kw:discover",
+   "pt:big",
+   "rec:partial",
+   "sub:horror",
+   "sub:insect",
+   "sub:insect horror",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skull of Ramos",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 19955,
+  "text": "{T}: Add {B}.\nSacrifice this artifact: Add {B}.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Pack's Disdain",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 19956,
+  "text": "Choose a creature type. Target creature gets -1/-1 until end of turn for each permanent of the chosen type you control.",
+  "facets": [
+   "cares:sub:chosen",
+   "eff:choose",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Thaumaton Torpedo",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 19957,
+  "text": "{6}, {T}, Sacrifice this artifact: Destroy target nonland permanent. This ability costs {3} less to activate if you attacked with a Spacecraft this turn.",
+  "facets": [
+   "acost:3",
+   "cares:sub:spacecraft",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cleaving Reaper",
+  "type": "Creature — Angel Berserker",
+  "cost": "{3}{B}{B}",
+  "rank": 19958,
+  "text": "Flying, trample\nPay 3 life: Return this card from your graveyard to your hand. Activate only if you had an Angel or Berserker enter the battlefield under your control this turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:angel",
+   "cares:sub:berserker",
+   "cares:zone:graveyard",
+   "cost:life",
+   "eff:return-from",
+   "kw:flying",
+   "kw:trample",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel berserker",
+   "sub:berserker",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blood Price",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 19961,
+  "text": "Look at the top four cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order. You lose 2 life.",
+  "facets": [
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "eff:lose-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Brightfield Glider",
+  "type": "Creature — Possum Mount",
+  "cost": "{W}",
+  "rank": 19963,
+  "text": "Vigilance\nWhenever this creature attacks while saddled, it gets +1/+2 and gains flying until end of turn.\nSaddle 3 (Tap any number of other creatures you control with total power 3 or more: This Mount becomes saddled until end of turn. Saddle only as a sorcery.)",
+  "facets": [
+   "cost:tap-others",
+   "grants:flying",
+   "kw:flying",
+   "kw:saddle",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:mount",
+   "sub:possum",
+   "sub:possum mount",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Divine Arrow",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19964,
+  "text": "Divine Arrow deals 4 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dark Banishing",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 19967,
+  "text": "Destroy target nonblack creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Clockwork Beetle",
+  "type": "Artifact Creature — Insect",
+  "cost": "{1}",
+  "rank": 19969,
+  "text": "This creature enters with two +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.",
+  "facets": [
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "sub:insect",
+   "trig:attacks",
+   "trig:blocks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Discordant Piper",
+  "type": "Creature — Zombie Satyr",
+  "cost": "{1}{B}",
+  "rank": 19972,
+  "text": "When this creature dies, create a 0/1 white Goat creature token.",
+  "facets": [
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:satyr",
+   "sub:zombie",
+   "sub:zombie satyr",
+   "tok:goat",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Remedy",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19976,
+  "text": "Prevent the next 5 damage that would be dealt this turn to any number of targets, divided as you choose.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Livio, Oathsworn Sentinel",
+  "type": "Legendary Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 19979,
+  "text": "{1}{W}: Choose another target creature. Its controller may exile it with an aegis counter on it.\n{2}{W}, {T}: Return all exiled cards with aegis counters on them to the battlefield under their owners' control.\nPartner (You can have two commanders if both have partner.)",
+  "facets": [
+   "acost:2",
+   "acost:3",
+   "kw:partner",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Radiant, Serra Archangel",
+  "type": "Legendary Creature — Angel",
+  "cost": "{6}{W}",
+  "rank": 19980,
+  "text": "Flying\nTap another untapped creature you control with flying: Radiant gains protection from the color of your choice until end of turn.\nPartner (You can have two commanders if both have partner.)",
+  "facets": [
+   "cares:kw:flying",
+   "cares:type:creature",
+   "cost:tap-others",
+   "grants:protection",
+   "kw:flying",
+   "kw:partner",
+   "kw:protection",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Mind Sludge",
+  "type": "Sorcery",
+  "cost": "{4}{B}",
+  "rank": 19982,
+  "text": "Target player discards a card for each Swamp you control.",
+  "facets": [
+   "cares:sub:swamp",
+   "cares:type:land",
+   "eff:discard",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Hideous End",
+  "type": "Instant",
+  "cost": "{1}{B}{B}",
+  "rank": 19989,
+  "text": "Destroy target nonblack creature. Its controller loses 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:lose-life",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "You're Ambushed on the Road",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 20000,
+  "text": "Choose one —\n• Make a Retreat — Return target creature you control to its owner's hand.\n• Stand and Fight — Target creature gets +1/+3 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Wand of Denial",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 20001,
+  "text": "{T}: Look at the top card of target player's library. If it's a nonland card, you may pay 2 life. If you do, put it into that player's graveyard.",
+  "facets": [
+   "acost:1",
+   "cares:zone:library",
+   "col:none",
+   "eff:mill",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Icatian Store",
+  "type": "Land",
+  "cost": "",
+  "rank": 20004,
+  "text": "This land enters tapped.\nYou may choose not to untap this land during your untap step.\nAt the beginning of your upkeep, if this land is tapped, put a storage counter on it.\n{T}, Remove any number of storage counters from this land: Add {W} for each storage counter removed this way.",
+  "facets": [
+   "eff:add-mana",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Archway Angel",
+  "type": "Creature — Angel",
+  "cost": "{5}{W}",
+  "rank": 20005,
+  "text": "Flying\nWhen this creature enters, you gain 2 life for each Gate you control.",
+  "facets": [
+   "cares:sub:gate",
+   "cares:type:land",
+   "eff:gain-life",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tragic Banshee",
+  "type": "Creature — Spirit",
+  "cost": "{4}{B}",
+  "rank": 20009,
+  "text": "Morbid — When this creature enters, target creature an opponent controls gets -1/-1 until end of turn. If a creature died this turn, that creature gets -13/-13 until end of turn instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:morbid",
+   "pt:big",
+   "rec:partial",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Copper Gnomes",
+  "type": "Artifact Creature — Gnome",
+  "cost": "{2}",
+  "rank": 20012,
+  "text": "{4}, Sacrifice this creature: You may put an artifact card from your hand onto the battlefield.",
+  "facets": [
+   "acost:3",
+   "cares:type:artifact",
+   "cares:zone:hand",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:put-onto-battlefield",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:gnome",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Annihilate",
+  "type": "Instant",
+  "cost": "{3}{B}{B}",
+  "rank": 20013,
+  "text": "Destroy target nonblack creature. It can't be regenerated.\nDraw a card.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:draw",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rhystic Cave",
+  "type": "Land",
+  "cost": "",
+  "rank": 20016,
+  "text": "{T}: Choose a color. Add one mana of that color unless any player pays {1}. Activate only as an instant.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:choose",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Ultron's Auxiliary",
+  "type": "Artifact Creature — Robot Villain",
+  "cost": "{1}{B}",
+  "rank": 20017,
+  "text": "Menace\nWhenever another artifact is put into your graveyard from the battlefield or an artifact card is put into your graveyard from anywhere other than the battlefield, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:menace",
+   "mv:cheap",
+   "rec:partial",
+   "sub:robot",
+   "sub:robot villain",
+   "sub:villain",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Darksteel Garrison",
+  "type": "Artifact — Fortification",
+  "cost": "{2}",
+  "rank": 20021,
+  "text": "Fortified land has indestructible.\nWhenever fortified land becomes tapped, target creature gets +1/+1 until end of turn.\nFortify {3} ({3}: Attach to target land you control. Fortify only as a sorcery. This card enters unattached and stays on the battlefield if the land leaves.)",
+  "facets": [
+   "acost:3",
+   "cares:type:land",
+   "col:none",
+   "eff:attach",
+   "grants:indestructible",
+   "kw:fortify",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "sub:fortification",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Grim Harvest",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 20031,
+  "text": "Return target creature card from your graveyard to your hand.\nRecover {2}{B} (When a creature is put into your graveyard from the battlefield, you may pay {2}{B}. If you do, return this card from your graveyard to your hand. Otherwise, exile this card.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:recover",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Serrated Biskelion",
+  "type": "Artifact Creature — Construct",
+  "cost": "{3}",
+  "rank": 20036,
+  "text": "{T}: Put a -1/-1 counter on this creature and a -1/-1 counter on target creature.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "ctr:-1/-1",
+   "ctr:-1/-1-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rimebound Dead",
+  "type": "Snow Creature — Skeleton",
+  "cost": "{B}",
+  "rank": 20040,
+  "text": "{S}: Regenerate this creature. ({S} can be paid with one mana from a snow source.)",
+  "facets": [
+   "acost:1",
+   "kw:regenerate",
+   "mv:cheap",
+   "sub:skeleton",
+   "type:creature",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Carrion Locust",
+  "type": "Creature — Insect Horror",
+  "cost": "{2}{B}",
+  "rank": 20046,
+  "text": "Flying\nWhen this creature enters, exile target card from an opponent's graveyard. If it was a creature card, that player loses 1 life.",
+  "facets": [
+   "eff:lose-life",
+   "kw:flying",
+   "rec:full",
+   "sub:horror",
+   "sub:insect",
+   "sub:insect horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Accomplished Automaton",
+  "type": "Artifact Creature — Construct",
+  "cost": "{7}",
+  "rank": 20054,
+  "text": "Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+  "facets": [
+   "col:none",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:fabricate",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:construct",
+   "tok:servo",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Eddytrail Hawk",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 20055,
+  "text": "Flying\nWhen this creature enters, you get {E}{E} (two energy counters).\nWhenever this creature attacks, you may pay {E}. If you do, another target attacking creature gains flying until end of turn.",
+  "facets": [
+   "ctr:energy",
+   "eff:player-counter",
+   "grants:flying",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:bird",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flitting Guerrilla",
+  "type": "Creature — Faerie Rogue",
+  "cost": "{2}{B}",
+  "rank": 20057,
+  "text": "Flying\nWhen this creature dies, each player mills two cards. Then you may exile this card. When you do, put target creature or battle card from your graveyard on top of your library. (To mill two cards, a player puts the top two cards of their library into their graveyard.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "cares:zone:library",
+   "eff:exile-self",
+   "eff:mill",
+   "eff:move-zone",
+   "kw:flying",
+   "kw:mill",
+   "rec:partial",
+   "sub:faerie",
+   "sub:faerie rogue",
+   "sub:rogue",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Naomi, Pillar of Order",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{3}{W}{B}",
+  "rank": 20058,
+  "text": "Whenever Naomi enters or attacks, if you control an artifact and an enchantment, create a 2/2 white Samurai creature token with vigilance.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:create-token",
+   "rec:partial",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "tok:samurai",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Scarab Feast",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 20060,
+  "text": "Exile up to three target cards from a single graveyard.\nCycling {B} ({B}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Jayemdae Tome",
+  "type": "Artifact — Book",
+  "cost": "{4}",
+  "rank": 20063,
+  "text": "{4}, {T}: Draw a card.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:draw",
+   "rec:full",
+   "sub:book",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hope Against Hope",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 20065,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1 for each creature you control.\nAs long as enchanted creature is a Human, it has first strike.",
+  "facets": [
+   "cares:sub:human",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "grants:first strike",
+   "kw:enchant",
+   "kw:first strike",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Jennika, Bad Apple Big Sister",
+  "type": "Legendary Creature — Mutant Ninja Turtle",
+  "cost": "{4}{W}",
+  "rank": 20069,
+  "text": "When Jennika enters, create a 2/2 red Mutant creature token.\nPlainscycling {2} ({2}, Discard this card: Search your library for a Plains card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:sub:mutant",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:create-token",
+   "eff:search-library",
+   "kw:cycling",
+   "kw:landcycling",
+   "kw:plainscycling",
+   "kw:typecycling",
+   "rec:partial",
+   "sub:mutant",
+   "sub:mutant ninja turtle",
+   "sub:ninja",
+   "sub:turtle",
+   "tok:mutant",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Frostbridge Guard",
+  "type": "Creature — Elemental Soldier",
+  "cost": "{1}{W}",
+  "rank": 20072,
+  "text": "{2}{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:elemental",
+   "sub:elemental soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Alabaster Host Sanctifier",
+  "type": "Creature — Phyrexian Cleric",
+  "cost": "{1}{W}",
+  "rank": 20074,
+  "text": "Lifelink",
+  "facets": [
+   "eff:gain-life",
+   "kw:lifelink",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Barbed Battlegear",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 20075,
+  "text": "Equipped creature gets +4/-1.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Undercity's Embrace",
+  "type": "Instant",
+  "cost": "{2}{B}",
+  "rank": 20077,
+  "text": "Target opponent sacrifices a creature of their choice. If you control a creature with power 4 or greater, you gain 4 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:sacrifice",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Knight of the Holy Nimbus",
+  "type": "Creature — Human Rebel Knight",
+  "cost": "{W}{W}",
+  "rank": 20078,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\nIf this creature would be destroyed, regenerate it. (Tap it, remove it from combat, and heal all damage on it.)\n{2}: This creature can't be regenerated this turn. Only your opponents may activate this ability.",
+  "facets": [
+   "acost:2",
+   "kw:flanking",
+   "kw:heal",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human rebel knight",
+   "sub:knight",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grasping Giant",
+  "type": "Creature — Giant",
+  "cost": "{5}{W}",
+  "rank": 20079,
+  "text": "Vigilance\nWhenever this creature becomes blocked by a creature, exile that creature until this creature leaves the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "kw:vigilance",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:giant",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Araba Mothrider",
+  "type": "Creature — Human Samurai",
+  "cost": "{1}{W}",
+  "rank": 20083,
+  "text": "Flying\nBushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)",
+  "facets": [
+   "eff:pump",
+   "kw:bushido",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human samurai",
+   "sub:samurai",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Despondency",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 20084,
+  "text": "Enchant creature\nEnchanted creature gets -2/-0.\nWhen this Aura is put into a graveyard from the battlefield, return it to its owner's hand.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:zone:graveyard",
+   "cares:zone:hand",
+   "eff:move-zone",
+   "eff:pump",
+   "eff:return-from",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Master of Pearls",
+  "type": "Creature — Human Monk",
+  "cost": "{1}{W}",
+  "rank": 20085,
+  "text": "Morph {3}{W}{W} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, creatures you control get +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:morph",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Festerleech",
+  "type": "Creature — Zombie Leech",
+  "cost": "{B}",
+  "rank": 20087,
+  "text": "Whenever this creature deals combat damage to a player, you mill two cards.\n{1}{B}: This creature gets +2/+2 until end of turn. Activate only once each turn.",
+  "facets": [
+   "acost:2",
+   "eff:mill",
+   "eff:pump",
+   "kw:mill",
+   "mv:cheap",
+   "rec:full",
+   "sub:leech",
+   "sub:zombie",
+   "sub:zombie leech",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Valor of the Worthy",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 20090,
+  "text": "Enchant creature\nEnchanted creature gets +1/+1.\nWhen enchanted creature leaves the battlefield, create a 1/1 white Spirit creature token with flying.",
+  "facets": [
+   "cares:sub:spirit",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Render Inert",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 20096,
+  "text": "Remove up to five counters from target permanent.\nDraw a card.",
+  "facets": [
+   "eff:draw",
+   "eff:remove-counters",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ }
+]

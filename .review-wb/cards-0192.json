@@ -1,0 +1,891 @@
+[
+ {
+  "name": "Draugr's Helm",
+  "type": "Artifact — Equipment",
+  "cost": "{1}{B}",
+  "rank": 24464,
+  "text": "When this Equipment enters, you may pay {2}{B}. If you do, create a 2/2 black Zombie Berserker creature token, then attach this Equipment to it.\nEquipped creature gets +2/+2 and has menace. (It can't be blocked except by two or more creatures.)\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:sub:berserker",
+   "cares:sub:equipment",
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "grants:menace",
+   "kw:equip",
+   "kw:menace",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Abyssal Horror",
+  "type": "Creature — Horror",
+  "cost": "{4}{B}{B}",
+  "rank": 24468,
+  "text": "Flying\nWhen this creature enters, target player discards two cards.",
+  "facets": [
+   "eff:discard",
+   "kw:flying",
+   "mv:big",
+   "rec:full",
+   "sub:horror",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grisly Sigil",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 24471,
+  "text": "Casualty 1 (As you cast this spell, you may sacrifice a creature with power 1 or greater. When you do, copy this spell and you may choose a new target for the copy.)\nChoose target creature or planeswalker. If it was dealt noncombat damage this turn, Grisly Sigil deals 3 damage to it and you gain 3 life. Otherwise, Grisly Sigil deals 1 damage to it and you gain 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "cost:sacrifice",
+   "eff:copy",
+   "eff:damage",
+   "eff:gain-life",
+   "kw:casualty",
+   "mv:cheap",
+   "rec:partial",
+   "trig:cast",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gaze of Pain",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 24472,
+  "text": "Until end of turn, whenever a creature you control attacks and isn't blocked, you may choose to have it deal damage equal to its power to a target creature. If you do, it assigns no combat damage this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "trig:attacks",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Gravblade Heavy",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{B}",
+  "rank": 24474,
+  "text": "As long as you control an artifact, this creature gets +1/+0 and has deathtouch.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nettling Imp",
+  "type": "Creature — Imp",
+  "cost": "{2}{B}",
+  "rank": 24475,
+  "text": "{T}: Choose target non-Wall creature the active player has controlled continuously since the beginning of the turn. That creature attacks this turn if able. Destroy it at the beginning of the next end step if it didn't attack this turn. Activate only during an opponent's turn, before attackers are declared.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "eff:destroy",
+   "sub:imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Castigate",
+  "type": "Sorcery",
+  "cost": "{W}{B}",
+  "rank": 24478,
+  "text": "Target opponent reveals their hand. You choose a nonland card from it and exile that card.",
+  "facets": [
+   "cares:zone:hand",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Powder Keg",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 24479,
+  "text": "At the beginning of your upkeep, you may put a fuse counter on this artifact.\n{T}, Sacrifice this artifact: Destroy each artifact and creature with mana value equal to the number of fuse counters on this artifact.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "ctr:fuse-self",
+   "eff:add-counters-self",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:partial",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Pus Kami",
+  "type": "Creature — Spirit",
+  "cost": "{5}{B}{B}",
+  "rank": 24481,
+  "text": "{B}, Sacrifice this creature: Destroy target nonblack creature.\nSoulshift 6 (When this creature dies, you may return target Spirit card with mana value 6 or less from your graveyard to your hand.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "eff:return-from",
+   "kw:soulshift",
+   "mv:big",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Impeccable Timing",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 24482,
+  "text": "Impeccable Timing deals 3 damage to target attacking or blocking creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Amazing Spider-Girl",
+  "type": "Legendary Creature — Spider Human Hero",
+  "cost": "{3}{W}{W}",
+  "rank": 24484,
+  "text": "Web-slinging {2}{W} (You may cast this spell for {2}{W} if you also return a tapped creature you control to its owner's hand.)\nFlying, vigilance",
+  "facets": [
+   "cares:type:creature",
+   "cost:return-to-hand",
+   "eff:move-zone",
+   "kw:flying",
+   "kw:vigilance",
+   "kw:web-slinging",
+   "pt:big",
+   "rec:partial",
+   "sub:hero",
+   "sub:human",
+   "sub:spider",
+   "sub:spider human hero",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Lawbringer",
+  "type": "Creature — Kor Rebel",
+  "cost": "{2}{W}",
+  "rank": 24485,
+  "text": "{T}, Sacrifice this creature: Exile target red creature.",
+  "facets": [
+   "acost:0",
+   "cares:color:r",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:exile",
+   "rec:full",
+   "sub:kor",
+   "sub:kor rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ebony Horse",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 24487,
+  "text": "{2}, {T}: Untap target attacking creature you control. Prevent all combat damage that would be dealt to and dealt by that creature this turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:untap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Leonin Snarecaster",
+  "type": "Creature — Cat Soldier",
+  "cost": "{1}{W}",
+  "rank": 24488,
+  "text": "When this creature enters, you may tap target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:cat",
+   "sub:cat soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Swooping Protector",
+  "type": "Creature — Bird Citizen",
+  "cost": "{3}{W}",
+  "rank": 24491,
+  "text": "Flash\nFlying\nThis creature enters with a shield counter on it. (If it would be dealt damage or destroyed, remove a shield counter from it instead.)",
+  "facets": [
+   "ctr:shield",
+   "eff:add-counters",
+   "kw:flash",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "sub:bird citizen",
+   "sub:citizen",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Minion of the Wastes",
+  "type": "Creature — Minion",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 24499,
+  "text": "Trample\nAs this creature enters, pay any amount of life.\nMinion of the Wastes's power and toughness are each equal to the life paid as it entered.",
+  "facets": [
+   "cares:sub:minion",
+   "cost:life",
+   "eff:set-pt",
+   "kw:trample",
+   "mv:big",
+   "rec:partial",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Manriki-Gusari",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 24500,
+  "text": "Equipped creature gets +1/+2 and has \"{T}: Destroy target Equipment.\"\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:destroy",
+   "kw:equip",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Task Force",
+  "type": "Creature — Human Rebel",
+  "cost": "{2}{W}",
+  "rank": 24501,
+  "text": "Whenever this creature becomes the target of a spell or ability, it gets +0/+3 until end of turn.",
+  "facets": [
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mourning",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 24504,
+  "text": "Enchant creature\nEnchanted creature gets -2/-0.\n{B}: Return this Aura to its owner's hand.",
+  "facets": [
+   "acost:1",
+   "cares:sub:aura",
+   "cares:zone:hand",
+   "eff:move-zone",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "War Elephant",
+  "type": "Creature — Elephant",
+  "cost": "{3}{W}",
+  "rank": 24505,
+  "text": "Trample; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "kw:banding",
+   "kw:trample",
+   "sub:elephant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arbalest Elite",
+  "type": "Creature — Human Archer",
+  "cost": "{2}{W}{W}",
+  "rank": 24506,
+  "text": "{2}{W}, {T}: This creature deals 3 damage to target attacking or blocking creature. This creature doesn't untap during your next untap step.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:damage",
+   "sub:archer",
+   "sub:human",
+   "sub:human archer",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Panicked Bystander // Cackling Culprit",
+  "type": "Creature — Human Peasant // Creature — Human Rogue",
+  "cost": "",
+  "rank": 24513,
+  "text": "Whenever this creature or another creature you control dies, you gain 1 life.\nAt the beginning of your end step, if you gained 3 or more life this turn, transform this creature.\n//\nWhenever this creature or another creature you control dies, you gain 1 life.\n{1}{B}: This creature gains deathtouch until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:gain-life",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "kw:transform",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human peasant",
+   "sub:human rogue",
+   "sub:peasant",
+   "sub:rogue",
+   "trig:dies",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Greel, Mind Raker",
+  "type": "Legendary Creature — Horror Spellshaper",
+  "cost": "{3}{B}{B}",
+  "rank": 24519,
+  "text": "{X}{B}, {T}, Discard two cards: Target player discards X cards at random.",
+  "facets": [
+   "acost:0",
+   "acost:x",
+   "cost:discard",
+   "cost:tap",
+   "eff:discard",
+   "rec:full",
+   "sub:horror",
+   "sub:horror spellshaper",
+   "sub:spellshaper",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Major Teroh",
+  "type": "Legendary Creature — Bird Soldier",
+  "cost": "{3}{W}",
+  "rank": 24523,
+  "text": "Flying\n{3}{W}{W}, Sacrifice Major Teroh: Exile all black creatures.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:exile",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:bird",
+   "sub:bird soldier",
+   "sub:soldier",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Hero of the Pride",
+  "type": "Creature — Cat Soldier",
+  "cost": "{1}{W}",
+  "rank": 24526,
+  "text": "Whenever you cast a spell that targets this creature, creatures you control get +1/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cat",
+   "sub:cat soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flaying Tendrils",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 24527,
+  "text": "Devoid (This card has no color.)\nAll creatures get -2/-2 until end of turn. If a creature would die this turn, exile it instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:exile",
+   "eff:shrink",
+   "kw:devoid",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "East-Mark Cavalier",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}",
+  "rank": 24535,
+  "text": "Vigilance\nWhenever this creature deals damage to a Goblin or Orc, destroy that creature.",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:sub:orc",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Darksteel Brute",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 24536,
+  "text": "Indestructible (Damage and effects that say \"destroy\" don't destroy this artifact.)\n{3}: This artifact becomes a 2/2 Beast artifact creature until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:sub:beast",
+   "col:none",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Poisoner's Apprentice",
+  "type": "Creature — Orc Warlock",
+  "cost": "{2}{B}",
+  "rank": 24537,
+  "text": "Infusion — When this creature enters, target creature an opponent controls gets -4/-4 until end of turn if you gained life this turn.",
+  "facets": [
+   "cares:lifegain",
+   "kw:infusion",
+   "rec:partial",
+   "sub:orc",
+   "sub:orc warlock",
+   "sub:warlock",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Defend the Campus",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 24540,
+  "text": "Choose one —\n• Creatures you control get +1/+1 until end of turn.\n• Destroy target creature with power 4 or greater.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Fade from Memory",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 24543,
+  "text": "Exile target card from a graveyard.\nCycling {B} ({B}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:exile-graveyard",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Anointer of Champions",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 24546,
+  "text": "{T}: Target attacking creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:pump",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Floating Shield",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 24547,
+  "text": "Enchant creature\nAs this Aura enters, choose a color.\nEnchanted creature has protection from the chosen color. This effect doesn't remove this Aura.\nSacrifice this Aura: Target creature gains protection from the chosen color until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:aura",
+   "cares:type:creature",
+   "cost:sacrifice-self",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:enchant",
+   "kw:protection",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Porcelain Legionnaire",
+  "type": "Artifact Creature — Phyrexian Soldier",
+  "cost": "{2}{W/P}",
+  "rank": 24551,
+  "text": "({W/P} can be paid with either {W} or 2 life.)\nFirst strike",
+  "facets": [
+   "cost:cast-life",
+   "kw:first strike",
+   "rec:full",
+   "sub:phyrexian",
+   "sub:phyrexian soldier",
+   "sub:soldier",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Duskmantle Operative",
+  "type": "Creature — Human Rogue",
+  "cost": "{1}{B}",
+  "rank": 24554,
+  "text": "This creature can't be blocked by creatures with power 4 or greater.",
+  "facets": [
+   "mv:cheap",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Silvercoat Lion",
+  "type": "Creature — Cat",
+  "cost": "{1}{W}",
+  "rank": 24557,
+  "text": "",
+  "facets": [
+   "mv:cheap",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Fatal Lore",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 24558,
+  "text": "An opponent chooses one —\n• You draw three cards.\n• You destroy up to two target creatures that player controls. They can't be regenerated. That player draws up to three cards.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:draw",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ballroom Brawlers",
+  "type": "Creature — Human Warrior",
+  "cost": "{3}{W}{W}",
+  "rank": 24559,
+  "text": "Whenever this creature attacks, this creature and up to one other target creature you control both gain your choice of first strike or lifelink until end of turn.",
+  "facets": [
+   "rec:partial",
+   "sub:human",
+   "sub:human warrior",
+   "sub:warrior",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wakedancer",
+  "type": "Creature — Human Shaman",
+  "cost": "{2}{B}",
+  "rank": 24561,
+  "text": "Morbid — When this creature enters, if a creature died this turn, create a 2/2 black Zombie creature token.",
+  "facets": [
+   "eff:create-token",
+   "kw:morbid",
+   "rec:partial",
+   "sub:human",
+   "sub:human shaman",
+   "sub:shaman",
+   "tok:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Icatian Infantry",
+  "type": "Creature — Human Soldier",
+  "cost": "{W}",
+  "rank": 24568,
+  "text": "{1}: This creature gains first strike until end of turn.\n{1}: This creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "grants:banding",
+   "grants:first strike",
+   "kw:banding",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hollow Specter",
+  "type": "Creature — Specter",
+  "cost": "{1}{B}{B}",
+  "rank": 24569,
+  "text": "Flying\nWhenever this creature deals combat damage to a player, you may pay {X}. If you do, that player reveals X cards from their hand and you choose one of them. That player discards that card.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "kw:flying",
+   "rec:partial",
+   "sub:specter",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Black Scarab",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 24570,
+  "text": "Enchant creature\nEnchanted creature can't be blocked by black creatures.\nEnchanted creature gets +2/+2 as long as an opponent controls a black permanent.",
+  "facets": [
+   "eff:cant-be-blocked",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Wall Off",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 24573,
+  "text": "This spell costs {1} less to cast for each creature your opponents control.\nCreate a 0/4 colorless Wall creature token with defender. You gain 4 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:gain-life",
+   "rec:full",
+   "tok:wall",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Veteran's Powerblade",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 24577,
+  "text": "Equipped creature gets +2/+0.\nEquip Soldier {W}\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:soldier",
+   "cares:type:creature",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Vraska's Scorn",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 24580,
+  "text": "Target opponent loses 4 life. You may search your library and/or graveyard for a card named Vraska, Scheming Gorgon, reveal it, and put it into your hand. If you search your library this way, shuffle.",
+  "facets": [
+   "cares:sub:gorgon",
+   "eff:lose-life",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lightwielder Paladin",
+  "type": "Creature — Human Knight",
+  "cost": "{3}{W}{W}",
+  "rank": 24582,
+  "text": "First strike (This creature deals combat damage before creatures without first strike.)\nWhenever this creature deals combat damage to a player, you may exile target black or red permanent that player controls.",
+  "facets": [
+   "cares:color:r",
+   "eff:exile",
+   "kw:first strike",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tower of Calamities",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 24583,
+  "text": "{8}, {T}: This artifact deals 12 damage to target creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:damage",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gleam of Resistance",
+  "type": "Instant",
+  "cost": "{4}{W}",
+  "rank": 24588,
+  "text": "Creatures you control get +1/+2 until end of turn. Untap those creatures.\nBasic landcycling {1}{W} ({1}{W}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:pump",
+   "eff:search-library",
+   "eff:untap",
+   "kw:basic landcycling",
+   "kw:cycling",
+   "kw:landcycling",
+   "kw:typecycling",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Voracious Null",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 24589,
+  "text": "{1}{B}, Sacrifice another creature: Put two +1/+1 counters on this creature. Activate only as a sorcery.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Duelcraft Trainer",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 24591,
+  "text": "First strike\nCoven — At the beginning of combat on your turn, if you control three or more creatures with different powers, target creature you control gains double strike until end of turn.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:double strike",
+   "kw:coven",
+   "kw:double strike",
+   "kw:first strike",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ }
+]

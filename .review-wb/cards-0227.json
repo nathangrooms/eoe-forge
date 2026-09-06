@@ -1,0 +1,809 @@
+[
+ {
+  "name": "Sandals of Abdallah",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 28627,
+  "text": "{2}, {T}: Target creature gains islandwalk until end of turn. When that creature dies this turn, destroy this artifact. (A creature with islandwalk can't be blocked as long as defending player controls an Island.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "grants:islandwalk",
+   "kw:islandwalk",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sphere of Duty",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 28628,
+  "text": "If a green source would deal damage to you, prevent 2 of that damage.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mercadian Lift",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 28630,
+  "text": "{1}, {T}: Put a winch counter on this artifact.\n{T}, Remove X winch counters from this artifact: You may put a creature card with mana value X from your hand onto the battlefield.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "cost:tap",
+   "ctr:winch-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Arrogant Bloodlord",
+  "type": "Creature — Vampire Knight",
+  "cost": "{1}{B}{B}",
+  "rank": 28634,
+  "text": "Whenever this creature blocks or becomes blocked by a creature with power 1 or less, destroy this creature at end of combat.",
+  "facets": [
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "trig:becomes-blocked",
+   "trig:blocks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Felhide Minotaur",
+  "type": "Creature — Minotaur",
+  "cost": "{2}{B}",
+  "rank": 28635,
+  "text": "",
+  "facets": [
+   "sub:minotaur",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Trial of Solidarity",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 28636,
+  "text": "When this enchantment enters, creatures you control get +2/+1 and gain vigilance until end of turn.\nWhen a Cartouche you control enters, return this enchantment to its owner's hand.",
+  "facets": [
+   "cares:sub:cartouche",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:move-zone",
+   "eff:pump",
+   "grants:vigilance",
+   "kw:vigilance",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Yawgmoth Demon",
+  "type": "Creature — Phyrexian Demon",
+  "cost": "{4}{B}{B}",
+  "rank": 28639,
+  "text": "Flying (This creature can't be blocked except by creatures with flying or reach.)\nFirst strike (This creature deals combat damage before creatures without first strike.)\nAt the beginning of your upkeep, you may sacrifice an artifact. If you don't, tap this creature and it deals 2 damage to you.",
+  "facets": [
+   "cares:type:artifact",
+   "eff:damage-self",
+   "eff:sacrifice",
+   "kw:first strike",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:demon",
+   "sub:phyrexian",
+   "sub:phyrexian demon",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Empty-Shrine Kannushi",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 28641,
+  "text": "This creature has protection from the colors of permanents you control.",
+  "facets": [
+   "grants:protection",
+   "kw:protection",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gust Walker",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 28642,
+  "text": "You may exert this creature as it attacks. When you do, it gets +1/+1 and gains flying until end of turn. (An exerted creature won't untap during your next untap step.)",
+  "facets": [
+   "grants:flying",
+   "kw:exert",
+   "kw:flying",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voice of Truth",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}",
+  "rank": 28643,
+  "text": "Flying, protection from white",
+  "facets": [
+   "cares:color:w",
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vizier of the True",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}",
+  "rank": 28647,
+  "text": "You may exert this creature as it attacks. (It won't untap during your next untap step.)\nWhenever you exert a creature, tap target creature an opponent controls.",
+  "facets": [
+   "eff:tap",
+   "kw:exert",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lumbering Laundry",
+  "type": "Artifact Creature — Golem",
+  "cost": "{5}",
+  "rank": 28651,
+  "text": "{2}: Until end of turn, you may look at face-down creatures you don't control any time.\nDisguise {5} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "kw:disguise",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Endemic Plague",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 28658,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nDestroy all creatures that share a creature type with the sacrificed creature. They can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:destroy",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Calming Licid",
+  "type": "Creature — Licid",
+  "cost": "{2}{W}",
+  "rank": 28660,
+  "text": "{W}, {T}: This creature loses this ability and becomes an Aura enchantment with enchant creature. Attach it to target creature. You may pay {W} to end this effect.\nEnchanted creature can't attack.",
+  "facets": [
+   "acost:2",
+   "cares:sub:aura",
+   "rec:partial",
+   "sub:licid",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ethereal Champion",
+  "type": "Creature — Avatar",
+  "cost": "{2}{W}{W}{W}",
+  "rank": 28661,
+  "text": "Pay 1 life: Prevent the next 1 damage that would be dealt to this creature this turn.",
+  "facets": [
+   "cost:life",
+   "eff:prevent-damage",
+   "sub:avatar",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soratami Cloud Chariot",
+  "type": "Artifact",
+  "cost": "{5}",
+  "rank": 28662,
+  "text": "{2}: Target creature you control gains flying until end of turn.\n{2}: Prevent all combat damage that would be dealt to and dealt by target creature you control this turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Zhalfirin Crusader",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}{W}",
+  "rank": 28664,
+  "text": "Flanking (Whenever a creature without flanking blocks this creature, the blocking creature gets -1/-1 until end of turn.)\n{1}{W}: The next 1 damage that would be dealt to this creature this turn is dealt to any target instead.",
+  "facets": [
+   "acost:2",
+   "eff:redirect-damage",
+   "kw:flanking",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Jhovall Queen",
+  "type": "Creature — Cat Rebel",
+  "cost": "{4}{W}{W}",
+  "rank": 28665,
+  "text": "Vigilance",
+  "facets": [
+   "kw:vigilance",
+   "mv:big",
+   "rec:full",
+   "sub:cat",
+   "sub:cat rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voice of Duty",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}",
+  "rank": 28669,
+  "text": "Flying, protection from green",
+  "facets": [
+   "kw:flying",
+   "kw:protection",
+   "rec:full",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Funeral March",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}{B}",
+  "rank": 28675,
+  "text": "Enchant creature\nWhen enchanted creature leaves the battlefield, its controller sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:leaves",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sicken",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 28679,
+  "text": "Enchant creature\nEnchanted creature gets -1/-1.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:pump",
+   "kw:cycling",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Essence Bottle",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 28680,
+  "text": "{3}, {T}: Put an elixir counter on this artifact.\n{T}, Remove all elixir counters from this artifact: You gain 2 life for each elixir counter removed this way.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "ctr:elixir-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Fairgrounds Patrol",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 28681,
+  "text": "{1}{W}, Exile this card from your graveyard: Create a 1/1 colorless Thopter artifact creature token with flying. Activate only as a sorcery.",
+  "facets": [
+   "acost:2",
+   "cost:exile-self",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:thopter",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Crown of Suspicion",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 28684,
+  "text": "Enchant creature\nEnchanted creature gets +2/-1.\nSacrifice this Aura: Enchanted creature and other creatures that share a creature type with it get +2/-1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:aura",
+   "cost:sacrifice-self",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sacred Guide",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 28685,
+  "text": "{1}{W}, Sacrifice this creature: Reveal cards from the top of your library until you reveal a white card. Put that card into your hand and exile all other cards revealed this way.",
+  "facets": [
+   "cares:color:w",
+   "cares:zone:library",
+   "cost:sacrifice-self",
+   "eff:search-library",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Scroll of Origins",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 28686,
+  "text": "{2}, {T}: Draw a card if you have seven or more cards in hand.",
+  "facets": [
+   "acost:2",
+   "cares:zone:hand",
+   "col:none",
+   "cost:tap",
+   "eff:draw",
+   "mv:cheap",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hound of the Farbogs",
+  "type": "Creature — Zombie Dog",
+  "cost": "{4}{B}",
+  "rank": 28687,
+  "text": "Delirium — This creature has menace as long as there are four or more card types among cards in your graveyard. (A creature with menace can't be blocked except by two or more creatures.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:delirium",
+   "kw:menace",
+   "pt:big",
+   "sub:dog",
+   "sub:zombie",
+   "sub:zombie dog",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wall of Tombstones",
+  "type": "Creature — Wall",
+  "cost": "{1}{B}",
+  "rank": 28692,
+  "text": "Defender (This creature can't attack.)\nAt the beginning of your upkeep, change this creature's base toughness to 1 plus the number of creature cards in your graveyard. (This effect lasts indefinitely.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Death Bomb",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 28695,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nDestroy target nonblack creature. It can't be regenerated. Its controller loses 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "cost:cast-sacrifice",
+   "eff:destroy",
+   "eff:lose-life",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Steadfast Guard",
+  "type": "Creature — Human Rebel",
+  "cost": "{W}{W}",
+  "rank": 28696,
+  "text": "Vigilance (Attacking doesn't cause this creature to tap.)",
+  "facets": [
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Reap",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 28700,
+  "text": "Destroy target nongreen creature. Its controller loses 3 life if you've cast another black spell this turn.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mesa Falcon",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 28701,
+  "text": "Flying\n{1}{W}: This creature gets +0/+1 until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "kw:flying",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Death's Caress",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 28705,
+  "text": "Destroy target creature. If that creature was a Human, you gain life equal to its toughness.",
+  "facets": [
+   "cares:sub:human",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Metrognome",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 28707,
+  "text": "When a spell or ability an opponent controls causes you to discard this card, create four 1/1 colorless Gnome artifact creature tokens.\n{4}, {T}: Create a 1/1 colorless Gnome artifact creature token.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:tap",
+   "eff:create-token",
+   "rec:partial",
+   "tok:gnome",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sphere of Grace",
+  "type": "Enchantment",
+  "cost": "{3}{W}",
+  "rank": 28708,
+  "text": "If a black source would deal damage to you, prevent 2 of that damage.",
+  "facets": [
+   "eff:prevent-damage",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Bastion Enforcer",
+  "type": "Creature — Dwarf Soldier",
+  "cost": "{2}{W}",
+  "rank": 28709,
+  "text": "",
+  "facets": [
+   "sub:dwarf",
+   "sub:dwarf soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soltari Emissary",
+  "type": "Creature — Soltari Soldier",
+  "cost": "{1}{W}",
+  "rank": 28711,
+  "text": "{W}: This creature gains shadow until end of turn. (It can block or be blocked by only creatures with shadow.)",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "grants:shadow",
+   "kw:shadow",
+   "mv:cheap",
+   "rec:full",
+   "sub:soldier",
+   "sub:soltari",
+   "sub:soltari soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slayer's Cleaver",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 28715,
+  "text": "Equipped creature gets +3/+1 and must be blocked by an Eldrazi if able.\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:sub:eldrazi",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Boneshard Slasher",
+  "type": "Creature — Horror",
+  "cost": "{1}{B}",
+  "rank": 28716,
+  "text": "Flying\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and has \"When this creature becomes the target of a spell or ability, sacrifice it.\"",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:flying",
+   "kw:threshold",
+   "mv:cheap",
+   "rec:partial",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Skeletal Kathari",
+  "type": "Creature — Bird Skeleton",
+  "cost": "{4}{B}",
+  "rank": 28717,
+  "text": "Flying\n{B}, Sacrifice a creature: Regenerate this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "kw:flying",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird skeleton",
+   "sub:skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Throttle",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 28721,
+  "text": "Target creature gets -4/-4 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Kelinore Bat",
+  "type": "Creature — Bat",
+  "cost": "{2}{B}",
+  "rank": 28729,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:bat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Henge Guardian",
+  "type": "Artifact Creature — Dragon Wurm",
+  "cost": "{5}",
+  "rank": 28730,
+  "text": "{2}: This creature gains trample until end of turn.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:pump",
+   "grants:trample",
+   "kw:trample",
+   "rec:full",
+   "sub:dragon",
+   "sub:dragon wurm",
+   "sub:wurm",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Grollub",
+  "type": "Creature — Beast",
+  "cost": "{2}{B}",
+  "rank": 28731,
+  "text": "Whenever this creature is dealt damage, each opponent gains that much life.",
+  "facets": [
+   "rec:partial",
+   "sub:beast",
+   "trig:dealt-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Warning",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 28733,
+  "text": "Prevent all combat damage that would be dealt by target attacking creature this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Security Blockade",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{W}",
+  "rank": 28734,
+  "text": "Enchant land\nWhen this Aura enters, create a 2/2 white Knight creature token with vigilance.\nEnchanted land has \"{T}: Prevent the next 1 damage that would be dealt to you this turn.\"",
+  "facets": [
+   "cares:sub:aura",
+   "eff:create-token",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "tok:knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Deepcavern Imp",
+  "type": "Creature — Imp Rebel",
+  "cost": "{2}{B}",
+  "rank": 28735,
+  "text": "Flying, haste\nEcho—Discard a card. (At the beginning of your upkeep, if this came under your control since the beginning of your last upkeep, sacrifice it unless you pay its echo cost.)",
+  "facets": [
+   "eff:discard-self",
+   "kw:echo",
+   "kw:flying",
+   "kw:haste",
+   "rec:partial",
+   "sub:imp",
+   "sub:imp rebel",
+   "sub:rebel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Specter's Wail",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 28738,
+  "text": "Target player discards a card at random.",
+  "facets": [
+   "eff:discard",
+   "mv:cheap",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ghoulflesh",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 28739,
+  "text": "Enchant creature\nEnchanted creature gets -1/-1 and is a black Zombie in addition to its other colors and types.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Ambitious Aetherborn",
+  "type": "Creature — Aetherborn Artificer",
+  "cost": "{4}{B}",
+  "rank": 28741,
+  "text": "Fabricate 1 (When this creature enters, put a +1/+1 counter on it or create a 1/1 colorless Servo artifact creature token.)",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:fabricate",
+   "rec:full",
+   "sub:aetherborn",
+   "sub:aetherborn artificer",
+   "sub:artificer",
+   "tok:servo",
+   "type:creature"
+  ]
+ }
+]

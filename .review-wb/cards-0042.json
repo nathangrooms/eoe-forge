@@ -1,0 +1,951 @@
+[
+ {
+  "name": "Gollum, Obsessed Stalker",
+  "type": "Legendary Creature — Halfling Horror",
+  "cost": "{1}{B}",
+  "rank": 5029,
+  "text": "Skulk (This creature can't be blocked by creatures with greater power.)\nAt the beginning of your end step, each opponent dealt combat damage this game by a creature named Gollum, Obsessed Stalker loses life equal to the amount of life you gained this turn.",
+  "facets": [
+   "eff:lose-life",
+   "kw:skulk",
+   "mv:cheap",
+   "rec:partial",
+   "sub:halfling",
+   "sub:halfling horror",
+   "sub:horror",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Sliver Hive",
+  "type": "Land",
+  "cost": "",
+  "rank": 5030,
+  "text": "{T}: Add {C}.\n{T}: Add one mana of any color. Spend this mana only to cast a Sliver spell.\n{5}, {T}: Create a 1/1 colorless Sliver creature token. Activate only if you control a Sliver.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:sliver",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:create-token",
+   "mana:1",
+   "rec:partial",
+   "tok:sliver",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Bonehoard",
+  "type": "Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 5032,
+  "text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +X/+X, where X is the number of creature cards in all graveyards.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "kw:equip",
+   "kw:living weapon",
+   "rec:partial",
+   "sub:equipment",
+   "tok:germ",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Soul Snuffers",
+  "type": "Creature — Elemental Shaman",
+  "cost": "{2}{B}{B}",
+  "rank": 5034,
+  "text": "When this creature enters, put a -1/-1 counter on each creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "rec:full",
+   "scope:all",
+   "sub:elemental",
+   "sub:elemental shaman",
+   "sub:shaman",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carnifex Demon",
+  "type": "Creature — Phyrexian Demon",
+  "cost": "{4}{B}{B}",
+  "rank": 5036,
+  "text": "Flying\nThis creature enters with two -1/-1 counters on it.\n{B}, Remove a -1/-1 counter from this creature: Put a -1/-1 counter on each other creature.",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "sub:phyrexian",
+   "sub:phyrexian demon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Suspicious Bookcase",
+  "type": "Artifact Creature — Wall",
+  "cost": "{2}",
+  "rank": 5037,
+  "text": "Defender\n{3}, {T}: Target creature can't be blocked this turn.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:cant-be-blocked",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wayward Servant",
+  "type": "Creature — Zombie",
+  "cost": "{W}{B}",
+  "rank": 5038,
+  "text": "Whenever another Zombie you control enters, each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "cares:sub:zombie",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tomb Fortress",
+  "type": "Land",
+  "cost": "",
+  "rank": 5046,
+  "text": "This land enters tapped.\n{T}: Add {B}.\n{2}{B}{B}{B}, {T}, Exile this land: Mill four cards, then return a creature card from your graveyard to the battlefield. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:mill",
+   "eff:return-from",
+   "kw:mill",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Elspeth Tirel",
+  "type": "Legendary Planeswalker — Elspeth",
+  "cost": "{3}{W}{W}",
+  "rank": 5049,
+  "text": "+2: You gain 1 life for each creature you control.\n−2: Create three 1/1 white Soldier creature tokens.\n−5: Destroy all other permanents except for lands and tokens.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cares:type:token",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "eff:create-token",
+   "eff:destroy",
+   "eff:gain-life",
+   "rec:partial",
+   "sub:elspeth",
+   "tok:soldier",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Ghoulish Procession",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 5058,
+  "text": "Whenever one or more nontoken creatures die, create a 2/2 black Zombie creature token with decayed. This ability triggers only once each turn. (A creature with decayed can't block. When it attacks, sacrifice it at end of combat.)",
+  "facets": [
+   "cares:sub:zombie",
+   "eff:create-token",
+   "mv:cheap",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "March of the Canonized",
+  "type": "Enchantment",
+  "cost": "{X}{W}{W}",
+  "rank": 5059,
+  "text": "When this enchantment enters, create X 1/1 white Vampire creature tokens with lifelink.\nAt the beginning of your upkeep, if your devotion to white and black is seven or greater, create a 4/3 white and black Vampire Demon creature token with flying.",
+  "facets": [
+   "cares:color:b",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:partial",
+   "tok:demon",
+   "tok:vampire",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Hammers of Moradin",
+  "type": "Creature — Dwarf Cleric",
+  "cost": "{2}{W}",
+  "rank": 5061,
+  "text": "Myriad (Whenever this creature attacks, for each opponent other than defending player, you may create a token copy that's tapped and attacking that player or a planeswalker they control. Exile the tokens at end of combat.)\nWhenever this creature attacks, for each opponent, tap up to one target creature that player controls.",
+  "facets": [
+   "eff:copy",
+   "eff:create-token",
+   "eff:tap",
+   "kw:myriad",
+   "rec:partial",
+   "sub:cleric",
+   "sub:dwarf",
+   "sub:dwarf cleric",
+   "trig:attacks",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gift of Estates",
+  "type": "Sorcery",
+  "cost": "{1}{W}",
+  "rank": 5064,
+  "text": "If an opponent controls more lands than you, search your library for up to three Plains cards, reveal them, put them into your hand, then shuffle.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:search-library",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kabira Crossroads",
+  "type": "Land",
+  "cost": "",
+  "rank": 5065,
+  "text": "This land enters tapped.\nWhen this land enters, you gain 2 life.\n{T}: Add {W}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Underworld Connections",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}{B}",
+  "rank": 5068,
+  "text": "Enchant land\nEnchanted land has \"{T}, Pay 1 life: Draw a card.\"",
+  "facets": [
+   "eff:draw",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Putrid Imp",
+  "type": "Creature — Zombie Imp",
+  "cost": "{B}",
+  "rank": 5071,
+  "text": "Discard a card: This creature gains flying until end of turn.\nThreshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1 and can't block.",
+  "facets": [
+   "acost:0",
+   "cares:zone:graveyard",
+   "cost:discard",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "kw:threshold",
+   "mv:cheap",
+   "rec:partial",
+   "sub:imp",
+   "sub:zombie",
+   "sub:zombie imp",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Endless Foot Assault",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 5072,
+  "text": "Squad {1}{W} (As an additional cost to cast this spell, you may pay {1}{W} any number of times. When this enchantment enters, create that many tokens that are copies of it.)\nWhenever you attack, for each opponent, create a 1/1 black Ninja creature token that's tapped and attacking that player.",
+  "facets": [
+   "cares:sub:ninja",
+   "eff:copy",
+   "eff:create-token",
+   "kw:squad",
+   "rec:partial",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Angel of Jubilation",
+  "type": "Creature — Angel",
+  "cost": "{1}{W}{W}{W}",
+  "rank": 5074,
+  "text": "Flying\nOther nonblack creatures you control get +1/+1.\nPlayers can't pay life or sacrifice creatures to cast spells or activate abilities.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Relentless Dead",
+  "type": "Creature — Zombie",
+  "cost": "{B}{B}",
+  "rank": 5075,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhen this creature dies, you may pay {B}. If you do, return it to its owner's hand.\nWhen this creature dies, you may pay {X}. If you do, return another target Zombie creature card with mana value X from your graveyard to the battlefield.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:menace",
+   "mv:cheap",
+   "rec:partial",
+   "sub:zombie",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Stoneforge Masterwork",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 5078,
+  "text": "Equipped creature gets +1/+1 for each other creature you control that shares a creature type with it.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ring of Valkas",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 5079,
+  "text": "Equipped creature has haste. (It can attack and {T} no matter when it came under your control.)\nAt the beginning of your upkeep, put a +1/+1 counter on equipped creature if it's red.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:attach",
+   "grants:haste",
+   "kw:equip",
+   "kw:haste",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Idol of False Gods",
+  "type": "Kindred Artifact — Eldrazi",
+  "cost": "{2}",
+  "rank": 5083,
+  "text": "{1}{C}, {T}: Create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"\nWhenever another Eldrazi you control dies, put a +1/+1 counter on this artifact.\nAs long as this artifact has eight or more +1/+1 counters on it, it's a 0/0 creature in addition to its other types and it has annihilator 2.",
+  "facets": [
+   "cares:sub:eldrazi",
+   "cares:sub:spawn",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "eff:sacrifice",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:eldrazi",
+   "trig:dies",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Contraband Livestock",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 5086,
+  "text": "Exile target creature, then roll a d20.\n1—9 | Its controller creates a 4/4 green Ox creature token.\n10—19 | Its controller creates a 2/2 green Boar creature token.\n20 | Its controller creates a 0/1 white Goat creature token.",
+  "facets": [
+   "cares:sub:boar",
+   "cares:sub:goat",
+   "cares:sub:ox",
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:exile",
+   "eff:random",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Cloudsteel Kirin",
+  "type": "Artifact Creature — Equipment Kirin",
+  "cost": "{2}{W}",
+  "rank": 5088,
+  "text": "Flying\nEquipped creature has flying and \"You can't lose the game and your opponents can't win the game.\"\nReconfigure {5} ({5}: Attach to target creature you control; or unattach from a creature. Reconfigure only as a sorcery. While attached, this isn't a creature.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:attach",
+   "kw:flying",
+   "kw:reconfigure",
+   "rec:partial",
+   "sub:equipment",
+   "sub:equipment kirin",
+   "sub:kirin",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Helping Hand",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 5089,
+  "text": "Return target creature card with mana value 3 or less from your graveyard to the battlefield tapped.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sand Scout",
+  "type": "Creature — Human Scout",
+  "cost": "{1}{W}",
+  "rank": 5091,
+  "text": "When this creature enters, if an opponent controls more lands than you, search your library for a Desert card, put it onto the battlefield tapped, then shuffle.\nWhenever one or more land cards are put into your graveyard from anywhere, create a 1/1 red, green, and white Sand Warrior creature token. This ability triggers only once each turn.",
+  "facets": [
+   "cares:sub:warrior",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:create-token",
+   "eff:search-library",
+   "mv:cheap",
+   "rec:partial",
+   "sub:human",
+   "sub:human scout",
+   "sub:scout",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Clive's Hideaway",
+  "type": "Land — Town",
+  "cost": "",
+  "rank": 5093,
+  "text": "Hideaway 4 (When this land enters, look at the top four cards of your library, exile one face down, then put the rest on the bottom in a random order.)\n{T}: Add {C}.\n{2}, {T}: You may play the exiled card without paying its mana cost if you control four or more legendary creatures.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:hideaway",
+   "mana:1",
+   "rec:partial",
+   "sub:town",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Xu-Ifit, Osteoharmonist",
+  "type": "Legendary Creature — Human Wizard",
+  "cost": "{1}{B}{B}",
+  "rank": 5095,
+  "text": "{T}: Return target creature card from your graveyard to the battlefield. It's a Skeleton in addition to its other types and has no abilities. Activate only as a sorcery.",
+  "facets": [
+   "acost:0",
+   "cares:sub:skeleton",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:neutralise",
+   "eff:return-from",
+   "rec:partial",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Valley Questcaller",
+  "type": "Creature — Rabbit Warrior",
+  "cost": "{1}{W}",
+  "rank": 5101,
+  "text": "Whenever one or more other Rabbits, Bats, Birds, and/or Mice you control enter, scry 1.\nOther Rabbits, Bats, Birds, and Mice you control get +1/+1.",
+  "facets": [
+   "cares:sub:bat",
+   "cares:sub:bird",
+   "cares:sub:mouse",
+   "cares:sub:rabbit",
+   "eff:pump",
+   "eff:scry",
+   "kw:scry",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:rabbit",
+   "sub:rabbit warrior",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angel of Despair",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}{W}{B}{B}",
+  "rank": 5104,
+  "text": "Flying\nWhen this creature enters, destroy target permanent.",
+  "facets": [
+   "eff:destroy",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Angelic Arbiter",
+  "type": "Creature — Angel",
+  "cost": "{5}{W}{W}",
+  "rank": 5105,
+  "text": "Flying\nEach opponent who cast a spell this turn can't attack with creatures.\nEach opponent who attacked with a creature this turn can't cast spells.",
+  "facets": [
+   "eff:cant-attack",
+   "eff:cant-cast",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:angel",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sothera, the Supervoid",
+  "type": "Legendary Enchantment",
+  "cost": "{2}{B}{B}",
+  "rank": 5107,
+  "text": "Whenever a creature you control dies, each opponent chooses a creature they control and exiles it.\nAt the beginning of your end step, if a player controls no creatures, sacrifice Sothera, then put a creature card exiled with it onto the battlefield under your control with two additional +1/+1 counters on it.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:exile",
+   "rec:partial",
+   "scope:all",
+   "trig:dies",
+   "trig:step",
+   "trig:step:end",
+   "type:enchantment",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Necrotic Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{1}{W}{B}",
+  "rank": 5109,
+  "text": "All Slivers have \"{3}, Sacrifice this permanent: Destroy target permanent.\"",
+  "facets": [
+   "cares:sub:sliver",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tinybones, Trinket Thief",
+  "type": "Legendary Creature — Skeleton Rogue",
+  "cost": "{1}{B}",
+  "rank": 5110,
+  "text": "At the beginning of each end step, if an opponent discarded a card this turn, you draw a card and you lose 1 life.\n{4}{B}{B}: Each opponent with no cards in hand loses 10 life.",
+  "facets": [
+   "acost:3",
+   "cares:zone:hand",
+   "eff:draw",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "sub:rogue",
+   "sub:skeleton",
+   "sub:skeleton rogue",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Krark's Thumb",
+  "type": "Legendary Artifact",
+  "cost": "{2}",
+  "rank": 5111,
+  "text": "If you would flip a coin, instead flip two coins and ignore one.",
+  "facets": [
+   "col:none",
+   "eff:random",
+   "mv:cheap",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Minthara, Merciless Soul",
+  "type": "Legendary Creature — Elf Cleric",
+  "cost": "{2}{W}{B}",
+  "rank": 5112,
+  "text": "Minthara has ward {X}, where X is the number of experience counters you have.\nAt the beginning of your end step, if a permanent you controlled left the battlefield this turn, you get an experience counter.\nCreatures you control get +1/+0 for each experience counter you have.",
+  "facets": [
+   "ctr:experience",
+   "eff:player-counter",
+   "kw:ward",
+   "rec:partial",
+   "sub:cleric",
+   "sub:elf",
+   "sub:elf cleric",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Stensian Sanguinist // Exsanguinate",
+  "type": "Creature — Vampire Cleric // Sorcery",
+  "cost": "{1}{B} // {X}{B}{B}",
+  "rank": 5113,
+  "text": "Whenever you attack, target creature gains deathtouch until end of turn. Whenever that creature deals combat damage to a player this combat, this creature becomes prepared. (While it's prepared, you may cast a copy of its spell. Doing so unprepares it.)\n//\nEach opponent loses X life. You gain life equal to the life lost this way.",
+  "facets": [
+   "cares:zone:exile",
+   "eff:gain-life",
+   "eff:lose-life",
+   "grants:deathtouch",
+   "kw:prepared",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:vampire",
+   "sub:vampire cleric",
+   "trig:attacks",
+   "trig:deals-damage",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kefnet's Monument",
+  "type": "Legendary Artifact",
+  "cost": "{3}",
+  "rank": 5115,
+  "text": "Blue creature spells you cast cost {1} less to cast.\nWhenever you cast a creature spell, target creature an opponent controls doesn't untap during its controller's next untap step.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "eff:reduce-cost",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:creature",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Stalwart Shield-Bearers",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 5119,
+  "text": "Defender\nOther creatures you control with defender get +0/+2.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:defender",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Snarling Gorehound",
+  "type": "Creature — Dog",
+  "cost": "{B}",
+  "rank": 5123,
+  "text": "Menace\nWhenever another creature you control with power 2 or less enters, surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:surveil",
+   "kw:menace",
+   "kw:surveil",
+   "mv:cheap",
+   "rec:partial",
+   "sub:dog",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Coin of Mastery",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 5124,
+  "text": "Each creature you control enters with an additional +1/+1 counter on it for each mana from an artifact source spent to cast it.\n{T}: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:add-counters",
+   "eff:add-mana",
+   "eff:create-token",
+   "kw:treasure",
+   "rec:partial",
+   "tok:treasure",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Jund Panorama",
+  "type": "Land",
+  "cost": "",
+  "rank": 5127,
+  "text": "{T}: Add {C}.\n{1}, {T}, Sacrifice this land: Search your library for a basic Swamp, Mountain, or Forest card, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:sub:forest",
+   "cares:sub:mountain",
+   "cares:sub:swamp",
+   "cares:zone:library",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:search-library",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Curse of the Restless Dead",
+  "type": "Enchantment — Aura Curse",
+  "cost": "{2}{B}",
+  "rank": 5131,
+  "text": "Enchant player\nWhenever a land enchanted player controls enters, you create a 2/2 black Zombie creature token with decayed. (It can't block. When it attacks, sacrifice it at end of combat.)",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:land",
+   "eff:create-token",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "sub:aura curse",
+   "sub:curse",
+   "trig:enters",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Destroy Evil",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 5137,
+  "text": "Choose one —\n• Destroy target creature with toughness 4 or greater.\n• Destroy target enchantment.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "The Ten Rings",
+  "type": "Legendary Artifact",
+  "cost": "{8}",
+  "rank": 5139,
+  "text": "Your maximum hand size is ten.\nAt the beginning of your end step, if you have fewer than ten cards in hand, draw cards equal to the difference.",
+  "facets": [
+   "cares:zone:hand",
+   "col:none",
+   "mv:big",
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Skyknight Squire",
+  "type": "Creature — Cat Scout",
+  "cost": "{1}{W}",
+  "rank": 5142,
+  "text": "Whenever another creature you control enters, put a +1/+1 counter on this creature.\nAs long as this creature has three or more +1/+1 counters on it, it has flying and is a Knight in addition to its other types.",
+  "facets": [
+   "cares:sub:knight",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:cat",
+   "sub:cat scout",
+   "sub:scout",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Remorseful Cleric",
+  "type": "Creature — Spirit Cleric",
+  "cost": "{1}{W}",
+  "rank": 5143,
+  "text": "Flying\nSacrifice this creature: Exile target player's graveyard.",
+  "facets": [
+   "cares:zone:graveyard",
+   "cost:sacrifice-self",
+   "eff:exile-graveyard",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:spirit",
+   "sub:spirit cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rotting Regisaur",
+  "type": "Creature — Zombie Dinosaur",
+  "cost": "{2}{B}",
+  "rank": 5150,
+  "text": "At the beginning of your upkeep, discard a card.",
+  "facets": [
+   "eff:discard-self",
+   "pt:big",
+   "rec:full",
+   "sub:dinosaur",
+   "sub:zombie",
+   "sub:zombie dinosaur",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thaumatic Compass // Spires of Orazca",
+  "type": "Artifact // Land",
+  "cost": "",
+  "rank": 5151,
+  "text": "{3}, {T}: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.\nAt the beginning of your end step, if you control seven or more lands, transform this artifact.\n//\n(Transforms from Thaumatic Compass.)\n{T}: Add {C}.\n{T}: Untap target attacking creature an opponent controls and remove it from combat.",
+  "facets": [
+   "acost:1",
+   "acost:3",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "cost:tap",
+   "eff:search-library",
+   "eff:untap",
+   "kw:transform",
+   "rec:partial",
+   "scope:all",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Rush of Dread",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 5153,
+  "text": "Spree (Choose one or more additional costs.)\n+ {1} — Target opponent sacrifices half the creatures they control of their choice, rounded up.\n+ {2} — Target opponent discards half the cards in their hand, rounded up.\n+ {2} — Target opponent loses half their life, rounded up.",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "eff:sacrifice",
+   "kw:spree",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ }
+]

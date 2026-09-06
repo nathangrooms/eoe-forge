@@ -1,0 +1,854 @@
+[
+ {
+  "name": "Shield Bearer",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 23014,
+  "text": "Banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "kw:banding",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gavony Silversmith",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 23015,
+  "text": "When this creature enters, put a +1/+1 counter on each of up to two target creatures.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Blaring Recruiter",
+  "type": "Creature — Elf Warrior",
+  "cost": "{3}{W}",
+  "rank": 23017,
+  "text": "Partner with Blaring Captain (When this creature enters, target player may put Blaring Captain into their hand from their library, then shuffle.)\n{2}{W}: Create a 1/1 white Warrior creature token.",
+  "facets": [
+   "acost:3",
+   "cares:sub:warrior",
+   "eff:create-token",
+   "eff:search-library",
+   "kw:partner",
+   "kw:partner with",
+   "rec:partial",
+   "sub:elf",
+   "sub:elf warrior",
+   "sub:warrior",
+   "tok:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon Scales",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 23022,
+  "text": "Enchant creature\nEnchanted creature gets +1/+2 and has vigilance.\nWhen a creature with mana value 6 or greater enters, you may return this card from your graveyard to the battlefield attached to that creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:pump",
+   "eff:recur-self",
+   "grants:vigilance",
+   "kw:enchant",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Dawnglare Invoker",
+  "type": "Creature — Kor Wizard",
+  "cost": "{2}{W}",
+  "rank": 23024,
+  "text": "Flying\n{8}: Tap all creatures target player controls.",
+  "facets": [
+   "acost:3",
+   "eff:tap",
+   "kw:flying",
+   "rec:partial",
+   "sub:kor",
+   "sub:kor wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Acolyte of Xathrid",
+  "type": "Creature — Human Cleric",
+  "cost": "{B}",
+  "rank": 23026,
+  "text": "{1}{B}, {T}: Target player loses 1 life.",
+  "facets": [
+   "acost:2",
+   "cost:tap",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Urbis Protector",
+  "type": "Creature — Human Cleric",
+  "cost": "{4}{W}{W}",
+  "rank": 23027,
+  "text": "When this creature enters, create a 4/4 white Angel creature token with flying.",
+  "facets": [
+   "eff:create-token",
+   "mv:big",
+   "rec:full",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "tok:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Aim for the Head",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 23029,
+  "text": "Choose one —\n• Exile target Zombie.\n• Target opponent exiles two cards from their hand.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:exile",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Mob",
+  "type": "Instant",
+  "cost": "{4}{B}",
+  "rank": 23031,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nDestroy target creature.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:convoke",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Ivory Giant",
+  "type": "Creature — Giant",
+  "cost": "{5}{W}{W}",
+  "rank": 23032,
+  "text": "When this creature enters, tap all nonwhite creatures.\nSuspend 5—{W} (Rather than cast this card from your hand, you may pay {W} and exile it with five time counters on it. At the beginning of your upkeep, remove a time counter. When the last is removed, you may cast it without paying its mana cost. It has haste.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "kw:suspend",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "sub:giant",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Harsh Justice",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 23036,
+  "text": "Cast this spell only during the declare attackers step and only if you've been attacked this step.\nThis turn, whenever an attacking creature deals combat damage to you, it deals that much damage to its controller.",
+  "facets": [
+   "eff:damage",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Barrin's Codex",
+  "type": "Artifact — Book",
+  "cost": "{4}",
+  "rank": 23042,
+  "text": "At the beginning of your upkeep, you may put a page counter on this artifact.\n{4}, {T}, Sacrifice this artifact: Draw X cards, where X is the number of page counters on this artifact.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "ctr:page-self",
+   "eff:add-counters-self",
+   "eff:draw",
+   "rec:full",
+   "sub:book",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dread Shade",
+  "type": "Creature — Shade",
+  "cost": "{B}{B}{B}",
+  "rank": 23043,
+  "text": "{B}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:full",
+   "sub:shade",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Duskrider Falcon",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 23045,
+  "text": "Flying, protection from black",
+  "facets": [
+   "kw:flying",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Consecrated by Blood",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}{B}",
+  "rank": 23047,
+  "text": "Enchant creature\nEnchanted creature gets +2/+2 and has flying and \"Sacrifice two other creatures: Regenerate this creature.\" (The next time the creature would be destroyed this turn, instead tap it, remove it from combat, and heal all damage on it.)",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:protect",
+   "grants:flying",
+   "kw:enchant",
+   "kw:flying",
+   "kw:heal",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Silent Specter",
+  "type": "Creature — Specter",
+  "cost": "{4}{B}{B}",
+  "rank": 23048,
+  "text": "Flying\nWhenever this creature deals combat damage to a player, that player discards two cards.\nMorph {3}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "eff:discard",
+   "kw:flying",
+   "kw:morph",
+   "mv:big",
+   "rec:partial",
+   "sub:specter",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wishmonger",
+  "type": "Creature — Unicorn Monger",
+  "cost": "{3}{W}",
+  "rank": 23050,
+  "text": "{2}: Target creature gains protection from the color of its controller's choice until end of turn. Any player may activate this ability.",
+  "facets": [
+   "acost:2",
+   "sub:monger",
+   "sub:unicorn",
+   "sub:unicorn monger",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Brightling",
+  "type": "Creature — Shapeshifter",
+  "cost": "{1}{W}{W}",
+  "rank": 23052,
+  "text": "{W}: This creature gains vigilance until end of turn.\n{W}: This creature gains lifelink until end of turn.\n{W}: Return this creature to its owner's hand.\n{1}: This creature gets +1/-1 or -1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:zone:hand",
+   "eff:bounce-own",
+   "eff:pump",
+   "grants:lifelink",
+   "grants:vigilance",
+   "kw:lifelink",
+   "kw:vigilance",
+   "rec:full",
+   "sub:shapeshifter",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Phantom Flock",
+  "type": "Creature — Bird Soldier Spirit",
+  "cost": "{3}{W}{W}",
+  "rank": 23053,
+  "text": "Flying\nThis creature enters with three +1/+1 counters on it.\nIf damage would be dealt to this creature, prevent that damage. Remove a +1/+1 counter from this creature.",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird soldier spirit",
+   "sub:soldier",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shield of the Realm",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 23054,
+  "text": "If a source would deal damage to equipped creature, prevent 2 of that damage.\nEquip {1}",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:prevent-damage",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Eviscerate",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 23066,
+  "text": "Destroy target creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dark Betrayal",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 23067,
+  "text": "Destroy target black creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Tormented Thoughts",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 23068,
+  "text": "As an additional cost to cast this spell, sacrifice a creature.\nTarget player discards a number of cards equal to the sacrificed creature's power.",
+  "facets": [
+   "cares:power",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:discard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Necromancer's Assistant",
+  "type": "Creature — Zombie",
+  "cost": "{2}{B}",
+  "rank": 23073,
+  "text": "When this creature enters, mill three cards.",
+  "facets": [
+   "eff:mill",
+   "kw:mill",
+   "rec:full",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ephara's Radiance",
+  "type": "Enchantment — Aura",
+  "cost": "{W}",
+  "rank": 23075,
+  "text": "Enchant creature\nEnchanted creature has \"{1}{W}, {T}: You gain 3 life.\"",
+  "facets": [
+   "eff:gain-life",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Durable Coilbug",
+  "type": "Creature — Insect",
+  "cost": "{1}{B}",
+  "rank": 23078,
+  "text": "{4}{B}: Return this card from your graveyard to your hand.",
+  "facets": [
+   "acost:3",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sibsig Muckdraggers",
+  "type": "Creature — Zombie",
+  "cost": "{8}{B}",
+  "rank": 23080,
+  "text": "Delve (Each card you exile from your graveyard while casting this spell pays for {1}.)\nWhen this creature enters, return target creature card from your graveyard to your hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:delve",
+   "mv:big",
+   "rec:full",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vicious Offering",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 23081,
+  "text": "Kicker—Sacrifice a creature. (You may sacrifice a creature in addition to any other costs as you cast this spell.)\nTarget creature gets -2/-2 until end of turn. If this spell was kicked, that creature gets -5/-5 until end of turn instead.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Pierce Strider",
+  "type": "Artifact Creature — Phyrexian Construct",
+  "cost": "{4}",
+  "rank": 23083,
+  "text": "When this creature enters, target opponent loses 3 life.",
+  "facets": [
+   "col:none",
+   "eff:lose-life",
+   "rec:full",
+   "sub:construct",
+   "sub:phyrexian",
+   "sub:phyrexian construct",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Armored Griffin",
+  "type": "Creature — Griffin",
+  "cost": "{3}{W}",
+  "rank": 23087,
+  "text": "Flying, vigilance",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "rec:full",
+   "sub:griffin",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carrion Beetles",
+  "type": "Creature — Insect",
+  "cost": "{B}",
+  "rank": 23089,
+  "text": "{2}{B}, {T}: Exile up to three target cards from a single graveyard.",
+  "facets": [
+   "acost:3",
+   "mv:cheap",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Voltaic Whip",
+  "type": "Artifact — Equipment",
+  "cost": "{2}{B}",
+  "rank": 23091,
+  "text": "Equipped creature gets +2/+0 and has \"Whenever this creature attacks alone, you draw a card and lose 1 life.\"\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "eff:attach",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Courier Hawk",
+  "type": "Creature — Bird",
+  "cost": "{1}{W}",
+  "rank": 23094,
+  "text": "Flying, vigilance",
+  "facets": [
+   "kw:flying",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sludge Crawler",
+  "type": "Creature — Eldrazi Drone",
+  "cost": "{B}",
+  "rank": 23097,
+  "text": "Devoid (This card has no color.)\nIngest (Whenever this creature deals combat damage to a player, that player exiles the top card of their library.)\n{2}: This creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:2",
+   "eff:pump",
+   "kw:devoid",
+   "kw:ingest",
+   "mv:cheap",
+   "rec:full",
+   "sub:drone",
+   "sub:eldrazi",
+   "sub:eldrazi drone",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Clockwork Servant",
+  "type": "Artifact Creature — Gnome",
+  "cost": "{3}",
+  "rank": 23100,
+  "text": "Adamant — When this creature enters, if at least three mana of the same color was spent to cast it, draw a card.",
+  "facets": [
+   "col:none",
+   "eff:draw",
+   "kw:adamant",
+   "rec:partial",
+   "sub:gnome",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Moonglove Extract",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 23101,
+  "text": "Sacrifice this artifact: It deals 2 damage to any target.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:sacrifice-self",
+   "eff:damage",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Serum Tank",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 23102,
+  "text": "Whenever this artifact or another artifact enters, put a charge counter on this artifact.\n{3}, {T}, Remove a charge counter from this artifact: Draw a card.",
+  "facets": [
+   "acost:3",
+   "cares:type:artifact",
+   "col:none",
+   "cost:remove-counters",
+   "cost:tap",
+   "ctr:charge-self",
+   "eff:add-counters-self",
+   "eff:draw",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Djeru's Renunciation",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 23103,
+  "text": "Tap up to two target creatures.\nCycling {W} ({W}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:tap",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Monomania",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 23104,
+  "text": "Target player chooses a card in their hand and discards the rest.",
+  "facets": [
+   "eff:discard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Kellan's Lightblades",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 23106,
+  "text": "Bargain (You may sacrifice an artifact, enchantment, or token as you cast this spell.)\nKellan's Lightblades deals 3 damage to target attacking or blocking creature. If this spell was bargained, destroy that creature instead.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "cares:type:token",
+   "cost:sacrifice",
+   "eff:damage",
+   "eff:destroy",
+   "kw:bargain",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Decommission",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 23109,
+  "text": "Destroy target artifact or enchantment.\nRevolt — If a permanent left the battlefield under your control this turn, you gain 3 life.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:gain-life",
+   "kw:revolt",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Colossus of Sardia",
+  "type": "Artifact Creature — Golem",
+  "cost": "{9}",
+  "rank": 23111,
+  "text": "Trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)\nThis creature doesn't untap during your untap step.\n{9}: Untap this creature. Activate only during your upkeep.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "eff:untap",
+   "kw:trample",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:golem",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spiritualize",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 23115,
+  "text": "Until end of turn, whenever target creature deals damage, you gain that much life.\nDraw a card.",
+  "facets": [
+   "eff:draw",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Daxos's Torment",
+  "type": "Enchantment",
+  "cost": "{3}{B}",
+  "rank": 23117,
+  "text": "Constellation — Whenever this enchantment or another enchantment you control enters, this enchantment becomes a 5/5 Demon creature with flying and haste in addition to its other types until end of turn.",
+  "facets": [
+   "cares:sub:demon",
+   "cares:type:enchantment",
+   "kw:constellation",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Blessing",
+  "type": "Enchantment — Aura",
+  "cost": "{W}{W}",
+  "rank": 23120,
+  "text": "Enchant creature\n{W}: Enchanted creature gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Turtle Blimp",
+  "type": "Artifact — Vehicle",
+  "cost": "{5}",
+  "rank": 23124,
+  "text": "Flying\nWhen this Vehicle enters, create a 2/2 red Mutant creature token.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:sub:vehicle",
+   "col:none",
+   "eff:create-token",
+   "kw:crew",
+   "kw:flying",
+   "rec:full",
+   "sub:vehicle",
+   "tok:mutant",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Vanguard of the Rose",
+  "type": "Creature — Vampire Knight",
+  "cost": "{1}{W}",
+  "rank": 23133,
+  "text": "{1}, Sacrifice another creature or artifact: This creature gains indestructible until end of turn. Tap it.",
+  "facets": [
+   "acost:1",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:pump",
+   "eff:tap-own",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rancorous Archaic",
+  "type": "Creature — Avatar",
+  "cost": "{5}",
+  "rank": 23135,
+  "text": "Reach, trample\nConverge — This creature enters with a +1/+1 counter on it for each color of mana spent to cast it.",
+  "facets": [
+   "col:none",
+   "eff:add-counters-self",
+   "kw:converge",
+   "kw:reach",
+   "kw:trample",
+   "rec:partial",
+   "sub:avatar",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mantle of Leadership",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 23136,
+  "text": "Flash (You may cast this spell any time you could cast an instant.)\nEnchant creature\nWhenever a creature enters, enchanted creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "kw:enchant",
+   "kw:flash",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-other",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Crusading Knight",
+  "type": "Creature — Human Knight",
+  "cost": "{2}{W}{W}",
+  "rank": 23139,
+  "text": "Protection from black\nThis creature gets +1/+1 for each Swamp your opponents control.",
+  "facets": [
+   "cares:sub:swamp",
+   "eff:pump",
+   "kw:protection",
+   "rec:full",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ }
+]

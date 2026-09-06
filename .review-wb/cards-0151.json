@@ -1,0 +1,880 @@
+[
+ {
+  "name": "Lashknife",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 19318,
+  "text": "If you control a Plains, you may tap an untapped creature you control rather than pay this spell's mana cost.\nEnchant creature\nEnchanted creature has first strike.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cost:cast-tap-others",
+   "grants:first strike",
+   "kw:enchant",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Fortifying Provisions",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 19323,
+  "text": "Creatures you control get +0/+1.\nWhen this enchantment enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:gain-life",
+   "eff:pump",
+   "kw:food",
+   "rec:full",
+   "scope:all",
+   "tok:food",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Summon the School",
+  "type": "Kindred Sorcery — Merfolk",
+  "cost": "{3}{W}",
+  "rank": 19332,
+  "text": "Create two 1/1 blue Merfolk Wizard creature tokens.\nTap four untapped Merfolk you control: Return this card from your graveyard to your hand.",
+  "facets": [
+   "acost:0",
+   "cares:sub:merfolk",
+   "cares:zone:graveyard",
+   "cost:tap-others",
+   "eff:create-token",
+   "eff:return-from",
+   "rec:full",
+   "scope:all",
+   "sub:merfolk",
+   "tok:merfolk",
+   "tok:wizard",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Golden-Tail Disciple",
+  "type": "Enchantment Creature — Fox Monk",
+  "cost": "{2}{W}",
+  "rank": 19333,
+  "text": "Lifelink (Damage dealt by this creature also causes you to gain that much life.)",
+  "facets": [
+   "eff:gain-life",
+   "kw:lifelink",
+   "rec:full",
+   "sub:fox",
+   "sub:fox monk",
+   "sub:monk",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Doomskar Oracle",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 19334,
+  "text": "Whenever you cast your second spell each turn, you gain 2 life.\nForetell {W} (During your turn, you may pay {2} and exile this card from your hand face down. Cast it on a later turn for its foretell cost.)",
+  "facets": [
+   "cares:zone:stack",
+   "eff:gain-life",
+   "kw:foretell",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lens of Clarity",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 19335,
+  "text": "You may look at the top card of your library and at face-down creatures you don't control any time.",
+  "facets": [
+   "col:none",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Untamed Hunger",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 19336,
+  "text": "Enchant creature\nEnchanted creature gets +2/+1 and has menace. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "eff:pump",
+   "grants:menace",
+   "kw:enchant",
+   "kw:menace",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Halo Scarab",
+  "type": "Artifact Creature — Insect",
+  "cost": "{2}",
+  "rank": 19337,
+  "text": "{2}, Exile this card from your graveyard: Create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "cares:sub:treasure",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:exile-self",
+   "eff:add-mana",
+   "kw:treasure",
+   "mv:cheap",
+   "sub:insect",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pallid Mycoderm",
+  "type": "Creature — Fungus",
+  "cost": "{3}{W}",
+  "rank": 19340,
+  "text": "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: Each creature you control that's a Fungus or a Saproling gets +1/+1 until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:sub:fungus",
+   "cost:remove-counters",
+   "ctr:spore-self",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "eff:pump",
+   "rec:partial",
+   "sub:fungus",
+   "tok:saproling",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gerrard Capashen",
+  "type": "Legendary Creature — Human Soldier",
+  "cost": "{3}{W}{W}",
+  "rank": 19341,
+  "text": "At the beginning of your upkeep, you gain 1 life for each card in target opponent's hand.\n{3}{W}: Tap target creature. Activate only if Gerrard Capashen is attacking.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:tap",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Give No Ground",
+  "type": "Instant",
+  "cost": "{3}{W}",
+  "rank": 19343,
+  "text": "Target creature gets +2/+6 until end of turn and can block any number of creatures this turn.",
+  "facets": [
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Liliana's Indignation",
+  "type": "Sorcery",
+  "cost": "{X}{B}",
+  "rank": 19344,
+  "text": "Mill X cards. Target player loses 2 life for each creature card put into your graveyard this way.",
+  "facets": [
+   "eff:lose-life",
+   "eff:mill",
+   "kw:mill",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Call the Cavalry",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 19350,
+  "text": "Create two 2/2 white Knight creature tokens with vigilance.",
+  "facets": [
+   "eff:create-token",
+   "rec:full",
+   "tok:knight",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Swallowing Plague",
+  "type": "Sorcery — Arcane",
+  "cost": "{X}{B}{B}",
+  "rank": 19351,
+  "text": "Swallowing Plague deals X damage to target creature and you gain X life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:arcane",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Asphyxiate",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 19353,
+  "text": "Destroy target untapped creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Strixhaven Skycoach",
+  "type": "Artifact — Vehicle",
+  "cost": "{3}",
+  "rank": 19355,
+  "text": "Flying\nWhen this Vehicle enters, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.\nCrew 2 (Tap any number of creatures you control with total power 2 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:sub:vehicle",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "col:none",
+   "eff:search-library",
+   "kw:crew",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:vehicle",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Angel of Mercy",
+  "type": "Creature — Angel",
+  "cost": "{4}{W}",
+  "rank": 19357,
+  "text": "Flying\nWhen this creature enters, you gain 3 life.",
+  "facets": [
+   "eff:gain-life",
+   "kw:flying",
+   "rec:full",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Down, Down to Goblin-town",
+  "type": "Enchantment — Saga",
+  "cost": "{2}{B}",
+  "rank": 19359,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI — Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.\nII — Amass Goblins 1. (Put a +1/+1 counter on an Army you control. It's also a Goblin. If you don't control an Army, create a 0/0 black Goblin Army creature token first.)\nIII, IV — Target opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "cares:sub:goblin",
+   "cares:zone:hand",
+   "eff:add-counters",
+   "eff:create-token",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:amass",
+   "sub:saga",
+   "tok:army",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Sacred Ground",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 19362,
+  "text": "Whenever a spell or ability an opponent controls causes a land to be put into your graveyard from the battlefield, return that card to the battlefield.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Inviolability",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 19363,
+  "text": "Enchant creature\nPrevent all damage that would be dealt to enchanted creature.",
+  "facets": [
+   "eff:prevent-damage",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Dread Slaver",
+  "type": "Creature — Zombie Horror",
+  "cost": "{3}{B}{B}",
+  "rank": 19372,
+  "text": "Whenever a creature dealt damage by this creature this turn dies, return it to the battlefield under your control. That creature is a black Zombie in addition to its other colors and types.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "sub:horror",
+   "sub:zombie",
+   "sub:zombie horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Strandwalker",
+  "type": "Artifact — Equipment",
+  "cost": "{5}",
+  "rank": 19376,
+  "text": "Living weapon (When this Equipment enters, create a 0/0 black Phyrexian Germ creature token, then attach this to it.)\nEquipped creature gets +2/+4 and has reach.\nEquip {4}",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "eff:pump",
+   "grants:reach",
+   "kw:equip",
+   "kw:living weapon",
+   "kw:reach",
+   "rec:full",
+   "sub:equipment",
+   "tok:germ",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Deadly Riposte",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 19377,
+  "text": "Deadly Riposte deals 3 damage to target tapped creature and you gain 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:damage",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Loyal Pegasus",
+  "type": "Creature — Pegasus",
+  "cost": "{W}",
+  "rank": 19380,
+  "text": "Flying\nThis creature can't attack or block alone.",
+  "facets": [
+   "eff:cant-attack-self",
+   "eff:cant-block-self",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:pegasus",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sickening Shoal",
+  "type": "Instant — Arcane",
+  "cost": "{X}{B}{B}",
+  "rank": 19382,
+  "text": "You may exile a black card with mana value X from your hand rather than pay this spell's mana cost.\nTarget creature gets -X/-X until end of turn.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:partial",
+   "sub:arcane",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Shinewend",
+  "type": "Creature — Elemental",
+  "cost": "{1}{W}",
+  "rank": 19383,
+  "text": "Flying\nThis creature enters with a +1/+1 counter on it.\n{1}{W}, Remove a +1/+1 counter from this creature: Destroy target enchantment.",
+  "facets": [
+   "cares:type:enchantment",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "eff:destroy",
+   "kw:flying",
+   "mv:cheap",
+   "rec:partial",
+   "sub:elemental",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boon of Erebos",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 19386,
+  "text": "Target creature gets +2/+0 until end of turn. Regenerate it. You lose 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:lose-life",
+   "eff:pump",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Iona's Blessing",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{W}",
+  "rank": 19387,
+  "text": "Enchant creature\nEnchanted creature gets +2/+2, has vigilance, and can block an additional creature each combat.",
+  "facets": [
+   "grants:vigilance",
+   "kw:enchant",
+   "kw:vigilance",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Warmonger's Chariot",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 19389,
+  "text": "Equipped creature gets +2/+2.\nAs long as equipped creature has defender, it can attack as though it didn't have defender.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Plagued Rusalka",
+  "type": "Creature — Spirit",
+  "cost": "{B}",
+  "rank": 19390,
+  "text": "{B}, Sacrifice a creature: Target creature gets -1/-1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:shrink",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Relic Axe",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 19395,
+  "text": "When this Equipment enters, attach it to target creature you control.\nEquipped creature gets +1/+1. If it's a Warrior, it gets +2/+1 instead.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:sub:warrior",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Temporal Intervention",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 19397,
+  "text": "Void — This spell costs {2} less to cast if a nonland permanent left the battlefield this turn or a spell was warped this turn.\nTarget opponent reveals their hand. You choose a nonland card from it. That player discards that card.",
+  "facets": [
+   "cares:zone:hand",
+   "eff:discard",
+   "kw:void",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Aethershield Artificer",
+  "type": "Creature — Dwarf Artificer",
+  "cost": "{3}{W}",
+  "rank": 19399,
+  "text": "At the beginning of combat on your turn, target artifact creature you control gets +2/+2 and gains indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "rec:full",
+   "sub:artificer",
+   "sub:dwarf",
+   "sub:dwarf artificer",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Inevitable End",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 19407,
+  "text": "Enchant creature\nEnchanted creature has \"At the beginning of your upkeep, sacrifice a creature.\"",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shield of the Avatar",
+  "type": "Artifact — Equipment",
+  "cost": "{1}",
+  "rank": 19411,
+  "text": "If a source would deal damage to equipped creature, prevent X of that damage, where X is the number of creatures you control.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:prevent-damage",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Allied Reinforcements",
+  "type": "Sorcery",
+  "cost": "{3}{W}",
+  "rank": 19412,
+  "text": "Create two 2/2 white Knight Ally creature tokens.",
+  "facets": [
+   "eff:create-token",
+   "rec:full",
+   "tok:ally",
+   "tok:knight",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Expose to Daylight",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 19413,
+  "text": "Destroy target artifact or enchantment. Scry 1.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "eff:scry",
+   "kw:scry",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Herald of Torment",
+  "type": "Enchantment Creature — Demon",
+  "cost": "{1}{B}{B}",
+  "rank": 19420,
+  "text": "Bestow {3}{B}{B} (If you cast this card for its bestow cost, it's an Aura spell with enchant creature. It becomes a creature again if it's not attached.)\nFlying\nAt the beginning of your upkeep, you lose 1 life.\nEnchanted creature gets +3/+3 and has flying.",
+  "facets": [
+   "eff:lose-life",
+   "eff:pump",
+   "grants:flying",
+   "kw:bestow",
+   "kw:flying",
+   "rec:full",
+   "sub:demon",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Oathsworn Knight",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{B}{B}",
+  "rank": 19421,
+  "text": "This creature enters with four +1/+1 counters on it.\nThis creature attacks each combat if able.\nIf damage would be dealt to this creature while it has a +1/+1 counter on it, prevent that damage and remove a +1/+1 counter from it.",
+  "facets": [
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Closing Statement",
+  "type": "Instant",
+  "cost": "{3}{W}{B}",
+  "rank": 19424,
+  "text": "This spell costs {2} less to cast during your end step.\nDestroy target creature or planeswalker you don't control. Put a +1/+1 counter on up to one target creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Serene Steward",
+  "type": "Creature — Human Cleric Ally",
+  "cost": "{1}{W}",
+  "rank": 19425,
+  "text": "Whenever you gain life, you may pay {W}. If you do, put a +1/+1 counter on target creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:do-if-cost-paid",
+   "mv:cheap",
+   "rec:full",
+   "sub:ally",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric ally",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Vile Manifestation",
+  "type": "Creature — Horror",
+  "cost": "{1}{B}",
+  "rank": 19428,
+  "text": "This creature gets +1/+0 for each card with cycling in your graveyard.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cares:kw:cycling",
+   "cares:zone:graveyard",
+   "cost:discard-self",
+   "eff:draw",
+   "eff:pump",
+   "kw:cycling",
+   "mv:cheap",
+   "rec:full",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Queen Mother Ramonda",
+  "type": "Legendary Creature — Human Noble",
+  "cost": "{3}{W}{W}",
+  "rank": 19432,
+  "text": "When Queen Mother Ramonda enters, you become the monarch.\nAs long as you're the monarch, creatures with power 2 or less can't attack you.",
+  "facets": [
+   "eff:set-monarch",
+   "rec:partial",
+   "sub:human",
+   "sub:human noble",
+   "sub:noble",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Blinding Mage",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{W}",
+  "rank": 19434,
+  "text": "{W}, {T}: Tap target creature.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dreadmobile",
+  "type": "Artifact — Vehicle",
+  "cost": "{2}{B}",
+  "rank": 19435,
+  "text": "Menace\n{1}, Sacrifice another artifact or creature: Put a +1/+1 counter on this Vehicle.\nCrew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "acost:1",
+   "cares:sub:vehicle",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:crew",
+   "kw:menace",
+   "rec:full",
+   "scope:all",
+   "sub:vehicle",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lurching Rotbeast",
+  "type": "Creature — Zombie Beast",
+  "cost": "{3}{B}",
+  "rank": 19436,
+  "text": "Cycling {B} ({B}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:1",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "rec:full",
+   "sub:beast",
+   "sub:zombie",
+   "sub:zombie beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "It Doesn't Add Up",
+  "type": "Instant",
+  "cost": "{3}{B}{B}",
+  "rank": 19437,
+  "text": "Return target creature card from your graveyard to the battlefield. Suspect it. (It has menace and can't block.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "kw:suspect",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Clever Lumimancer",
+  "type": "Creature — Human Wizard",
+  "cost": "{W}",
+  "rank": 19439,
+  "text": "Magecraft — Whenever you cast or copy an instant or sorcery spell, this creature gets +2/+2 until end of turn.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "kw:magecraft",
+   "mv:cheap",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Merchant of Many Hats",
+  "type": "Creature — Human Peasant Ally",
+  "cost": "{1}{B}",
+  "rank": 19440,
+  "text": "{2}{B}: Return this card from your graveyard to your hand.",
+  "facets": [
+   "acost:3",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "rec:full",
+   "sub:ally",
+   "sub:human",
+   "sub:human peasant ally",
+   "sub:peasant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soraya the Falconer",
+  "type": "Legendary Creature — Human",
+  "cost": "{1}{W}{W}",
+  "rank": 19442,
+  "text": "Bird creatures get +1/+1.\n{1}{W}: Target Bird creature gains banding until end of turn. (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding a player controls are blocking or being blocked by a creature, that player divides that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:bird",
+   "cares:type:creature",
+   "eff:pump",
+   "grants:banding",
+   "kw:banding",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "type:creature",
+   "type:legendary"
+  ]
+ }
+]

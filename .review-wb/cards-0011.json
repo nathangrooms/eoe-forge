@@ -1,0 +1,967 @@
+[
+ {
+  "name": "Archfiend of Ifnir",
+  "type": "Creature — Demon",
+  "cost": "{3}{B}{B}",
+  "rank": 1291,
+  "text": "Flying\nWhenever you cycle or discard another card, put a -1/-1 counter on each creature your opponents control.\nCycling {2} ({2}, Discard this card: Draw a card.)",
+  "facets": [
+   "acost:2",
+   "cares:kw:cycling",
+   "cost:discard-self",
+   "eff:draw",
+   "kw:cycling",
+   "kw:flying",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rune-Scarred Demon",
+  "type": "Creature — Demon",
+  "cost": "{5}{B}{B}",
+  "rank": 1293,
+  "text": "Flying\nWhen this creature enters, search your library for a card, put it into your hand, then shuffle.",
+  "facets": [
+   "cares:zone:library",
+   "eff:search-library",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "scope:all",
+   "sub:demon",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mirage Mirror",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 1294,
+  "text": "{2}: This artifact becomes a copy of target artifact, creature, enchantment, or land until end of turn.",
+  "facets": [
+   "acost:2",
+   "cares:type:artifact",
+   "col:none",
+   "eff:copy",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Lethal Scheme",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 1296,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nDestroy target creature or planeswalker. Each creature that convoked this spell connives. (Draw a card, then discard a card. If you discarded a nonland card, put a +1/+1 counter on that creature.)",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:add-counters",
+   "eff:destroy",
+   "kw:connive",
+   "kw:convoke",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Summon: Bahamut",
+  "type": "Enchantment Creature — Saga Dragon",
+  "cost": "{9}",
+  "rank": 1297,
+  "text": "(As this Saga enters and after your draw step, add a lore counter. Sacrifice after IV.)\nI, II — Destroy up to one target nonland permanent.\nIII — Draw two cards.\nIV — Mega Flare — This creature deals damage equal to the total mana value of other permanents you control to each opponent.\nFlying",
+  "facets": [
+   "col:none",
+   "eff:damage",
+   "eff:destroy",
+   "eff:draw",
+   "kw:flying",
+   "kw:iii",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:dragon",
+   "sub:saga",
+   "sub:saga dragon",
+   "type:creature",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Guildless Commons",
+  "type": "Land",
+  "cost": "",
+  "rank": 1299,
+  "text": "This land enters tapped.\nWhen this land enters, return a land you control to its owner's hand.\n{T}: Add {C}{C}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Brokers Hideout",
+  "type": "Land",
+  "cost": "",
+  "rank": 1302,
+  "text": "When this land enters, sacrifice it. When you do, search your library for a basic Forest, Plains, or Island card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "facets": [
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Vexing Bauble",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 1303,
+  "text": "Whenever a player casts a spell, if no mana was spent to cast it, counter that spell.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+  "facets": [
+   "acost:1",
+   "cares:zone:stack",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:counter",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Kambal, Consul of Allocation",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{1}{W}{B}",
+  "rank": 1304,
+  "text": "Whenever an opponent casts a noncreature spell, that player loses 2 life and you gain 2 life.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:gain-life",
+   "eff:lose-life",
+   "rec:partial",
+   "scope:all",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Mikaeus, the Unhallowed",
+  "type": "Legendary Creature — Zombie Cleric",
+  "cost": "{3}{B}{B}{B}",
+  "rank": 1306,
+  "text": "Intimidate (This creature can't be blocked except by artifact creatures and/or creatures that share a color with it.)\nWhenever a Human deals damage to you, destroy it.\nOther non-Human creatures you control get +1/+1 and have undying. (When a creature with undying dies, if it had no +1/+1 counters on it, return it to the battlefield under its owner's control with a +1/+1 counter on it.)",
+  "facets": [
+   "cares:sub:human",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:pump",
+   "grants:undying",
+   "kw:intimidate",
+   "kw:undying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Valgavoth, Terror Eater",
+  "type": "Legendary Creature — Elder Demon",
+  "cost": "{6}{B}{B}{B}",
+  "rank": 1307,
+  "text": "Flying, lifelink\nWard—Sacrifice three nonland permanents.\nIf a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead.\nDuring your turn, you may play cards exiled with Valgavoth. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost.",
+  "facets": [
+   "cares:zone:exile",
+   "cost:life",
+   "eff:exile-graveyard",
+   "eff:gain-life",
+   "kw:flying",
+   "kw:lifelink",
+   "kw:ward",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:demon",
+   "sub:elder",
+   "sub:elder demon",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Teysa Karlov",
+  "type": "Legendary Creature — Human Advisor",
+  "cost": "{2}{W}{B}",
+  "rank": 1309,
+  "text": "If a creature dying causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time.\nCreature tokens you control have vigilance and lifelink.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:gain-life",
+   "eff:multiply",
+   "eff:multiply-triggers",
+   "grants:lifelink",
+   "grants:vigilance",
+   "kw:lifelink",
+   "kw:vigilance",
+   "scope:all",
+   "sub:advisor",
+   "sub:human",
+   "sub:human advisor",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Undying Malice",
+  "type": "Instant",
+  "cost": "{B}",
+  "rank": 1314,
+  "text": "Until end of turn, target creature gains \"When this creature dies, return it to the battlefield tapped under its owner's control with a +1/+1 counter on it.\"",
+  "facets": [
+   "eff:add-counters",
+   "eff:protect",
+   "eff:return-from",
+   "mv:cheap",
+   "trig:dies",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Astral Cornucopia",
+  "type": "Artifact",
+  "cost": "{X}{X}{X}",
+  "rank": 1320,
+  "text": "This artifact enters with X charge counters on it.\n{T}: Choose a color. Add one mana of that color for each charge counter on this artifact.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "ctr:charge",
+   "eff:add-counters",
+   "eff:add-mana",
+   "eff:choose",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Shimmer Myr",
+  "type": "Artifact Creature — Myr",
+  "cost": "{3}",
+  "rank": 1322,
+  "text": "Flash\nYou may cast artifact spells as though they had flash.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "grants:flash",
+   "kw:flash",
+   "rec:partial",
+   "sub:myr",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Key to the City",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 1323,
+  "text": "{T}, Discard a card: Up to one target creature can't be blocked this turn.\nWhenever this artifact becomes untapped, you may pay {2}. If you do, draw a card.",
+  "facets": [
+   "col:none",
+   "eff:cant-be-blocked",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "trig:untapped",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Organic Extinction",
+  "type": "Sorcery",
+  "cost": "{8}{W}{W}",
+  "rank": 1327,
+  "text": "Improvise (Your artifacts can help cast this spell. Each artifact you tap after you're done activating mana abilities pays for {1}.)\nDestroy all nonartifact creatures.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:improvise",
+   "mv:big",
+   "rec:full",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Ad Nauseam",
+  "type": "Instant",
+  "cost": "{3}{B}{B}",
+  "rank": 1328,
+  "text": "Reveal the top card of your library and put that card into your hand. You lose life equal to its mana value. You may repeat this process any number of times.",
+  "facets": [
+   "cares:zone:library",
+   "eff:draw",
+   "eff:lose-life",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rootborn Defenses",
+  "type": "Instant",
+  "cost": "{2}{W}",
+  "rank": 1329,
+  "text": "Populate. Creatures you control gain indestructible until end of turn. (To populate, create a token that's a copy of a creature token you control.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:token",
+   "eff:create-token",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "kw:populate",
+   "rec:partial",
+   "scope:all",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Krark-Clan Ironworks",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 1331,
+  "text": "Sacrifice an artifact: Add {C}{C}.",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "col:none",
+   "cost:sacrifice",
+   "eff:add-mana",
+   "mana:2",
+   "rec:full",
+   "scope:all",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sword of Fire and Ice",
+  "type": "Artifact — Equipment",
+  "cost": "{3}",
+  "rank": 1337,
+  "text": "Equipped creature gets +2/+2 and has protection from red and from blue.\nWhenever equipped creature deals combat damage to a player, this Equipment deals 2 damage to any target and you draw a card.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:color:r",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:damage",
+   "eff:draw",
+   "kw:equip",
+   "rec:partial",
+   "sub:equipment",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Dolmen Gate",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 1338,
+  "text": "Prevent all combat damage that would be dealt to attacking creatures you control.",
+  "facets": [
+   "col:none",
+   "eff:prevent-damage",
+   "mv:cheap",
+   "trig:attacks",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Jadar, Ghoulcaller of Nephalia",
+  "type": "Legendary Creature — Human Wizard",
+  "cost": "{1}{B}",
+  "rank": 1340,
+  "text": "At the beginning of your end step, if you control no creatures with decayed, create a 2/2 black Zombie creature token with decayed. (It can't block. When it attacks, sacrifice it at end of combat.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "tok:zombie",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Palantír of Orthanc",
+  "type": "Legendary Artifact",
+  "cost": "{3}",
+  "rank": 1341,
+  "text": "At the beginning of your end step, put an influence counter on Palantír of Orthanc and scry 2. Then target opponent may have you draw a card. If that player doesn't, you mill X cards, where X is the number of influence counters on Palantír of Orthanc, and that player loses life equal to the total mana value of those cards.",
+  "facets": [
+   "col:none",
+   "ctr:influence-self",
+   "eff:add-counters-self",
+   "eff:lose-life",
+   "eff:mill",
+   "eff:scry",
+   "kw:mill",
+   "kw:scry",
+   "rec:partial",
+   "trig:step",
+   "trig:step:end",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Butcher of Malakir",
+  "type": "Creature — Vampire Warrior",
+  "cost": "{5}{B}{B}",
+  "rank": 1342,
+  "text": "Flying\nWhenever this creature or another creature you control dies, each opponent sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:vampire",
+   "sub:vampire warrior",
+   "sub:warrior",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ulamog, the Ceaseless Hunger",
+  "type": "Legendary Creature — Eldrazi",
+  "cost": "{10}",
+  "rank": 1343,
+  "text": "When you cast this spell, exile two target permanents.\nIndestructible\nWhenever Ulamog attacks, defending player exiles the top twenty cards of their library.",
+  "facets": [
+   "col:none",
+   "eff:exile",
+   "kw:indestructible",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Conqueror's Flail",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 1347,
+  "text": "Equipped creature gets +1/+1 for each color among permanents you control.\nAs long as this Equipment is attached to a creature, your opponents can't cast spells during your turn.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:cant-cast",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gold Myr",
+  "type": "Artifact Creature — Myr",
+  "cost": "{2}",
+  "rank": 1348,
+  "text": "{T}: Add {W}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "mv:cheap",
+   "rec:full",
+   "sub:myr",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Persist",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 1350,
+  "text": "Return target nonlegendary creature card from your graveyard to the battlefield with a -1/-1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "mv:cheap",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Pristine Talisman",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 1351,
+  "text": "{T}: Add {C}. You gain 1 life.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:gain-life",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Soul-Guide Lantern",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 1355,
+  "text": "When this artifact enters, exile target card from a graveyard.\n{T}, Sacrifice this artifact: Exile each opponent's graveyard.\n{1}, {T}, Sacrifice this artifact: Draw a card.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sigil of the Empty Throne",
+  "type": "Enchantment",
+  "cost": "{3}{W}{W}",
+  "rank": 1356,
+  "text": "Whenever you cast an enchantment spell, create a 4/4 white Angel creature token with flying.",
+  "facets": [
+   "cares:type:enchantment",
+   "cares:zone:stack",
+   "eff:create-token",
+   "rec:full",
+   "scope:all",
+   "tok:angel",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:enchantment",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Staff of Compleation",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 1359,
+  "text": "{T}, Pay 1 life: Destroy target permanent you own.\n{T}, Pay 2 life: Add one mana of any color.\n{T}, Pay 3 life: Proliferate.\n{T}, Pay 4 life: Draw a card.\n{5}: Untap this artifact.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "col:none",
+   "cost:life",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:proliferate",
+   "eff:untap",
+   "kw:proliferate",
+   "mana:1",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Vraska, Betrayal's Sting",
+  "type": "Legendary Planeswalker — Vraska",
+  "cost": "{4}{B}{B/P}",
+  "rank": 1361,
+  "text": "Compleated ({B/P} can be paid with {B} or 2 life. If life was paid, this planeswalker enters with two fewer loyalty counters.)\n0: You draw a card and lose 1 life. Proliferate.\n−2: Target creature becomes a Treasure artifact with \"{T}, Sacrifice this artifact: Add one mana of any color\" and loses all other card types and abilities.\n−9: If target player has fewer than nine poison counters, they get a number of poison counters equal to the difference.",
+  "facets": [
+   "acost:0",
+   "cares:sub:treasure",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:add-counters",
+   "eff:draw",
+   "eff:lose-life",
+   "eff:neutralise",
+   "eff:proliferate",
+   "kw:compleated",
+   "kw:proliferate",
+   "mv:big",
+   "rec:partial",
+   "sub:vraska",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Umbral Collar Zealot",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{B}",
+  "rank": 1365,
+  "text": "Sacrifice another creature or artifact: Surveil 1. (Look at the top card of your library. You may put it into your graveyard.)",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:surveil",
+   "kw:surveil",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Leyline Axe",
+  "type": "Artifact — Equipment",
+  "cost": "{4}",
+  "rank": 1367,
+  "text": "If this card is in your opening hand, you may begin the game with it on the battlefield.\nEquipped creature gets +1/+1 and has double strike and trample.\nEquip {3} ({3}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:pump",
+   "grants:double strike",
+   "grants:trample",
+   "kw:double strike",
+   "kw:equip",
+   "kw:trample",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Scroll Rack",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 1369,
+  "text": "{1}, {T}: Exile any number of cards from your hand face down. Put that many cards from the top of your library into your hand. Then look at the exiled cards and put them on top of your library in any order.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sephara, Sky's Blade",
+  "type": "Legendary Creature — Angel",
+  "cost": "{4}{W}{W}{W}",
+  "rank": 1370,
+  "text": "You may pay {W} and tap four untapped creatures you control with flying rather than pay this spell's mana cost.\nFlying, lifelink\nOther creatures you control with flying have indestructible. (Damage and effects that say \"destroy\" don't destroy them.)",
+  "facets": [
+   "cares:kw:flying",
+   "cares:type:creature",
+   "cost:cast-tap-others",
+   "eff:gain-life",
+   "eff:protect",
+   "grants:indestructible",
+   "kw:flying",
+   "kw:indestructible",
+   "kw:lifelink",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "scope:all",
+   "sub:angel",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Secret Tunnel",
+  "type": "Land — Cave",
+  "cost": "",
+  "rank": 1374,
+  "text": "This land can't be blocked.\n{T}: Add {C}.\n{4}, {T}: Two target creatures you control that share a creature type can't be blocked this turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:cant-be-blocked",
+   "mana:1",
+   "rec:partial",
+   "sub:cave",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Decree of Pain",
+  "type": "Sorcery",
+  "cost": "{6}{B}{B}",
+  "rank": 1375,
+  "text": "Destroy all creatures. They can't be regenerated. Draw a card for each creature destroyed this way.\nCycling {3}{B}{B} ({3}{B}{B}, Discard this card: Draw a card.)\nWhen you cycle this card, all creatures get -2/-2 until end of turn.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "cost:discard-self",
+   "eff:destroy",
+   "eff:draw",
+   "kw:cycling",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Agatha's Soul Cauldron",
+  "type": "Legendary Artifact",
+  "cost": "{2}",
+  "rank": 1376,
+  "text": "You may spend mana as though it were mana of any color to activate abilities of creatures you control.\nCreatures you control with +1/+1 counters on them have all activated abilities of all creature cards exiled with Agatha's Soul Cauldron.\n{T}: Exile target card from a graveyard. When a creature card is exiled this way, put a +1/+1 counter on target creature you control.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Vampiric Rites",
+  "type": "Enchantment",
+  "cost": "{B}",
+  "rank": 1377,
+  "text": "{1}{B}, Sacrifice a creature: You gain 1 life and draw a card.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:draw",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Restoration Angel",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}",
+  "rank": 1381,
+  "text": "Flash\nFlying\nWhen this creature enters, you may exile target non-Angel creature you control, then return that card to the battlefield under your control.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:exile",
+   "eff:exile-own",
+   "eff:return-from",
+   "kw:flash",
+   "kw:flying",
+   "rec:full",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rankle, Master of Pranks",
+  "type": "Legendary Creature — Faerie Rogue",
+  "cost": "{2}{B}{B}",
+  "rank": 1383,
+  "text": "Flying, haste\nWhenever Rankle deals combat damage to a player, choose any number —\n• Each player discards a card.\n• Each player loses 1 life and draws a card.\n• Each player sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "eff:discard",
+   "eff:draw-each",
+   "eff:lose-life",
+   "kw:flying",
+   "kw:haste",
+   "rec:partial",
+   "sub:faerie",
+   "sub:faerie rogue",
+   "sub:rogue",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Ulamog, the Infinite Gyre",
+  "type": "Legendary Creature — Eldrazi",
+  "cost": "{11}",
+  "rank": 1384,
+  "text": "When you cast this spell, destroy target permanent.\nIndestructible\nAnnihilator 4 (Whenever this creature attacks, defending player sacrifices four permanents of their choice.)\nWhen Ulamog is put into a graveyard from anywhere, its owner shuffles their graveyard into their library.",
+  "facets": [
+   "col:none",
+   "eff:destroy",
+   "eff:sacrifice",
+   "kw:annihilator",
+   "kw:indestructible",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:zone-change",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Giver of Runes",
+  "type": "Creature — Kor Cleric",
+  "cost": "{W}",
+  "rank": 1386,
+  "text": "{T}: Another target creature you control gains protection from colorless or from the color of your choice until end of turn.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:choose",
+   "eff:pump",
+   "grants:protection",
+   "kw:protection",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:kor",
+   "sub:kor cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Baleful Mastery",
+  "type": "Instant",
+  "cost": "{3}{B}",
+  "rank": 1389,
+  "text": "You may pay {1}{B} rather than pay this spell's mana cost.\nIf the {1}{B} cost was paid, an opponent draws a card.\nExile target creature or planeswalker.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "eff:exile",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Grand Crescendo",
+  "type": "Instant",
+  "cost": "{X}{W}{W}",
+  "rank": 1392,
+  "text": "Create X 1/1 green and white Citizen creature tokens. Creatures you control gain indestructible until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:pump",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "tok:citizen",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Archangel of Thune",
+  "type": "Creature — Angel",
+  "cost": "{3}{W}{W}",
+  "rank": 1393,
+  "text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nWhenever you gain life, put a +1/+1 counter on each creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:flying",
+   "kw:lifelink",
+   "rec:full",
+   "scope:all",
+   "sub:angel",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mantle of the Ancients",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{W}{W}",
+  "rank": 1394,
+  "text": "Enchant creature you control\nWhen this Aura enters, return any number of target Aura and/or Equipment cards from your graveyard to the battlefield attached to enchanted creature.\nEnchanted creature gets +1/+1 for each Aura and Equipment attached to it.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:sub:equipment",
+   "kw:enchant",
+   "rec:partial",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ }
+]

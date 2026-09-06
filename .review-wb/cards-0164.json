@@ -1,0 +1,862 @@
+[
+ {
+  "name": "Duskwielder",
+  "type": "Creature — Elf Berserker",
+  "cost": "{B}",
+  "rank": 21030,
+  "text": "Boast — {1}: Target opponent loses 1 life and you gain 1 life. (Activate only if this creature attacked this turn and only once each turn.)",
+  "facets": [
+   "acost:1",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:boast",
+   "mv:cheap",
+   "rec:full",
+   "sub:berserker",
+   "sub:elf",
+   "sub:elf berserker",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Foul Play",
+  "type": "Sorcery",
+  "cost": "{1}{B}",
+  "rank": 21032,
+  "text": "Destroy target creature with power 2 or less. Investigate. (Create a Clue token. It's an artifact with \"{2}, Sacrifice this token: Draw a card.\")",
+  "facets": [
+   "cares:type:creature",
+   "eff:create-token",
+   "eff:destroy",
+   "eff:draw",
+   "kw:investigate",
+   "mv:cheap",
+   "rec:partial",
+   "tok:clue",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Glorifier of Suffering",
+  "type": "Creature — Vampire Soldier",
+  "cost": "{2}{W}",
+  "rank": 21034,
+  "text": "When this creature enters, you may sacrifice another creature or artifact. When you do, put a +1/+1 counter on each of up to two target creatures.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:sacrifice",
+   "rec:partial",
+   "scope:all",
+   "sub:soldier",
+   "sub:vampire",
+   "sub:vampire soldier",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Carrionette",
+  "type": "Creature — Skeleton",
+  "cost": "{1}{B}",
+  "rank": 21035,
+  "text": "{2}{B}{B}: Exile this card and target creature unless that creature's controller pays {2}. Activate only if this card is in your graveyard.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "eff:exile",
+   "mv:cheap",
+   "sub:skeleton",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pay No Heed",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 21037,
+  "text": "Prevent all damage a source of your choice would deal this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Wanted Scoundrels",
+  "type": "Creature — Human Pirate",
+  "cost": "{1}{B}",
+  "rank": 21042,
+  "text": "When this creature dies, target opponent creates two Treasure tokens. (They're artifacts with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "eff:create-token",
+   "kw:treasure",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human pirate",
+   "sub:pirate",
+   "tok:treasure",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "World Queller",
+  "type": "Creature — Avatar",
+  "cost": "{3}{W}{W}",
+  "rank": 21045,
+  "text": "At the beginning of your upkeep, you may choose a card type. If you do, each player sacrifices a permanent of their choice of that type.",
+  "facets": [
+   "rec:partial",
+   "sub:avatar",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Treacherous Link",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 21046,
+  "text": "Enchant creature\nAll damage that would be dealt to enchanted creature is dealt to its controller instead.",
+  "facets": [
+   "eff:prevent-damage",
+   "eff:redirect-damage",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shieldmage Advocate",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{W}",
+  "rank": 21047,
+  "text": "{T}: Return target card from an opponent's graveyard to their hand. Prevent all damage that would be dealt to any target this turn by a source of your choice.",
+  "facets": [
+   "acost:1",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shriek Raptor",
+  "type": "Creature — Phyrexian Bird",
+  "cost": "{3}{W}{W}",
+  "rank": 21051,
+  "text": "Flying\nInfect (This creature deals damage to creatures in the form of -1/-1 counters and to players in the form of poison counters.)",
+  "facets": [
+   "eff:poison",
+   "kw:flying",
+   "kw:infect",
+   "rec:full",
+   "sub:bird",
+   "sub:phyrexian",
+   "sub:phyrexian bird",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deadly Grub",
+  "type": "Creature — Insect",
+  "cost": "{2}{B}",
+  "rank": 21053,
+  "text": "Vanishing 3 (This creature enters with three time counters on it. At the beginning of your upkeep, remove a time counter from it. When the last is removed, sacrifice it.)\nWhen this creature dies, if it had no time counters on it, create a 6/1 green Insect creature token with shroud. (It can't be the target of spells or abilities.)",
+  "facets": [
+   "cares:sub:insect",
+   "eff:create-token",
+   "kw:vanishing",
+   "rec:partial",
+   "sub:insect",
+   "tok:insect",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cathedral of Serra",
+  "type": "Land",
+  "cost": "",
+  "rank": 21054,
+  "text": "White legendary creatures you control have \"bands with other legendary creatures.\" (Any legendary creatures can attack in a band as long as at least one has \"bands with other legendary creatures.\" Bands are blocked as a group. If at least two legendary creatures you control, one of which has \"bands with other legendary creatures,\" are blocking or being blocked by the same creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "cares:type:legendary",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Roxxon Brutes",
+  "type": "Creature — Human Berserker Villain",
+  "cost": "{4}{B}",
+  "rank": 21055,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nWhenever you draw your second card each turn, put a +1/+1 counter on target creature.\nBasic landcycling {2} ({2}, Discard this card: Search your library for a basic land card, reveal it, put it into your hand, then shuffle.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:add-counters",
+   "eff:search-library",
+   "kw:basic landcycling",
+   "kw:cycling",
+   "kw:landcycling",
+   "kw:menace",
+   "kw:typecycling",
+   "rec:partial",
+   "sub:berserker",
+   "sub:human",
+   "sub:human berserker villain",
+   "sub:villain",
+   "trig:draws-card",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sneering Shadewriter",
+  "type": "Creature — Vampire Warlock",
+  "cost": "{4}{B}",
+  "rank": 21056,
+  "text": "Flying\nWhen this creature enters, each opponent loses 2 life and you gain 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:flying",
+   "rec:full",
+   "sub:vampire",
+   "sub:vampire warlock",
+   "sub:warlock",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Inquisitor Exarch",
+  "type": "Creature — Phyrexian Cleric",
+  "cost": "{W}{W}",
+  "rank": 21057,
+  "text": "When this creature enters, choose one —\n• You gain 2 life.\n• Target opponent loses 2 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Specter's Shroud",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 21060,
+  "text": "Equipped creature gets +1/+0.\nWhenever equipped creature deals combat damage to a player, that player discards a card.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:discard",
+   "eff:pump",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "trig:deals-damage",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sunscour",
+  "type": "Sorcery",
+  "cost": "{5}{W}{W}",
+  "rank": 21061,
+  "text": "You may exile two white cards from your hand rather than pay this spell's mana cost.\nDestroy all creatures.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Lagonna-Band Trailblazer",
+  "type": "Creature — Centaur Scout",
+  "cost": "{W}",
+  "rank": 21064,
+  "text": "Heroic — Whenever you cast a spell that targets this creature, put a +1/+1 counter on it.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:heroic",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:centaur",
+   "sub:centaur scout",
+   "sub:scout",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Cover of Winter",
+  "type": "Snow Enchantment",
+  "cost": "{2}{W}",
+  "rank": 21067,
+  "text": "Cumulative upkeep {S} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it. {S} can be paid with one mana from a snow source.)\nIf a creature would deal combat damage to you and/or one or more creatures you control, prevent X of that damage, where X is the number of age counters on this enchantment.\n{S}: Put an age counter on this enchantment.",
+  "facets": [
+   "acost:1",
+   "ctr:age-self",
+   "eff:add-counters-self",
+   "kw:cumulative upkeep",
+   "rec:partial",
+   "type:enchantment",
+   "type:snow"
+  ]
+ },
+ {
+  "name": "Renounce",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 21069,
+  "text": "Sacrifice any number of permanents. You gain 2 life for each permanent sacrificed this way.",
+  "facets": [
+   "cost:sacrifice",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Sadistic Obsession",
+  "type": "Enchantment — Aura",
+  "cost": "{3}{B}",
+  "rank": 21073,
+  "text": "Enchant creature\nEnchanted creature has \"{B}, {T}: Put a -1/-1 counter on target creature.\"",
+  "facets": [
+   "ctr:-1/-1",
+   "eff:add-counters",
+   "kw:enchant",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Mangara's Tome",
+  "type": "Artifact — Book",
+  "cost": "{5}",
+  "rank": 21075,
+  "text": "When this artifact enters, search your library for five cards, exile them in a face-down pile, and shuffle that pile. Then shuffle your library.\n{2}: The next time you would draw a card this turn, instead put the top card of the exiled pile into its owner's hand.",
+  "facets": [
+   "acost:2",
+   "cares:zone:library",
+   "col:none",
+   "eff:search-library",
+   "eff:shuffle",
+   "rec:partial",
+   "sub:book",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Gruesome Menagerie",
+  "type": "Sorcery",
+  "cost": "{3}{B}{B}",
+  "rank": 21076,
+  "text": "Choose a creature card with mana value 1 in your graveyard, then do the same for creature cards with mana value 2 and 3. Return those cards to the battlefield.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Backup Agent",
+  "type": "Creature — Human Citizen",
+  "cost": "{1}{W}",
+  "rank": 21077,
+  "text": "When this creature enters, put a +1/+1 counter on target creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "mv:cheap",
+   "rec:full",
+   "sub:citizen",
+   "sub:human",
+   "sub:human citizen",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hunter of Eyeblights",
+  "type": "Creature — Elf Assassin",
+  "cost": "{3}{B}{B}",
+  "rank": 21078,
+  "text": "When this creature enters, put a +1/+1 counter on target creature you don't control.\n{2}{B}, {T}: Destroy target creature with a counter on it.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:destroy",
+   "rec:partial",
+   "sub:assassin",
+   "sub:elf",
+   "sub:elf assassin",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Coastal Bulwark",
+  "type": "Artifact Creature — Wall",
+  "cost": "{2}",
+  "rank": 21079,
+  "text": "Defender\nThis creature gets +2/+0 as long as you control an Island.\n{2}, {T}: Surveil 1. (Look at the top card of your library. You may put that card into your graveyard.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:island",
+   "col:none",
+   "cost:tap",
+   "eff:pump",
+   "eff:surveil",
+   "kw:defender",
+   "kw:surveil",
+   "mv:cheap",
+   "rec:full",
+   "sub:wall",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Glistening Deluge",
+  "type": "Sorcery",
+  "cost": "{1}{B}{B}",
+  "rank": 21081,
+  "text": "All creatures get -1/-1 until end of turn. Creatures that are green and/or white get an additional -2/-2 until end of turn.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "eff:shrink",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dauthi Marauder",
+  "type": "Creature — Dauthi Minion",
+  "cost": "{2}{B}",
+  "rank": 21084,
+  "text": "Shadow (This creature can block or be blocked by only creatures with shadow.)",
+  "facets": [
+   "eff:cant-block-self",
+   "kw:shadow",
+   "rec:full",
+   "sub:dauthi",
+   "sub:dauthi minion",
+   "sub:minion",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Clockwork Dragon",
+  "type": "Artifact Creature — Dragon",
+  "cost": "{7}",
+  "rank": 21089,
+  "text": "Flying\nThis creature enters with six +1/+1 counters on it.\nWhenever this creature attacks or blocks, remove a +1/+1 counter from it at end of combat.\n{3}: Put a +1/+1 counter on this creature.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "ctr:+1/+1-self",
+   "eff:add-counters",
+   "eff:add-counters-self",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:dragon",
+   "trig:attacks",
+   "trig:blocks",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thornwatch Scarecrow",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{6}",
+  "rank": 21093,
+  "text": "This creature has wither as long as you control a green creature. (It deals damage to creatures in the form of -1/-1 counters.)\nThis creature has vigilance as long as you control a white creature.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "col:none",
+   "grants:vigilance",
+   "grants:wither",
+   "kw:vigilance",
+   "kw:wither",
+   "mv:big",
+   "rec:full",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Overzealous Muscle",
+  "type": "Creature — Ogre Mercenary",
+  "cost": "{4}{B}",
+  "rank": 21098,
+  "text": "Whenever you commit a crime during your turn, this creature gains indestructible until end of turn. (Targeting opponents, anything they control, and/or cards in their graveyards is a crime. Damage and effects that say \"destroy\" don't destroy a creature with indestructible.)",
+  "facets": [
+   "kw:indestructible",
+   "pt:big",
+   "sub:mercenary",
+   "sub:ogre",
+   "sub:ogre mercenary",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tooth of Ramos",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 21099,
+  "text": "{T}: Add {W}.\nSacrifice this artifact: Add {W}.",
+  "facets": [
+   "acost:0",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Abzan Advantage",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 21100,
+  "text": "Target player sacrifices an enchantment of their choice. Bolster 1. (Choose a creature with the least toughness among creatures you control and put a +1/+1 counter on it.)",
+  "facets": [
+   "cares:type:enchantment",
+   "eff:add-counters",
+   "eff:sacrifice",
+   "kw:bolster",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Scrapbasket",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{4}",
+  "rank": 21101,
+  "text": "{1}: This creature becomes all colors until end of turn.",
+  "facets": [
+   "acost:1",
+   "col:none",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Martyred Rusalka",
+  "type": "Creature — Spirit",
+  "cost": "{W}",
+  "rank": 21104,
+  "text": "{W}, Sacrifice a creature: Target creature can't attack this turn.",
+  "facets": [
+   "cares:type:creature",
+   "cost:sacrifice",
+   "cost:sacrifice-self",
+   "eff:cant-attack",
+   "mv:cheap",
+   "sub:spirit",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Arborea Pegasus",
+  "type": "Creature — Pegasus",
+  "cost": "{3}{W}",
+  "rank": 21106,
+  "text": "Flying\nWhen this creature enters, target creature gets +1/+1 and gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:pegasus",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Death's Approach",
+  "type": "Enchantment — Aura",
+  "cost": "{B}",
+  "rank": 21109,
+  "text": "Enchant creature\nEnchanted creature gets -X/-X, where X is the number of creature cards in its controller's graveyard.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Shielded Passage",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 21110,
+  "text": "Prevent all damage that would be dealt to target creature this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Rustic Clachan",
+  "type": "Land",
+  "cost": "",
+  "rank": 21112,
+  "text": "As this land enters, you may reveal a Kithkin card from your hand. If you don't, this land enters tapped.\n{T}: Add {W}.\nReinforce 1—{1}{W} ({1}{W}, Discard this card: Put a +1/+1 counter on target creature.)",
+  "facets": [
+   "acost:0",
+   "cares:sub:kithkin",
+   "cost:tap",
+   "eff:add-counters",
+   "eff:add-mana",
+   "kw:reinforce",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Forum Familiar",
+  "type": "Creature — Cat",
+  "cost": "{W}",
+  "rank": 21117,
+  "text": "Disguise {1}{W} (You may cast this card face down for {3} as a 2/2 creature with ward {2}. Turn it face up any time for its disguise cost.)\nWhen this creature is turned face up, return another target permanent you control to its owner's hand and put a +1/+1 counter on this creature.",
+  "facets": [
+   "eff:add-counters-self",
+   "eff:move-zone",
+   "kw:disguise",
+   "mv:cheap",
+   "sub:cat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Liliana's Spoils",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 21119,
+  "text": "Target opponent discards a card.\nLook at the top five cards of your library. You may reveal a black card from among them and put it into your hand. Put the rest on the bottom of your library in a random order.",
+  "facets": [
+   "cares:color:b",
+   "cares:zone:exile",
+   "cares:zone:library",
+   "eff:discard",
+   "eff:impulse",
+   "eff:look-and-pick",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Monoist Circuit-Feeder",
+  "type": "Artifact Creature — Nautilus",
+  "cost": "{4}{B}{B}",
+  "rank": 21132,
+  "text": "Flying\nWhen this creature enters, until end of turn, target creature you control gets +X/+0 and target creature an opponent controls gets -0/-X, where X is the number of artifacts you control.",
+  "facets": [
+   "cares:type:artifact",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:nautilus",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Silverchase Fox",
+  "type": "Creature — Fox",
+  "cost": "{1}{W}",
+  "rank": 21133,
+  "text": "{1}{W}, Sacrifice this creature: Exile target enchantment.",
+  "facets": [
+   "acost:2",
+   "cares:type:enchantment",
+   "cost:sacrifice-self",
+   "eff:exile",
+   "mv:cheap",
+   "rec:full",
+   "sub:fox",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mesa Pegasus",
+  "type": "Creature — Pegasus",
+  "cost": "{1}{W}",
+  "rank": 21139,
+  "text": "Flying; banding (Any creatures with banding, and up to one without, can attack in a band. Bands are blocked as a group. If any creatures with banding you control are blocking or being blocked by a creature, you divide that creature's combat damage, not its controller, among any of the creatures it's being blocked by or is blocking.)",
+  "facets": [
+   "kw:banding",
+   "kw:flying",
+   "mv:cheap",
+   "sub:pegasus",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Tragic Fall",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 21142,
+  "text": "Target creature gets -3/-3 until end of turn.\nHellbent — That creature gets -13/-13 until end of turn instead if you have no cards in hand.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:shrink",
+   "kw:hellbent",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Lurebound Scarecrow",
+  "type": "Artifact Creature — Scarecrow",
+  "cost": "{3}",
+  "rank": 21143,
+  "text": "As this creature enters, choose a color.\nWhen you control no permanents of the chosen color, sacrifice this creature.",
+  "facets": [
+   "col:none",
+   "eff:choose",
+   "rec:partial",
+   "sub:scarecrow",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Render Speechless",
+  "type": "Sorcery",
+  "cost": "{2}{W}{B}",
+  "rank": 21146,
+  "text": "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card.\nPut two +1/+1 counters on up to one target creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:discard",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Sleek Schooner",
+  "type": "Artifact — Vehicle",
+  "cost": "{3}",
+  "rank": 21150,
+  "text": "Crew 1 (Tap any number of creatures you control with total power 1 or more: This Vehicle becomes an artifact creature until end of turn.)",
+  "facets": [
+   "cares:type:creature",
+   "col:none",
+   "cost:tap-others",
+   "kw:crew",
+   "rec:full",
+   "sub:vehicle",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hog-Monkey",
+  "type": "Creature — Boar Monkey",
+  "cost": "{2}{B}",
+  "rank": 21154,
+  "text": "At the beginning of combat on your turn, target creature you control with a +1/+1 counter on it gains menace until end of turn. (It can't be blocked except by two or more creatures.)\nExhaust — {5}: Put two +1/+1 counters on this creature. (Activate each exhaust ability only once.)",
+  "facets": [
+   "acost:3",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:exhaust",
+   "rec:partial",
+   "sub:boar",
+   "sub:boar monkey",
+   "sub:monkey",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Chime of Night",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 21155,
+  "text": "Enchant creature\nWhen this Aura is put into a graveyard from the battlefield, destroy target nonblack creature.",
+  "facets": [
+   "cares:sub:aura",
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "trig:dies",
+   "type:enchantment"
+  ]
+ }
+]

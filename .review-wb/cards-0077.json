@@ -1,0 +1,918 @@
+[
+ {
+  "name": "Ward Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{4}{W}",
+  "rank": 9778,
+  "text": "As this creature enters, choose a color.\nAll Slivers have protection from the chosen color.",
+  "facets": [
+   "cares:sub:sliver",
+   "eff:choose",
+   "rec:partial",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Custodi Lich",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{3}{B}{B}",
+  "rank": 9779,
+  "text": "When this creature enters, you become the monarch.\nWhenever you become the monarch, target player sacrifices a creature of their choice.",
+  "facets": [
+   "cares:type:creature",
+   "eff:sacrifice",
+   "eff:set-monarch",
+   "rec:partial",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hostile Desert",
+  "type": "Land — Desert",
+  "cost": "",
+  "rank": 9783,
+  "text": "{T}: Add {C}.\n{2}, Exile a land card from your graveyard: This land becomes a 3/4 Elemental creature until end of turn. It's still a land.",
+  "facets": [
+   "acost:0",
+   "cares:sub:elemental",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:desert",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Regal Sliver",
+  "type": "Creature — Sliver",
+  "cost": "{3}{W}",
+  "rank": 9784,
+  "text": "Sliver creatures you control have \"When this creature enters, Slivers you control get +1/+1 until end of turn if you're the monarch. Otherwise, you become the monarch.\"",
+  "facets": [
+   "cares:sub:sliver",
+   "cares:type:creature",
+   "eff:draw",
+   "eff:pump",
+   "scope:all",
+   "sub:sliver",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deification",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 9785,
+  "text": "As this enchantment enters, choose a planeswalker type.\nPlaneswalkers you control of the chosen type have hexproof.\nAs long as you control a creature, if damage dealt to a planeswalker you control of the chosen type would result in all loyalty counters on it being removed, instead all but one of those counters are removed.",
+  "facets": [
+   "grants:hexproof",
+   "mv:cheap",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Web Up",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 9786,
+  "text": "When this enchantment enters, exile target nonland permanent an opponent controls until this enchantment leaves the battlefield.",
+  "facets": [
+   "eff:exile",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Stalactite Dagger",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 9788,
+  "text": "When this Equipment enters, create a 1/1 colorless Shapeshifter creature token with changeling. (It's every creature type.)\nEquipped creature gets +1/+1 and is all creature types.\nEquip {2} ({2}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:2",
+   "cares:sub:equipment",
+   "cares:type:creature",
+   "col:none",
+   "eff:attach",
+   "eff:create-token",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "tok:shapeshifter",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Eternity Vessel",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 9789,
+  "text": "This artifact enters with X charge counters on it, where X is your life total.\nLandfall — Whenever a land you control enters, you may have your life total become the number of charge counters on this artifact.",
+  "facets": [
+   "cares:type:land",
+   "col:none",
+   "kw:landfall",
+   "mv:big",
+   "rec:partial",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Bontu the Glorified",
+  "type": "Legendary Creature — God",
+  "cost": "{2}{B}",
+  "rank": 9790,
+  "text": "Menace, indestructible\nBontu can't attack or block unless a creature died under your control this turn.\n{1}{B}, Sacrifice another creature: Scry 1. Each opponent loses 1 life and you gain 1 life.",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cost:sacrifice",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:scry",
+   "kw:indestructible",
+   "kw:menace",
+   "kw:scry",
+   "rec:partial",
+   "scope:all",
+   "sub:god",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Dauntless Bodyguard",
+  "type": "Creature — Human Knight",
+  "cost": "{W}",
+  "rank": 9791,
+  "text": "As this creature enters, choose another creature you control.\nSacrifice this creature: The chosen creature gains indestructible until end of turn.",
+  "facets": [
+   "cost:sacrifice-self",
+   "eff:protect",
+   "grants:indestructible",
+   "kw:indestructible",
+   "mv:cheap",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Mirri the Cursed",
+  "type": "Legendary Creature — Vampire Cat",
+  "cost": "{2}{B}{B}",
+  "rank": 9795,
+  "text": "Flying, first strike, haste\nWhenever Mirri deals combat damage to a creature, put a +1/+1 counter on Mirri.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:first strike",
+   "kw:flying",
+   "kw:haste",
+   "rec:full",
+   "sub:cat",
+   "sub:vampire",
+   "sub:vampire cat",
+   "trig:deals-damage",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Devouring Light",
+  "type": "Instant",
+  "cost": "{1}{W}{W}",
+  "rank": 9797,
+  "text": "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nExile target attacking or blocking creature.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "cost:cast-tap-others",
+   "eff:exile",
+   "kw:convoke",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Maximum Overdrive",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 9799,
+  "text": "Put a +1/+1 counter on target creature. It gains deathtouch and indestructible until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:pump",
+   "grants:deathtouch",
+   "grants:indestructible",
+   "kw:deathtouch",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Isildur's Fateful Strike",
+  "type": "Legendary Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 9800,
+  "text": "(You may cast a legendary instant only if you control a legendary creature or planeswalker.)\nDestroy target creature. If its controller has more than four cards in hand, they exile cards from their hand equal to the difference.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:hand",
+   "eff:destroy",
+   "rec:partial",
+   "type:instant",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Magister of Worth",
+  "type": "Creature — Angel",
+  "cost": "{4}{W}{B}",
+  "rank": 9805,
+  "text": "Flying\nWill of the council — When this creature enters, starting with you, each player votes for grace or condemnation. If grace gets more votes, each player returns each creature card from their graveyard to the battlefield. If condemnation gets more votes or the vote is tied, destroy all creatures other than this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:destroy",
+   "eff:return-from",
+   "kw:flying",
+   "kw:will of the council",
+   "mv:big",
+   "rec:partial",
+   "sub:angel",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Liliana's Specter",
+  "type": "Creature — Specter",
+  "cost": "{1}{B}{B}",
+  "rank": 9810,
+  "text": "Flying\nWhen this creature enters, each opponent discards a card.",
+  "facets": [
+   "eff:discard",
+   "kw:flying",
+   "rec:full",
+   "sub:specter",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nephalia Academy",
+  "type": "Land",
+  "cost": "",
+  "rank": 9811,
+  "text": "If a spell or ability an opponent controls causes you to discard a card, you may reveal that card and put it on top of your library instead of putting it anywhere else.\n{T}: Add {C}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Bane of the Living",
+  "type": "Creature — Insect",
+  "cost": "{2}{B}{B}",
+  "rank": 9812,
+  "text": "Morph {X}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)\nWhen this creature is turned face up, all creatures get -X/-X until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "kw:morph",
+   "rec:partial",
+   "scope:all",
+   "sub:insect",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Victim of Night",
+  "type": "Instant",
+  "cost": "{B}{B}",
+  "rank": 9815,
+  "text": "Destroy target non-Vampire, non-Werewolf, non-Zombie creature.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Curious Farm Animals",
+  "type": "Creature — Boar Elk Bird Ox",
+  "cost": "{W}",
+  "rank": 9823,
+  "text": "When this creature dies, you gain 3 life.\n{2}, Sacrifice this creature: Destroy up to one target artifact or enchantment.",
+  "facets": [
+   "acost:2",
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:bird",
+   "sub:boar",
+   "sub:boar elk bird ox",
+   "sub:elk",
+   "sub:ox",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ring of Thune",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 9824,
+  "text": "Equipped creature has vigilance. (Attacking doesn't cause it to tap.)\nAt the beginning of your upkeep, put a +1/+1 counter on equipped creature if it's white.\nEquip {1} ({1}: Attach to target creature you control. Equip only as a sorcery.)",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:attach",
+   "grants:vigilance",
+   "kw:equip",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:equipment",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Withered Wretch",
+  "type": "Creature — Zombie Cleric",
+  "cost": "{B}{B}",
+  "rank": 9826,
+  "text": "{1}: Exile target card from a graveyard.",
+  "facets": [
+   "acost:1",
+   "eff:exile-graveyard",
+   "mv:cheap",
+   "rec:full",
+   "sub:cleric",
+   "sub:zombie",
+   "sub:zombie cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Ebonblade Reaper",
+  "type": "Creature — Human Cleric",
+  "cost": "{2}{B}",
+  "rank": 9829,
+  "text": "Whenever this creature attacks, you lose half your life, rounded up.\nWhenever this creature deals combat damage to a player, that player loses half their life, rounded up.\nMorph {3}{B}{B} (You may cast this card face down as a 2/2 creature for {3}. Turn it face up any time for its morph cost.)",
+  "facets": [
+   "kw:morph",
+   "rec:partial",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:attacks",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Flickerform",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 9830,
+  "text": "Enchant creature\n{2}{W}{W}: Exile enchanted creature and all Auras attached to it. At the beginning of the next end step, return that card to the battlefield under its owner's control. If you do, return the other cards exiled this way to the battlefield under their owners' control attached to that creature.",
+  "facets": [
+   "acost:3",
+   "cares:sub:aura",
+   "eff:exile-own",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:full",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Petrified Hamlet",
+  "type": "Land",
+  "cost": "",
+  "rank": 9831,
+  "text": "When this land enters, choose a land card name.\nActivated abilities of sources with the chosen name can't be activated unless they're mana abilities.\nLands with the chosen name have \"{T}: Add {C}.\"\n{T}: Add {C}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:cant-activate",
+   "mana:1",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Feral Deathgorger // Dusk Sight",
+  "type": "Creature — Dragon // Sorcery — Omen",
+  "cost": "{5}{B} // {1}{B}",
+  "rank": 9833,
+  "text": "Flying, deathtouch\nWhen this creature enters, exile up to two target cards from a single graveyard.\n//\nPut a +1/+1 counter on up to one target creature. Draw a card. (Then shuffle this card into its owner's library.)",
+  "facets": [
+   "eff:add-counters",
+   "eff:draw",
+   "kw:deathtouch",
+   "kw:flying",
+   "mv:big",
+   "rec:partial",
+   "sub:dragon",
+   "sub:omen",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Felidar Cub",
+  "type": "Creature — Cat Beast",
+  "cost": "{1}{W}",
+  "rank": 9842,
+  "text": "Sacrifice this creature: Destroy target enchantment.",
+  "facets": [
+   "acost:0",
+   "cares:type:enchantment",
+   "cost:sacrifice-self",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "sub:beast",
+   "sub:cat",
+   "sub:cat beast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Runechanter's Pike",
+  "type": "Artifact — Equipment",
+  "cost": "{2}",
+  "rank": 9845,
+  "text": "Equipped creature has first strike and gets +X/+0, where X is the number of instant and sorcery cards in your graveyard.\nEquip {2}",
+  "facets": [
+   "acost:2",
+   "cares:type:creature",
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:attach",
+   "kw:equip",
+   "mv:cheap",
+   "rec:partial",
+   "sub:equipment",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Battle-Rage Blessing",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 9849,
+  "text": "Target creature gains deathtouch and indestructible until end of turn. (Damage and effects that say \"destroy\" don't destroy it.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:deathtouch",
+   "grants:indestructible",
+   "kw:deathtouch",
+   "kw:indestructible",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Atrocious Experiment",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 9852,
+  "text": "Target player mills two cards, draws two cards, and loses 2 life. (To mill a card, a player puts the top card of their library into their graveyard.)",
+  "facets": [
+   "eff:draw",
+   "eff:lose-life",
+   "eff:mill",
+   "kw:mill",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Githzerai Monk",
+  "type": "Creature — Gith Monk",
+  "cost": "{4}{W}",
+  "rank": 9853,
+  "text": "Flash\nFlying\nPsychic Defense — When this creature enters, tap all creatures you don't control.",
+  "facets": [
+   "cares:type:creature",
+   "eff:tap",
+   "kw:flash",
+   "kw:flying",
+   "kw:psychic defense",
+   "rec:full",
+   "scope:all",
+   "sub:gith",
+   "sub:gith monk",
+   "sub:monk",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Destined Black Mage",
+  "type": "Legendary Creature — Human Wizard",
+  "cost": "{2}{B}",
+  "rank": 9854,
+  "text": "Deathtouch\n{B}, {T}: Another target creature you control gains deathtouch until end of turn.\nWhenever you cast a noncreature spell, The Destined Black Mage deals 1 damage to each opponent. If you have a full party, it deals 3 damage to each opponent instead.",
+  "facets": [
+   "acost:1",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "cost:tap",
+   "eff:damage",
+   "eff:pump",
+   "grants:deathtouch",
+   "kw:deathtouch",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:cast",
+   "trig:cast-own",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Energy Refractor",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 9855,
+  "text": "When this artifact enters, draw a card.\n{2}: Add one mana of any color.",
+  "facets": [
+   "acost:2",
+   "col:none",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:1",
+   "mv:cheap",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Hissing Miasma",
+  "type": "Enchantment",
+  "cost": "{1}{B}{B}",
+  "rank": 9858,
+  "text": "Whenever a creature attacks you, its controller loses 1 life.",
+  "facets": [
+   "eff:lose-life",
+   "eff:unless-pays",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Rasaad yn Bashir",
+  "type": "Legendary Creature — Human Monk",
+  "cost": "{2}{W}",
+  "rank": 9862,
+  "text": "Each creature you control assigns combat damage equal to its toughness rather than its power.\nWhenever Rasaad yn Bashir attacks, if you have the initiative, double the toughness of each creature you control until end of turn.\nChoose a Background (You can have a Background as a second commander.)",
+  "facets": [
+   "kw:choose a background",
+   "kw:double",
+   "rec:partial",
+   "sub:human",
+   "sub:human monk",
+   "sub:monk",
+   "trig:attacks",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Silverblade Paladin",
+  "type": "Creature — Human Knight",
+  "cost": "{1}{W}{W}",
+  "rank": 9863,
+  "text": "Soulbond (You may pair this creature with another unpaired creature when either enters. They remain paired for as long as you control both of them.)\nAs long as this creature is paired with another creature, both creatures have double strike.",
+  "facets": [
+   "cares:type:creature",
+   "grants:double strike",
+   "kw:double strike",
+   "kw:soulbond",
+   "rec:partial",
+   "sub:human",
+   "sub:human knight",
+   "sub:knight",
+   "trig:enters",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Reprocess",
+  "type": "Sorcery",
+  "cost": "{2}{B}{B}",
+  "rank": 9868,
+  "text": "Sacrifice any number of artifacts, creatures, and/or lands. Draw a card for each permanent sacrificed this way.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:land",
+   "cost:sacrifice",
+   "eff:draw",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Shimmercreep",
+  "type": "Creature — Elemental",
+  "cost": "{4}{B}",
+  "rank": 9870,
+  "text": "Menace (This creature can't be blocked except by two or more creatures.)\nVivid — When this creature enters, each opponent loses X life and you gain X life, where X is the number of colors among permanents you control.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:menace",
+   "kw:vivid",
+   "rec:partial",
+   "sub:elemental",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Boreas Charger",
+  "type": "Creature — Pegasus",
+  "cost": "{2}{W}",
+  "rank": 9874,
+  "text": "Flying\nWhen this creature leaves the battlefield, choose an opponent who controls more lands than you. Search your library for a number of Plains cards equal to the difference, reveal those cards, put one of them onto the battlefield tapped and the rest into your hand, then shuffle.",
+  "facets": [
+   "cares:type:land",
+   "cares:zone:library-land",
+   "eff:search-library",
+   "kw:flying",
+   "rec:partial",
+   "sub:pegasus",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Venomcrawler",
+  "type": "Artifact Creature — Demon",
+  "cost": "{3}{B}",
+  "rank": 9875,
+  "text": "Lifelink\nDevourer of Souls — Whenever another creature dies, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:devourer of souls",
+   "kw:lifelink",
+   "rec:full",
+   "scope:all",
+   "sub:demon",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Altar of the Goyf",
+  "type": "Kindred Artifact — Lhurgoyf",
+  "cost": "{5}",
+  "rank": 9877,
+  "text": "Whenever a creature you control attacks alone, it gets +X/+X until end of turn, where X is the number of card types among cards in all graveyards.\nLhurgoyf creatures you control have trample.",
+  "facets": [
+   "cares:sub:lhurgoyf",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "grants:trample",
+   "kw:trample",
+   "rec:partial",
+   "scope:all",
+   "sub:lhurgoyf",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Blessing of Leeches",
+  "type": "Enchantment — Aura",
+  "cost": "{2}{B}",
+  "rank": 9878,
+  "text": "Flash\nEnchant creature\nAt the beginning of your upkeep, you lose 1 life.\n{0}: Regenerate enchanted creature.",
+  "facets": [
+   "acost:0",
+   "eff:lose-life",
+   "kw:enchant",
+   "kw:flash",
+   "kw:regenerate",
+   "rec:partial",
+   "sub:aura",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Impostor of the Sixth Pride",
+  "type": "Creature — Shapeshifter",
+  "cost": "{1}{W}",
+  "rank": 9882,
+  "text": "Changeling (This card is every creature type.)",
+  "facets": [
+   "kw:changeling",
+   "mv:cheap",
+   "rec:full",
+   "sub:shapeshifter",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Lightstall Inquisitor",
+  "type": "Creature — Angel Wizard",
+  "cost": "{W}",
+  "rank": 9883,
+  "text": "Vigilance\nWhen this creature enters, each opponent exiles a card from their hand and may play that card for as long as it remains exiled. Each spell cast this way costs {1} more to cast. Each land played this way enters tapped.",
+  "facets": [
+   "cares:zone:hand",
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:partial",
+   "sub:angel",
+   "sub:angel wizard",
+   "sub:wizard",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shroudstomper",
+  "type": "Creature — Elemental",
+  "cost": "{3}{W}{W}{B}{B}",
+  "rank": 9884,
+  "text": "Deathtouch\nWhenever this creature enters or attacks, each opponent loses 2 life. You gain 2 life and draw a card.",
+  "facets": [
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "kw:deathtouch",
+   "mv:big",
+   "pt:big",
+   "rec:full",
+   "sub:elemental",
+   "trig:attacks",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Gluttonous Guest",
+  "type": "Creature — Vampire",
+  "cost": "{2}{B}",
+  "rank": 9887,
+  "text": "When this creature enters, create a Blood token. (It's an artifact with \"{1}, {T}, Discard a card, Sacrifice this token: Draw a card.\")\nWhenever you sacrifice a Blood token, you gain 1 life.",
+  "facets": [
+   "eff:create-token",
+   "rec:partial",
+   "sub:vampire",
+   "tok:blood",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Victory's Envoy",
+  "type": "Creature — Human Cleric",
+  "cost": "{3}{W}{W}",
+  "rank": 9889,
+  "text": "At the beginning of your upkeep, put a +1/+1 counter on each other creature you control.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Nesting Bot",
+  "type": "Artifact Creature — Robot",
+  "cost": "{W}",
+  "rank": 9891,
+  "text": "Start your engines! (If you have no speed, it starts at 1. It increases once on each of your turns when an opponent loses life. Max speed is 4.)\nWhen this creature dies, create a 1/1 colorless Servo artifact creature token.\nMax speed — This creature gets +1/+0.",
+  "facets": [
+   "eff:create-token",
+   "eff:pump",
+   "kw:max speed",
+   "kw:start your engines!",
+   "mv:cheap",
+   "rec:full",
+   "sub:robot",
+   "tok:servo",
+   "trig:dies",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rat King, Pale Piper",
+  "type": "Legendary Creature — Rat Avatar",
+  "cost": "{3}{B}",
+  "rank": 9895,
+  "text": "Menace\nWhenever Rat King or another nontoken creature you control leaves the battlefield, create a 1/1 black Rat creature token.\n{2}, Sacrifice a token: Draw a card.",
+  "facets": [
+   "acost:2",
+   "cares:sub:rat",
+   "cares:type:token",
+   "cost:sacrifice",
+   "eff:create-token",
+   "eff:draw",
+   "kw:menace",
+   "rec:partial",
+   "scope:all",
+   "sub:avatar",
+   "sub:rat",
+   "sub:rat avatar",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Sentinel Tower",
+  "type": "Artifact",
+  "cost": "{4}",
+  "rank": 9896,
+  "text": "Whenever an instant or sorcery spell is cast during your turn, this artifact deals damage to any target equal to 1 plus the number of instant and sorcery spells cast before that spell this turn.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "col:none",
+   "eff:damage",
+   "trig:cast",
+   "type:artifact"
+  ]
+ }
+]

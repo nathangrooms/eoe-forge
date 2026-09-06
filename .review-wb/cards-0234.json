@@ -1,0 +1,804 @@
+[
+ {
+  "name": "Mending Hands",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 29490,
+  "text": "Prevent the next 4 damage that would be dealt to any target this turn.",
+  "facets": [
+   "eff:prevent-damage",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Adherent of Hope",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 29491,
+  "text": "At the beginning of combat on your turn, if you control a Basri planeswalker, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:sub:basri",
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bog Down",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 29495,
+  "text": "Kicker—Sacrifice two lands. (You may sacrifice two lands in addition to any other costs as you cast this spell.)\nTarget player discards two cards. If this spell was kicked, that player discards three cards instead.",
+  "facets": [
+   "eff:discard",
+   "kw:kicker",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Perish the Thought",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 29497,
+  "text": "Target opponent reveals their hand. You choose a card from it. That player shuffles that card into their library.",
+  "facets": [
+   "cares:zone:hand",
+   "cares:zone:library",
+   "eff:move-zone",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Songstitcher",
+  "type": "Creature — Human Cleric",
+  "cost": "{W}",
+  "rank": 29500,
+  "text": "{1}{W}: Prevent all combat damage that would be dealt this turn by target attacking creature with flying.",
+  "facets": [
+   "acost:2",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Deserter's Quarters",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 29501,
+  "text": "You may choose not to untap this artifact during your untap step.\n{6}, {T}: Tap target creature. It doesn't untap during its controller's untap step for as long as this artifact remains tapped.",
+  "facets": [
+   "acost:3",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:tap",
+   "mv:cheap",
+   "rec:partial",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Nimana Skitter-Sneak",
+  "type": "Creature — Human Rogue",
+  "cost": "{3}{B}",
+  "rank": 29509,
+  "text": "As long as an opponent has eight or more cards in their graveyard, this creature gets +1/+0 and has menace. (It can't be blocked except by two or more creatures.)",
+  "facets": [
+   "cares:zone:graveyard",
+   "kw:menace",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Pendulum of Patterns",
+  "type": "Artifact",
+  "cost": "{2}",
+  "rank": 29510,
+  "text": "When this artifact enters, you gain 3 life.\n{5}, {T}, Sacrifice this artifact: Draw a card.",
+  "facets": [
+   "acost:3",
+   "col:none",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:draw",
+   "eff:gain-life",
+   "mv:cheap",
+   "rec:full",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Revered Dead",
+  "type": "Creature — Spirit Soldier",
+  "cost": "{1}{W}",
+  "rank": 29511,
+  "text": "{W}: Regenerate this creature.",
+  "facets": [
+   "acost:1",
+   "kw:regenerate",
+   "mv:cheap",
+   "sub:soldier",
+   "sub:spirit",
+   "sub:spirit soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Winnow",
+  "type": "Instant",
+  "cost": "{1}{W}",
+  "rank": 29512,
+  "text": "Destroy target nonland permanent if another permanent with the same name is on the battlefield.\nDraw a card.",
+  "facets": [
+   "eff:destroy",
+   "eff:draw",
+   "mv:cheap",
+   "rec:partial",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Breathstealer",
+  "type": "Creature — Nightstalker",
+  "cost": "{2}{B}",
+  "rank": 29516,
+  "text": "{B}: This creature gets +1/-1 until end of turn.",
+  "facets": [
+   "acost:1",
+   "eff:pump",
+   "rec:full",
+   "sub:nightstalker",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Urza's Miter",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 29520,
+  "text": "Whenever an artifact you control is put into a graveyard from the battlefield, if it wasn't sacrificed, you may pay {3}. If you do, draw a card.",
+  "facets": [
+   "cares:type:artifact",
+   "col:none",
+   "rec:partial",
+   "scope:all",
+   "trig:dies",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Ivory Charm",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 29525,
+  "text": "Choose one —\n• All creatures get -2/-0 until end of turn.\n• Tap target creature.\n• Prevent the next 1 damage that would be dealt to any target this turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:shrink",
+   "eff:tap",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "scope:wipe",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Siege Mastodon",
+  "type": "Creature — Elephant",
+  "cost": "{4}{W}",
+  "rank": 29527,
+  "text": "",
+  "facets": [
+   "sub:elephant",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Repentant Vampire",
+  "type": "Creature — Vampire",
+  "cost": "{3}{B}{B}",
+  "rank": 29530,
+  "text": "Flying\nWhenever a creature dealt damage by this creature this turn dies, put a +1/+1 counter on this creature.\nThreshold — As long as there are seven or more cards in your graveyard, this creature is white and has \"{T}: Destroy target black creature.\"",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:destroy",
+   "kw:flying",
+   "kw:threshold",
+   "rec:partial",
+   "sub:vampire",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Soul Rend",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 29538,
+  "text": "Destroy target creature if it's white. A creature destroyed this way can't be regenerated.\nDraw a card at the beginning of the next turn's upkeep.",
+  "facets": [
+   "cares:color:w",
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:draw",
+   "mv:cheap",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Planeswalker's Mirth",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 29540,
+  "text": "{3}{W}: Target opponent reveals a card at random from their hand. You gain life equal to that card's mana value.",
+  "facets": [
+   "acost:3",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Deception",
+  "type": "Sorcery",
+  "cost": "{2}{B}",
+  "rank": 29543,
+  "text": "Target opponent discards two cards.",
+  "facets": [
+   "eff:discard",
+   "rec:full",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Revenant Patriarch",
+  "type": "Creature — Spirit",
+  "cost": "{4}{B}",
+  "rank": 29544,
+  "text": "When this creature enters, if {W} was spent to cast it, target player skips their next combat phase.\nThis creature can't block.",
+  "facets": [
+   "rec:partial",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hero of the Winds",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 29546,
+  "text": "Flying\nWhenever you cast a spell that targets this creature, creatures you control get +1/+0 until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:stack",
+   "eff:pump",
+   "kw:flying",
+   "rec:full",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:cast:targeting",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Toxic Abomination",
+  "type": "Creature — Phyrexian Zombie",
+  "cost": "{1}{B}",
+  "rank": 29549,
+  "text": "When this creature enters, you lose 2 life.",
+  "facets": [
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:phyrexian",
+   "sub:phyrexian zombie",
+   "sub:zombie",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shriek of Dread",
+  "type": "Instant",
+  "cost": "{1}{B}",
+  "rank": 29555,
+  "text": "Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:fear",
+   "kw:fear",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Molten-Tail Masticore",
+  "type": "Artifact Creature — Masticore",
+  "cost": "{4}",
+  "rank": 29557,
+  "text": "At the beginning of your upkeep, sacrifice this creature unless you discard a card.\n{4}, Exile a creature card from your graveyard: This creature deals 4 damage to any target.\n{2}: Regenerate this creature.",
+  "facets": [
+   "acost:2",
+   "acost:3",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "cost:exile",
+   "eff:damage",
+   "kw:regenerate",
+   "rec:partial",
+   "scope:all",
+   "sub:masticore",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Circle of Protection: Shadow",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 29559,
+  "text": "{1}: The next time a creature of your choice with shadow would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:1",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Prison Barricade",
+  "type": "Creature — Wall",
+  "cost": "{1}{W}",
+  "rank": 29561,
+  "text": "Defender (This creature can't attack.)\nKicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nIf this creature was kicked, it enters with a +1/+1 counter on it and with \"This creature can attack as though it didn't have defender.\"",
+  "facets": [
+   "eff:add-counters-self",
+   "kw:defender",
+   "kw:kicker",
+   "mv:cheap",
+   "rec:partial",
+   "sub:wall",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wellgabber Apothecary",
+  "type": "Creature — Merfolk Cleric",
+  "cost": "{4}{W}",
+  "rank": 29565,
+  "text": "{1}{W}: Prevent all damage that would be dealt to target tapped Merfolk or Kithkin creature this turn.",
+  "facets": [
+   "acost:2",
+   "cares:sub:kithkin",
+   "cares:sub:merfolk",
+   "sub:cleric",
+   "sub:merfolk",
+   "sub:merfolk cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Battleflight Eagle",
+  "type": "Creature — Bird",
+  "cost": "{4}{W}",
+  "rank": 29566,
+  "text": "Flying\nWhen this creature enters, target creature gets +2/+2 and gains flying until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:flying",
+   "kw:flying",
+   "rec:full",
+   "sub:bird",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Urborg Shambler",
+  "type": "Creature — Horror",
+  "cost": "{2}{B}{B}",
+  "rank": 29569,
+  "text": "Other black creatures get -1/-1.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "rec:full",
+   "scope:all",
+   "sub:horror",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Slith Bloodletter",
+  "type": "Creature — Slith",
+  "cost": "{B}{B}",
+  "rank": 29577,
+  "text": "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it.\n{1}{B}: Regenerate this creature.",
+  "facets": [
+   "acost:2",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:regenerate",
+   "mv:cheap",
+   "rec:partial",
+   "sub:slith",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Wave of Terror",
+  "type": "Enchantment",
+  "cost": "{2}{B}",
+  "rank": 29579,
+  "text": "Cumulative upkeep {1} (At the beginning of your upkeep, put an age counter on this permanent, then sacrifice it unless you pay its upkeep cost for each age counter on it.)\nAt the beginning of your draw step, destroy each creature with mana value equal to the number of age counters on this enchantment. They can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "kw:cumulative upkeep",
+   "rec:partial",
+   "trig:step",
+   "trig:step:draw",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Clergy en-Vec",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 29580,
+  "text": "{T}: Prevent the next 1 damage that would be dealt to any target this turn.",
+  "facets": [
+   "acost:1",
+   "mv:cheap",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Sentry Oak",
+  "type": "Creature — Treefolk Warrior",
+  "cost": "{4}{W}",
+  "rank": 29581,
+  "text": "Defender\nAt the beginning of combat on your turn, you may clash with an opponent. If you win, this creature gets +2/+0 and loses defender until end of turn. (Each clashing player reveals the top card of their library, then puts that card on their choice of the top or bottom. A player wins if their card had a greater mana value.)",
+  "facets": [
+   "kw:clash",
+   "kw:defender",
+   "rec:partial",
+   "sub:treefolk",
+   "sub:treefolk warrior",
+   "sub:warrior",
+   "trig:step",
+   "trig:step:begin-combat",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thraben Valiant",
+  "type": "Creature — Human Soldier",
+  "cost": "{1}{W}",
+  "rank": 29582,
+  "text": "Vigilance",
+  "facets": [
+   "kw:vigilance",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Bloodthirsty Ogre",
+  "type": "Creature — Ogre Warrior Shaman",
+  "cost": "{2}{B}",
+  "rank": 29583,
+  "text": "{T}: Put a devotion counter on this creature.\n{T}: Target creature gets -X/-X until end of turn, where X is the number of devotion counters on this creature. Activate only if you control a Demon.",
+  "facets": [
+   "acost:0",
+   "cares:sub:demon",
+   "cares:type:creature",
+   "cost:tap",
+   "ctr:devotion-self",
+   "eff:add-counters-self",
+   "eff:shrink",
+   "rec:full",
+   "sub:ogre",
+   "sub:ogre warrior shaman",
+   "sub:shaman",
+   "sub:warrior",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Seize the Initiative",
+  "type": "Instant",
+  "cost": "{W}",
+  "rank": 29588,
+  "text": "Target creature gets +1/+1 and gains first strike until end of turn.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "grants:first strike",
+   "kw:first strike",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Steam Catapult",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}{W}",
+  "rank": 29590,
+  "text": "{T}: Destroy target tapped creature. Activate only during your turn, before attackers are declared.",
+  "facets": [
+   "acost:0",
+   "cares:type:creature",
+   "cost:tap",
+   "eff:destroy",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Spinal Graft",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{B}",
+  "rank": 29592,
+  "text": "Enchant creature\nEnchanted creature gets +3/+3.\nWhen enchanted creature becomes the target of a spell or ability, destroy that creature. It can't be regenerated.",
+  "facets": [
+   "cares:type:creature",
+   "eff:destroy",
+   "eff:pump",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Putrid Warrior",
+  "type": "Creature — Zombie Soldier Warrior",
+  "cost": "{W}{B}",
+  "rank": 29593,
+  "text": "Whenever this creature deals damage, choose one —\n• Each player loses 1 life.\n• Each player gains 1 life.",
+  "facets": [
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:soldier",
+   "sub:warrior",
+   "sub:zombie",
+   "sub:zombie soldier warrior",
+   "trig:deals-damage",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Hired Muscle // Scarmaker",
+  "type": "Creature — Human Warrior // Legendary Creature — Spirit",
+  "cost": "{1}{B}{B}",
+  "rank": 29594,
+  "text": "Whenever you cast a Spirit or Arcane spell, you may put a ki counter on this creature.\nAt the beginning of the end step, if there are two or more ki counters on this creature, you may flip it.\n//\nRemove a ki counter from Scarmaker: Target creature gains fear until end of turn. (It can't be blocked except by artifact creatures and/or black creatures.)",
+  "facets": [
+   "rec:partial",
+   "sub:human",
+   "sub:human warrior",
+   "sub:spirit",
+   "sub:warrior",
+   "trig:step",
+   "trig:step:end",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Walking Dead",
+  "type": "Creature — Zombie",
+  "cost": "{1}{B}",
+  "rank": 29595,
+  "text": "{B}: Regenerate this creature.",
+  "facets": [
+   "acost:1",
+   "kw:regenerate",
+   "mv:cheap",
+   "sub:zombie",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Clockwork Swarm",
+  "type": "Artifact Creature — Insect",
+  "cost": "{4}",
+  "rank": 29596,
+  "text": "This creature enters with four +1/+0 counters on it.\nThis creature can't be blocked by Walls.\nAt end of combat, if this creature attacked or blocked this combat, remove a +1/+0 counter from it.\n{X}, {T}: Put up to X +1/+0 counters on this creature. This ability can't cause the total number of +1/+0 counters on this creature to be greater than four. Activate only during your upkeep.",
+  "facets": [
+   "acost:1",
+   "acost:x",
+   "col:none",
+   "ctr:+1/+0",
+   "eff:add-counters",
+   "rec:partial",
+   "sub:insect",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Rite of the Serpent",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}",
+  "rank": 29597,
+  "text": "Destroy target creature. If that creature had a +1/+1 counter on it, create a 1/1 green Snake creature token.",
+  "facets": [
+   "cares:sub:snake",
+   "cares:type:creature",
+   "ctr:+1/+1",
+   "eff:create-token",
+   "eff:destroy",
+   "mv:big",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Haazda Shield Mate",
+  "type": "Creature — Human Soldier",
+  "cost": "{2}{W}",
+  "rank": 29598,
+  "text": "At the beginning of your upkeep, sacrifice this creature unless you pay {W}{W}.\n{W}: The next time a source of your choice would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:1",
+   "rec:partial",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Common Cause",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 29599,
+  "text": "Nonartifact creatures get +2/+2 as long as they all share a color.",
+  "facets": [
+   "cares:type:creature",
+   "eff:pump",
+   "scope:all",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Cutthroat il-Dal",
+  "type": "Creature — Human Rogue",
+  "cost": "{3}{B}",
+  "rank": 29600,
+  "text": "Hellbent — This creature has shadow as long as you have no cards in hand. (It can block or be blocked by only creatures with shadow.)",
+  "facets": [
+   "cares:zone:hand",
+   "grants:shadow",
+   "kw:hellbent",
+   "kw:shadow",
+   "rec:full",
+   "sub:human",
+   "sub:human rogue",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Greater Realm of Preservation",
+  "type": "Enchantment",
+  "cost": "{1}{W}",
+  "rank": 29601,
+  "text": "{1}{W}: The next time a black or red source of your choice would deal damage to you this turn, prevent that damage.",
+  "facets": [
+   "acost:2",
+   "cares:color:r",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Xanthic Statue",
+  "type": "Artifact",
+  "cost": "{8}",
+  "rank": 29604,
+  "text": "{5}: Until end of turn, this artifact becomes an 8/8 Golem artifact creature with trample.",
+  "facets": [
+   "acost:3",
+   "cares:sub:golem",
+   "col:none",
+   "mv:big",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cat Burglar",
+  "type": "Creature — Kor Rogue Minion",
+  "cost": "{3}{B}",
+  "rank": 29606,
+  "text": "{2}{B}, {T}: Target player discards a card. Activate only as a sorcery.",
+  "facets": [
+   "acost:3",
+   "cost:tap",
+   "eff:discard",
+   "rec:full",
+   "sub:kor",
+   "sub:kor rogue minion",
+   "sub:minion",
+   "sub:rogue",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Outbreak",
+  "type": "Sorcery",
+  "cost": "{3}{B}",
+  "rank": 29607,
+  "text": "You may discard a Swamp card rather than pay this spell's mana cost.\nChoose a creature type. All creatures of that type get -1/-1 until end of turn.",
+  "facets": [
+   "cares:sub:chosen",
+   "eff:choose",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Chapel Geist",
+  "type": "Creature — Spirit",
+  "cost": "{1}{W}{W}",
+  "rank": 29609,
+  "text": "Flying",
+  "facets": [
+   "kw:flying",
+   "rec:full",
+   "sub:spirit",
+   "type:creature"
+  ]
+ }
+]

@@ -1,0 +1,983 @@
+[
+ {
+  "name": "City of Traitors",
+  "type": "Land",
+  "cost": "",
+  "rank": 1178,
+  "text": "When you play another land, sacrifice this land.\n{T}: Add {C}{C}.",
+  "facets": [
+   "acost:0",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:2",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Starfield Mystic",
+  "type": "Creature — Human Cleric",
+  "cost": "{1}{W}",
+  "rank": 1182,
+  "text": "Enchantment spells you cast cost {1} less to cast.\nWhenever an enchantment you control is put into a graveyard from the battlefield, put a +1/+1 counter on this creature.",
+  "facets": [
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "mv:cheap",
+   "rec:full",
+   "scope:all",
+   "sub:cleric",
+   "sub:human",
+   "sub:human cleric",
+   "trig:dies",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Suture Priest",
+  "type": "Creature — Phyrexian Cleric",
+  "cost": "{1}{W}",
+  "rank": 1185,
+  "text": "Whenever another creature you control enters, you may gain 1 life.\nWhenever a creature an opponent controls enters, you may have that player lose 1 life.",
+  "facets": [
+   "cares:type:creature",
+   "eff:gain-life",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "sub:cleric",
+   "sub:phyrexian",
+   "sub:phyrexian cleric",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Black Gate",
+  "type": "Legendary Land — Gate",
+  "cost": "",
+  "rank": 1186,
+  "text": "As The Black Gate enters, you may pay 3 life. If you don't, it enters tapped.\n{T}: Add {B}.\n{1}{B}, {T}: Choose a player with the most life or tied for most life. Target creature can't be blocked by creatures that player controls this turn.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:sub:gate",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:cant-be-blocked",
+   "mana:1",
+   "rec:partial",
+   "sub:gate",
+   "type:land",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Insatiable Avarice",
+  "type": "Sorcery",
+  "cost": "{B}",
+  "rank": 1187,
+  "text": "Spree (Choose one or more additional costs.)\n+ {2} — Search your library for a card, then shuffle and put that card on top.\n+ {B}{B} — Target player draws three cards and loses 3 life.",
+  "facets": [
+   "cares:zone:library",
+   "eff:draw",
+   "eff:lose-life",
+   "eff:search-library",
+   "kw:spree",
+   "mv:cheap",
+   "rec:partial",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Painful Quandary",
+  "type": "Enchantment",
+  "cost": "{3}{B}{B}",
+  "rank": 1188,
+  "text": "Whenever an opponent casts a spell, that player loses 5 life unless they discard a card.",
+  "facets": [
+   "cares:zone:stack",
+   "eff:discard",
+   "eff:lose-life",
+   "rec:partial",
+   "scope:all",
+   "trig:cast",
+   "trig:cast-opponent",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Archon of Sun's Grace",
+  "type": "Creature — Archon",
+  "cost": "{2}{W}{W}",
+  "rank": 1193,
+  "text": "Flying\nLifelink (Damage dealt by this creature also causes you to gain that much life.)\nPegasus creatures you control have lifelink.\nConstellation — Whenever an enchantment you control enters, create a 2/2 white Pegasus creature token with flying.",
+  "facets": [
+   "cares:sub:pegasus",
+   "cares:type:enchantment",
+   "eff:create-token",
+   "kw:constellation",
+   "kw:flying",
+   "kw:lifelink",
+   "rec:partial",
+   "scope:all",
+   "sub:archon",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Dragon's Hoard",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 1194,
+  "text": "Whenever a Dragon you control enters, put a gold counter on this artifact.\n{T}, Remove a gold counter from this artifact: Draw a card.\n{T}: Add one mana of any color.",
+  "facets": [
+   "acost:0",
+   "cares:sub:dragon",
+   "cares:sub:gold",
+   "col:none",
+   "cost:remove-counters",
+   "cost:tap",
+   "ctr:gold-self",
+   "eff:add-counters-self",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "trig:enters",
+   "trig:enters-other",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Patriar's Seal",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 1196,
+  "text": "{T}: Add one mana of any color.\n{1}, {T}: Untap target legendary creature you control.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cares:type:creature",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:untap",
+   "mana:1",
+   "rec:full",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Artisan of Kozilek",
+  "type": "Creature — Eldrazi",
+  "cost": "{9}",
+  "rank": 1198,
+  "text": "When you cast this spell, you may return target creature card from your graveyard to the battlefield.\nAnnihilator 2 (Whenever this creature attacks, defending player sacrifices two permanents of their choice.)",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "col:none",
+   "eff:return-from",
+   "eff:sacrifice",
+   "kw:annihilator",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:eldrazi",
+   "trig:attacks",
+   "trig:cast",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Homeward Path",
+  "type": "Land",
+  "cost": "",
+  "rank": 1199,
+  "text": "{T}: Add {C}.\n{T}: Each player gains control of all creatures they own.",
+  "facets": [
+   "acost:0",
+   "acost:1",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Wasteland",
+  "type": "Land",
+  "cost": "",
+  "rank": 1205,
+  "text": "{T}: Add {C}.\n{T}, Sacrifice this land: Destroy target nonbasic land.",
+  "facets": [
+   "acost:0",
+   "cares:type:land",
+   "cost:sacrifice-self",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:destroy",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Moonshaker Cavalry",
+  "type": "Creature — Spirit Knight",
+  "cost": "{5}{W}{W}{W}",
+  "rank": 1213,
+  "text": "Flying\nWhen this creature enters, creatures you control gain flying and get +X/+X until end of turn, where X is the number of creatures you control.",
+  "facets": [
+   "cares:type:creature",
+   "kw:flying",
+   "mv:big",
+   "pt:big",
+   "rec:partial",
+   "sub:knight",
+   "sub:spirit",
+   "sub:spirit knight",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Akroma's Memorial",
+  "type": "Legendary Artifact",
+  "cost": "{7}",
+  "rank": 1214,
+  "text": "Creatures you control have flying, first strike, vigilance, trample, haste, and protection from black and from red.",
+  "facets": [
+   "cares:color:r",
+   "cares:type:creature",
+   "col:none",
+   "eff:protect",
+   "grants:first strike",
+   "grants:flying",
+   "grants:haste",
+   "grants:protection",
+   "grants:trample",
+   "grants:vigilance",
+   "kw:flying",
+   "kw:protection",
+   "kw:trample",
+   "kw:vigilance",
+   "mv:big",
+   "scope:all",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Cascading Cataracts",
+  "type": "Land",
+  "cost": "",
+  "rank": 1215,
+  "text": "Indestructible\n{T}: Add {C}.\n{5}, {T}: Add five mana in any combination of colors.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cost:tap",
+   "eff:add-mana",
+   "kw:indestructible",
+   "mana:1",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Millikin",
+  "type": "Artifact Creature — Construct",
+  "cost": "{2}",
+  "rank": 1217,
+  "text": "{T}, Mill a card: Add {C}. (Activate only as an instant. To mill a card, put the top card of your library into your graveyard.)",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:mill",
+   "kw:mill",
+   "mana:1",
+   "mv:cheap",
+   "rec:full",
+   "sub:construct",
+   "type:artifact",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Thriving Moor",
+  "type": "Land",
+  "cost": "",
+  "rank": 1218,
+  "text": "This land enters tapped. As it enters, choose a color other than black.\n{T}: Add {B} or one mana of the chosen color.",
+  "facets": [
+   "acost:1",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Skyclave Apparition",
+  "type": "Creature — Kor Spirit",
+  "cost": "{1}{W}{W}",
+  "rank": 1219,
+  "text": "When this creature enters, exile up to one target nonland, nontoken permanent you don't control with mana value 4 or less.\nWhen this creature leaves the battlefield, the exiled card's owner creates an X/X blue Illusion creature token, where X is the mana value of the exiled card.",
+  "facets": [
+   "cares:sub:illusion",
+   "eff:create-token",
+   "eff:exile",
+   "rec:partial",
+   "sub:kor",
+   "sub:kor spirit",
+   "sub:spirit",
+   "trig:enters",
+   "trig:enters-self",
+   "trig:leaves",
+   "trig:leaves-self",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Forge Anew",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 1220,
+  "text": "When this enchantment enters, return target Equipment card from your graveyard to the battlefield.\nDuring your turn, you may activate equip abilities any time you could cast an instant.\nYou may pay {0} rather than pay the equip cost of the first equip ability you activate during each of your turns.",
+  "facets": [
+   "cares:sub:equipment",
+   "cares:zone:graveyard",
+   "eff:return-from",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Glaring Fleshraker",
+  "type": "Creature — Eldrazi Drone",
+  "cost": "{2}{C}",
+  "rank": 1222,
+  "text": "Whenever you cast a colorless spell, create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"\nWhenever another colorless creature you control enters, this creature deals 1 damage to each opponent.",
+  "facets": [
+   "cares:color:c",
+   "cares:sub:eldrazi",
+   "cares:sub:spawn",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "eff:create-token",
+   "eff:damage",
+   "rec:partial",
+   "scope:all",
+   "sub:drone",
+   "sub:eldrazi",
+   "sub:eldrazi drone",
+   "trig:cast",
+   "trig:cast-own",
+   "trig:enters",
+   "trig:enters-other",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "The Darkness Crystal",
+  "type": "Legendary Artifact",
+  "cost": "{2}{B}{B}",
+  "rank": 1223,
+  "text": "Black spells you cast cost {1} less to cast.\nIf a nontoken creature an opponent controls would die, instead exile it and you gain 2 life.\n{4}{B}{B}, {T}: Put target creature card exiled with The Darkness Crystal onto the battlefield tapped under your control with two additional +1/+1 counters on it.",
+  "facets": [
+   "acost:3",
+   "cares:color:b",
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:add-counters",
+   "eff:reduce-cost",
+   "eff:return-from",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Aven Mindcensor",
+  "type": "Creature — Bird Wizard",
+  "cost": "{2}{W}",
+  "rank": 1225,
+  "text": "Flash\nFlying\nIf an opponent would search a library, that player searches the top four cards of that library instead.",
+  "facets": [
+   "cares:zone:library",
+   "kw:flash",
+   "kw:flying",
+   "rec:partial",
+   "sub:bird",
+   "sub:bird wizard",
+   "sub:wizard",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Shrine of the Forsaken Gods",
+  "type": "Land",
+  "cost": "",
+  "rank": 1226,
+  "text": "{T}: Add {C}.\n{T}: Add {C}{C}. Spend this mana only to cast colorless spells. Activate only if you control seven or more lands.",
+  "facets": [
+   "acost:0",
+   "cares:color:c",
+   "cares:type:land",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "mana:2",
+   "rec:partial",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Junji, the Midnight Sky",
+  "type": "Legendary Creature — Dragon Spirit",
+  "cost": "{3}{B}{B}",
+  "rank": 1228,
+  "text": "Flying, menace\nWhen Junji dies, choose one —\n• Each opponent discards two cards and loses 2 life.\n• Put target non-Dragon creature card from a graveyard onto the battlefield under your control. You lose 2 life.",
+  "facets": [
+   "cares:type:creature",
+   "cares:zone:graveyard",
+   "eff:discard",
+   "eff:lose-life",
+   "eff:return-from",
+   "kw:flying",
+   "kw:menace",
+   "pt:big",
+   "rec:full",
+   "sub:dragon",
+   "sub:dragon spirit",
+   "sub:spirit",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Requisition Raid",
+  "type": "Sorcery",
+  "cost": "{W}",
+  "rank": 1230,
+  "text": "Spree (Choose one or more additional costs.)\n+ {1} — Destroy target artifact.\n+ {1} — Destroy target enchantment.\n+ {1} — Put a +1/+1 counter on each creature target player controls.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:destroy",
+   "kw:spree",
+   "mv:cheap",
+   "rec:partial",
+   "scope:all",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Midgar, City of Mako // Reactor Raid",
+  "type": "Land — Town // Sorcery — Adventure",
+  "cost": "{2}{B}",
+  "rank": 1231,
+  "text": "This land enters tapped.\n{T}: Add {B}.\n//\nYou may sacrifice an artifact or creature. If you do, draw two cards. (Then exile this card. You may play the land later from exile.)",
+  "facets": [
+   "acost:0",
+   "cares:type:artifact",
+   "cost:tap",
+   "eff:add-mana",
+   "mana:1",
+   "rec:partial",
+   "sub:adventure",
+   "sub:town",
+   "type:land",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Dark Confidant",
+  "type": "Creature — Human Wizard",
+  "cost": "{1}{B}",
+  "rank": 1237,
+  "text": "At the beginning of your upkeep, reveal the top card of your library and put that card into your hand. You lose life equal to its mana value.",
+  "facets": [
+   "cares:zone:library",
+   "eff:draw",
+   "eff:look-and-pick",
+   "eff:lose-life",
+   "mv:cheap",
+   "rec:full",
+   "sub:human",
+   "sub:human wizard",
+   "sub:wizard",
+   "trig:step",
+   "trig:step:upkeep",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Waste Not",
+  "type": "Enchantment",
+  "cost": "{1}{B}",
+  "rank": 1242,
+  "text": "Whenever an opponent discards a creature card, create a 2/2 black Zombie creature token.\nWhenever an opponent discards a land card, add {B}{B}.\nWhenever an opponent discards a noncreature, nonland card, draw a card.",
+  "facets": [
+   "cares:sub:zombie",
+   "cares:zone:hand",
+   "eff:add-mana",
+   "eff:create-token",
+   "eff:draw",
+   "mv:cheap",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Secure the Wastes",
+  "type": "Instant",
+  "cost": "{X}{W}",
+  "rank": 1243,
+  "text": "Create X 1/1 white Warrior creature tokens.",
+  "facets": [
+   "eff:create-token",
+   "mv:cheap",
+   "rec:full",
+   "tok:warrior",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Exemplar of Light",
+  "type": "Creature — Angel",
+  "cost": "{2}{W}{W}",
+  "rank": 1244,
+  "text": "Flying\nWhenever you gain life, put a +1/+1 counter on this creature.\nWhenever you put one or more +1/+1 counters on this creature, draw a card. This ability triggers only once each turn.",
+  "facets": [
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "kw:flying",
+   "rec:partial",
+   "sub:angel",
+   "trig:gains-life",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Abandoned Air Temple",
+  "type": "Land",
+  "cost": "",
+  "rank": 1245,
+  "text": "This land enters tapped unless you control a basic land.\n{T}: Add {W}.\n{3}{W}, {T}: Put a +1/+1 counter on each creature you control.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:type:creature",
+   "cares:type:land",
+   "cost:tap",
+   "ctr:+1/+1",
+   "eff:add-counters",
+   "eff:add-mana",
+   "mana:1",
+   "rec:full",
+   "scope:all",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Liberator, Urza's Battlethopter",
+  "type": "Legendary Artifact Creature — Thopter",
+  "cost": "{3}",
+  "rank": 1251,
+  "text": "Flash\nFlying\nYou may cast colorless spells and artifact spells as though they had flash.\nWhenever you cast a spell, if the amount of mana spent to cast that spell is greater than Liberator's power, put a +1/+1 counter on Liberator.",
+  "facets": [
+   "cares:color:c",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:stack",
+   "col:none",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "grants:flash",
+   "kw:flash",
+   "kw:flying",
+   "rec:partial",
+   "scope:all",
+   "sub:thopter",
+   "trig:cast",
+   "trig:cast-own",
+   "type:artifact",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Chromatic Orrery",
+  "type": "Legendary Artifact",
+  "cost": "{7}",
+  "rank": 1252,
+  "text": "You may spend mana as though it were mana of any color.\n{T}: Add {C}{C}{C}{C}{C}.\n{5}, {T}: Draw a card for each color among permanents you control.",
+  "facets": [
+   "acost:0",
+   "acost:3",
+   "cares:type:land",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "mana:3",
+   "mv:big",
+   "rec:partial",
+   "type:artifact",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Tezzeret, Cruel Captain",
+  "type": "Legendary Planeswalker — Tezzeret",
+  "cost": "{3}",
+  "rank": 1253,
+  "text": "Whenever an artifact you control enters, put a loyalty counter on Tezzeret.\n0: Untap target artifact or creature. If it's an artifact creature, put a +1/+1 counter on it.\n−3: Search your library for an artifact card with mana value 1 or less, reveal it, put it into your hand, then shuffle.\n−7: You get an emblem with \"At the beginning of combat on your turn, put three +1/+1 counters on target artifact you control. If it's not a creature, it becomes a 0/0 Robot artifact creature.\"",
+  "facets": [
+   "acost:0",
+   "cares:sub:robot",
+   "cares:sub:tezzeret",
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:zone:library",
+   "col:none",
+   "cost:add-counters",
+   "cost:remove-counters",
+   "ctr:loyalty-self",
+   "eff:add-counters-self",
+   "eff:search-library",
+   "eff:untap",
+   "rec:partial",
+   "scope:all",
+   "sub:tezzeret",
+   "trig:enters",
+   "trig:enters-other",
+   "type:legendary",
+   "type:planeswalker"
+  ]
+ },
+ {
+  "name": "Rosie Cotton of South Lane",
+  "type": "Legendary Creature — Halfling Peasant",
+  "cost": "{2}{W}",
+  "rank": 1254,
+  "text": "When Rosie Cotton enters, create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nWhenever you create a token, put a +1/+1 counter on target creature you control other than Rosie Cotton.",
+  "facets": [
+   "cares:type:creature",
+   "eff:add-counters",
+   "eff:create-token",
+   "kw:food",
+   "rec:partial",
+   "sub:halfling",
+   "sub:halfling peasant",
+   "sub:peasant",
+   "tok:food",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Elenda, the Dusk Rose",
+  "type": "Legendary Creature — Vampire Knight",
+  "cost": "{2}{W}{B}",
+  "rank": 1255,
+  "text": "Lifelink\nWhenever another creature dies, put a +1/+1 counter on Elenda.\nWhen Elenda dies, create X 1/1 white Vampire creature tokens with lifelink, where X is Elenda's power.",
+  "facets": [
+   "cares:power",
+   "cares:sub:vampire",
+   "cares:type:creature",
+   "ctr:+1/+1-self",
+   "eff:add-counters-self",
+   "eff:create-token",
+   "kw:lifelink",
+   "rec:full",
+   "scope:all",
+   "sub:knight",
+   "sub:vampire",
+   "sub:vampire knight",
+   "tok:vampire",
+   "trig:dies",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Fracture",
+  "type": "Instant",
+  "cost": "{W}{B}",
+  "rank": 1256,
+  "text": "Destroy target artifact, enchantment, or planeswalker.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:enchantment",
+   "cares:type:planeswalker",
+   "eff:destroy",
+   "mv:cheap",
+   "rec:full",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Keeper of the Accord",
+  "type": "Creature — Human Soldier",
+  "cost": "{3}{W}",
+  "rank": 1258,
+  "text": "At the beginning of each opponent's end step, if that player controls more creatures than you, create a 1/1 white Soldier creature token.\nAt the beginning of each opponent's end step, if that player controls more lands than you, you may search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.",
+  "facets": [
+   "cares:sub:plains",
+   "cares:sub:soldier",
+   "cares:type:land",
+   "cares:zone:library",
+   "cares:zone:library-land",
+   "eff:create-token",
+   "eff:search-library",
+   "rec:partial",
+   "scope:all",
+   "sub:human",
+   "sub:human soldier",
+   "sub:soldier",
+   "tok:soldier",
+   "trig:step",
+   "trig:step:end",
+   "type:creature"
+  ]
+ },
+ {
+  "name": "Maestros Theater",
+  "type": "Land",
+  "cost": "",
+  "rank": 1267,
+  "text": "When this land enters, sacrifice it. When you do, search your library for a basic Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle and you gain 1 life.",
+  "facets": [
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Coveted Jewel",
+  "type": "Artifact",
+  "cost": "{6}",
+  "rank": 1268,
+  "text": "When this artifact enters, draw three cards.\n{T}: Add three mana of any one color.\nWhenever one or more creatures an opponent controls attack you and aren't blocked, that player draws three cards and gains control of this artifact. Untap it.",
+  "facets": [
+   "acost:0",
+   "col:none",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:draw",
+   "eff:give-control",
+   "eff:untap",
+   "mana:3",
+   "mv:big",
+   "rec:partial",
+   "trig:enters",
+   "trig:enters-self",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Cleansing Nova",
+  "type": "Sorcery",
+  "cost": "{3}{W}{W}",
+  "rank": 1270,
+  "text": "Choose one —\n• Destroy all creatures.\n• Destroy all artifacts and enchantments.",
+  "facets": [
+   "cares:type:artifact",
+   "cares:type:creature",
+   "cares:type:enchantment",
+   "eff:destroy",
+   "rec:full",
+   "scope:all",
+   "scope:wipe",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Wandering Archaic // Explore the Vastlands",
+  "type": "Creature — Avatar // Sorcery",
+  "cost": "",
+  "rank": 1272,
+  "text": "Whenever an opponent casts an instant or sorcery spell, they may pay {2}. If they don't, you may copy that spell. You may choose new targets for the copy.\n//\nEach player looks at the top five cards of their library and may reveal a land card and/or an instant or sorcery card from among them. Each player puts the cards they revealed this way into their hand and the rest on the bottom of their library in a random order. Each player gains 3 life.",
+  "facets": [
+   "cares:type:instant",
+   "cares:type:sorcery",
+   "cares:zone:stack",
+   "col:none",
+   "eff:copy",
+   "eff:gain-life",
+   "rec:partial",
+   "scope:all",
+   "sub:avatar",
+   "trig:cast",
+   "trig:cast-opponent",
+   "trig:cast:instant",
+   "trig:cast:sorcery",
+   "type:creature",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Peer into the Abyss",
+  "type": "Sorcery",
+  "cost": "{4}{B}{B}{B}",
+  "rank": 1273,
+  "text": "Target player draws cards equal to half the number of cards in their library and loses half their life. Round up each time.",
+  "facets": [
+   "eff:draw",
+   "mv:big",
+   "type:sorcery"
+  ]
+ },
+ {
+  "name": "Duelist's Heritage",
+  "type": "Enchantment",
+  "cost": "{2}{W}",
+  "rank": 1282,
+  "text": "Whenever one or more creatures attack, you may have target attacking creature gain double strike until end of turn.",
+  "facets": [
+   "grants:double strike",
+   "trig:attacks",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Amulet of Vigor",
+  "type": "Artifact",
+  "cost": "{1}",
+  "rank": 1283,
+  "text": "Whenever a permanent you control enters tapped, untap it.",
+  "facets": [
+   "col:none",
+   "eff:untap",
+   "mv:cheap",
+   "type:artifact"
+  ]
+ },
+ {
+  "name": "Sheltered by Ghosts",
+  "type": "Enchantment — Aura",
+  "cost": "{1}{W}",
+  "rank": 1286,
+  "text": "Enchant creature you control\nWhen this Aura enters, exile target nonland permanent an opponent controls until this Aura leaves the battlefield.\nEnchanted creature gets +1/+0 and has lifelink and ward {2}.",
+  "facets": [
+   "cares:sub:aura",
+   "eff:exile",
+   "kw:enchant",
+   "mv:cheap",
+   "rec:partial",
+   "sub:aura",
+   "trig:enters",
+   "trig:enters-self",
+   "type:enchantment"
+  ]
+ },
+ {
+  "name": "Flare of Malice",
+  "type": "Instant",
+  "cost": "{2}{B}{B}",
+  "rank": 1287,
+  "text": "You may sacrifice a nontoken black creature rather than pay this spell's mana cost.\nEach opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.",
+  "facets": [
+   "cares:color:b",
+   "cares:type:creature",
+   "cares:type:planeswalker",
+   "cost:sacrifice",
+   "eff:sacrifice",
+   "type:instant"
+  ]
+ },
+ {
+  "name": "Dakmor Salvage",
+  "type": "Land",
+  "cost": "",
+  "rank": 1288,
+  "text": "This land enters tapped.\n{T}: Add {B}.\nDredge 2 (If you would draw a card, you may mill two cards instead. If you do, return this card from your graveyard to your hand.)",
+  "facets": [
+   "acost:0",
+   "cares:zone:graveyard",
+   "cost:tap",
+   "eff:add-mana",
+   "eff:mill",
+   "eff:return-from",
+   "kw:dredge",
+   "kw:mill",
+   "mana:1",
+   "rec:full",
+   "type:land"
+  ]
+ },
+ {
+  "name": "Sephiroth, Fabled SOLDIER // Sephiroth, One-Winged Angel",
+  "type": "Legendary Creature — Human Avatar Soldier // Legendary Creature — Angel Nightmare Avatar",
+  "cost": "",
+  "rank": 1289,
+  "text": "Whenever Sephiroth enters or attacks, you may sacrifice another creature. If you do, draw a card.\nWhenever another creature dies, target opponent loses 1 life and you gain 1 life. If this is the fourth time this ability has resolved this turn, transform Sephiroth.\n//\nFlying\nSuper Nova — As this creature transforms into Sephiroth, One-Winged Angel, you get an emblem with \"Whenever a creature dies, target opponent loses 1 life and you gain 1 life.\"\nWhenever Sephiroth attacks, you may sacrifice any number of other creatures. If you do, draw that many cards.",
+  "facets": [
+   "cares:type:creature",
+   "eff:draw",
+   "eff:gain-life",
+   "eff:lose-life",
+   "eff:sacrifice",
+   "kw:flying",
+   "kw:super nova",
+   "kw:transform",
+   "rec:partial",
+   "scope:all",
+   "sub:angel",
+   "sub:angel nightmare avatar",
+   "sub:avatar",
+   "sub:human",
+   "sub:human avatar soldier",
+   "sub:nightmare",
+   "sub:soldier",
+   "trig:attacks",
+   "trig:dies",
+   "trig:enters",
+   "trig:enters-self",
+   "type:creature",
+   "type:legendary"
+  ]
+ },
+ {
+  "name": "Nuka-Cola Vending Machine",
+  "type": "Artifact",
+  "cost": "{3}",
+  "rank": 1290,
+  "text": "{1}, {T}: Create a Food token. (It's an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\")\nWhenever you sacrifice a Food, create a tapped Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")",
+  "facets": [
+   "acost:1",
+   "cares:sub:food",
+   "cares:sub:treasure",
+   "col:none",
+   "cost:tap",
+   "eff:create-token",
+   "kw:food",
+   "kw:treasure",
+   "rec:partial",
+   "scope:all",
+   "tok:food",
+   "tok:treasure",
+   "trig:sacrificed",
+   "type:artifact"
+  ]
+ }
+]

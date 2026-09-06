@@ -10426,3 +10426,44 @@ same stated reason.
     +1/+1 counters   Etali  52%  ->  Rishkar 65%
     shape 194/200, bench 46/71 with 4 zero groups, derived archetypes 9/10,
     production 20/20 with 0 decks under 60% keyed - all unchanged throughout
+
+### REFUSED: the land guard leaks the same way and closing it would be WRONG
+
+Having found three leaks of the same shape, the fourth was checked before being
+assumed. `cares:type:land` IS a `landfall` signal facet, and `planForCommander`
+refuses to turn it into a want without a SECOND land signal - the guard added
+after Quake, Agent of S.H.I.E.L.D. ("tap target creature or land") came back
+with 34 lands. So the signal loop reads it raw and the guard leaks.
+
+**It leaks and the leak is mostly right.** 164 legendary creatures carry the
+facet; 90 have no corroborating signal, and reading the most played of those 90
+as a player, most are GENUINE lands commanders:
+
+    genuine   Ashaya Soul of the Wild, Titania Protector of Argoth, Lumra,
+              Beledros Witherbloom, Uro, Shigeki, Multani, Teval, Zacama
+    wrong     Braids Arisen Nightmare (the permanent-type enumeration),
+              Thalia Heretic Cathar (stax), Saryth
+
+**The corroboration list is narrower than the language.** It names
+`trig:enters-other`, `eff:extra-land-drop`, `cares:zone:library-land`,
+`eff:play-from-graveyard` and `eff:put-onto-battlefield` - and misses returning
+lands from a graveyard, untapping lands, and "creatures you control are
+Forests", which is how Ashaya, Titania, Lumra, Beledros and Teval each say it.
+
+So applying the plan's guard to the signal loop would strip the Lands matter
+OFFER from nine genuine lands commanders to stop three wrong ones. **The two
+decisions do not carry the same cost**: a bad WANT skews the land count of a
+deck being built, which is what Quake showed, while a bad OFFER puts one extra
+strategy on a menu the player chooses from.
+
+> **The criterion, stated so the next leak is judged and not reflexed:** a guard
+> written for the plan belongs in the signal loop only when the members it
+> would refuse are, READ AS A PLAYER, wrong for the shell. `infect` was 0 of 11
+> right and `protection` 2 of 106; this one is about 9 of 12 right at the top of
+> its population, and that is the difference.
+
+**And it leaves a real open item on the PLAN side.** Ashaya, Titania and Lumra
+are genuine lands commanders whose corroborating signal is not in that list, so
+`planForCommander` gives them no land echo at all. Widening the list is a
+separate change with its own measurement - the guard exists to stop Quake, and
+anything added has to keep stopping him.

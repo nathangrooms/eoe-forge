@@ -2119,24 +2119,44 @@ function sweepsYourBoardToo(selector: Selector | undefined): boolean {
 }
 
 /*
- * A COMPOUND FILTER IS STILL A SWEEP IF ITS TYPE MEMBER IS.
+ * A COMPOUND FILTER IS A SWEEP ONLY IF EVERY PART OF IT IS.
  *
  * "each OTHER creature" compiles to `{is:'and', of:[{is:'type',value:'creature'},
  * {is:'other'}]}`, and the flat test accepted only a bare `type`, so MASSACRE
  * GIRL - a symmetric wipe at rank 1,706 - was not recognised as one. Excluding
- * the source does not stop a wipe taking your board: it takes everything else
+ * the SOURCE does not stop a wipe taking your board; it takes everything else
  * you control.
  *
+ * ⚠️ `some` WAS WRONG AND IT WAS CAUGHT BY READING THE CARDS IT CLAIMED. Any
+ * `and` containing a creature type passed, so every FILTERED wipe became a
+ * symmetric one - and a filtered wipe is usually the card a go-wide deck most
+ * wants:
+ *
+ *     Elspeth, Sun's Champion   destroy all creatures with power 4 or greater
+ *     Hour of Reckoning         destroy all NONTOKEN creatures
+ *     Olivia's Wrath            each NON-VAMPIRE creature gets -X/-X
+ *     Dusk // Dawn              destroy all creatures with power 3 or greater
+ *
+ * Every one of those spares the board it would have been refused for. So the
+ * rule is `every`, with only the source exclusion treated as benign: anything
+ * else in the conjunction is a restriction, and a restriction is exactly what
+ * turns a wipe into a payoff.
+ *
  * WHOSE creatures is decided by `controller` on the SELECTOR, above, and never
- * inside this filter, so recursing here cannot let an opponents-only sweeper
- * through. Massacre Wurm is refused there and still is.
+ * inside this filter, so Massacre Wurm is refused there and still is.
  */
 function sweepableFilter(filter: unknown): boolean {
   if (!filter || typeof filter !== 'object') return false;
   const f = filter as { is?: string; value?: string; of?: readonly unknown[] };
   if (f.is === 'any') return true;
   if (f.is === 'type') return SWEEPABLE_TYPES.has(String(f.value ?? '').toLowerCase());
-  if (f.is === 'and') return (f.of ?? []).some(sweepableFilter);
+  if (f.is === 'and') {
+    const parts = f.of ?? [];
+    if (parts.length === 0) return false;
+    /* `other` excludes only the source, which a sweep survives. */
+    const benign = (x: unknown) => (x as { is?: string })?.is === 'other';
+    return parts.some(sweepableFilter) && parts.every(x => sweepableFilter(x) || benign(x));
+  }
   return false;
 }
 

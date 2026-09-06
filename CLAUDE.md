@@ -9477,3 +9477,46 @@ disagreeing about the same deck and the yardstick was wrong.
 > "the deck contains ANY green card" puts nearly every multicolour deck in the
 > green bucket and reports p10 6 for both. Same word, two questions, and only
 > one of them is the baseline that was shipped against.
+
+## The optimiser may not hand over the more played card either (6 Sep 2026)
+
+The GENERATOR has refused this since 5 Sep - *"never trade a card people play
+for one they do not"*, used by both the ramp guarantee and the answer swap - and
+the optimiser did not. It refused only the CROSSING of rank 12,000, which let
+through the whole middle of the range, and that is where the damage was.
+
+Measured over five decks the generator had just built:
+
+    Massacre Wurm      (512) -> Shambling Ghast     (3,244)
+    Sun Titan          (305) -> Helix Pinnacle      (4,501)
+    Purphoros          (680) -> Goblin Chirurgeon   (3,349)
+    Hullbreaker Horror (274) -> Whir of Invention   (1,315)
+
+**Every one of those PASSES the score.** `measureImpact` already refuses a swap
+it measures as a loss, so these were all scored as improvements - which is the
+point rather than a contradiction. This file already records that the score's
+blind spots are exactly where the format's staples live, so a pass choosing by
+score alone keeps reaching for them. Popularity is the second opinion the score
+does not have.
+
+**It is not a ban on unplayed cards.** A swap INTO a better-played card is
+untouched, and that is where the good suggestions live:
+
+    Lord of the Forsaken (9,373) -> Chrome Mox    (148)
+    General Kreat        (2,307) -> Skullclamp     (40)
+    Auton Soldier        (2,017) -> An Offer You Can't Refuse (35)
+
+    decks handed a LESS played card   2 of 5 -> 0 of 5
+    swaps offered                     18 -> 8 across the five decks
+
+Fewer suggestions is the honest outcome when the engine has nothing better to
+offer, and it is the same trade the previous tightening made (50 -> 26) on the
+day the optimiser first became deployable. Every survivor is now an upgrade on
+BOTH axes: the score measured it as a gain AND the card is more played than the
+one it replaces.
+
+> **The general shape, and it is the third instance.** A rule the generator
+> learned did not reach the optimiser, because the two have separate swap
+> passes. `deck-optimizer` shares the ENGINE by vendoring but not the policy
+> around it. Anything learned about what a swap may do should be checked in both
+> places - the generator's ramp guarantee, its answer swap, and this.

@@ -169,7 +169,26 @@ export const SHELL_SIGNALS: Record<string, ShellSignal> = {
   },
   counters: {
     facets: ['ctr:+1/+1', 'eff:add-counters', 'eff:proliferate'],
-    tags: ['counters', 'proliferate', 'infect'],
+    /*
+     * NOT `infect`. POISON IS A DIFFERENT COUNTER.
+     *
+     * This shell is "+1/+1 counters - grow a small board into an unanswerable
+     * one", and two of its three packages are Hardened Scales, Corpsejack
+     * Menace, Branching Evolution, Forgotten Ancient and The Ozolith. None of
+     * them does anything in an infect deck; only Proliferate overlaps.
+     *
+     * Read over the whole population rather than a sample: ELEVEN legendary
+     * creatures carry the tag and NOT ONE of them carries `ctr:+1/+1` -
+     * Skithiryx, Fynn, Skrelv, Karumonix, Vishgraz, Ixhel. The most played is
+     * ETALI, PRIMAL CONQUEROR, a colourless Eldrazi whose FRONT face exiles and
+     * casts and whose back face happens to have infect - and he was scoring
+     * highest of all 3,363 commanders for this shell, so the eighteen-shell
+     * probe was building "+1/+1 counters" on him.
+     *
+     * Melira, Sylvok Outcast is the sharpest case: her card PROHIBITS poison
+     * counters and -1/-1 counters, and she was being offered a counters deck.
+     */
+    tags: ['counters', 'proliferate'],
     fallback: 'This commander works with counters',
   },
   value: {

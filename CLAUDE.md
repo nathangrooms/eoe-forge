@@ -10218,3 +10218,22 @@ Facets. `cardRole` prefers them and uses tags as the fallback precisely because
 the facet is the engine's own reading and the tag is a coarser label - the
 fallback exists for cards the compiler cannot read, not as an equal alternative.
 The candidates were already being counted that way; only the deck was not.
+
+### The audit: every place a card reaches `cardRole` or `planFit` without facets
+
+That fault bit three times in one session, so every call site was checked rather
+than the three that happened to show up.
+
+| where | carries facets | how it is known |
+|---|---|---|
+| generator, `toDeckCard` | **yes** | and its comment says why: *"or the profile counts roles off tags ... and the deck the ranker is measured against stops being the deck the ranker built"* |
+| generator, all other sites | yes | every card comes from the pool |
+| optimiser, `profileCards` | **now yes** | was tags-only; Meren's draw read 10 against a real 24 |
+| optimiser, `deckLines` -> cuts | **now yes** | was fit-silent for every card the player owns |
+| optimiser, `cardRole(best.card)` | yes | a pool candidate |
+| front-end `computeDeckPower` | no, and it does not matter | `powerAdapter` rebuilds its own card objects and never mentions facets. Measured: the score is IDENTICAL with facets attached on Teysa (6.3) and Meren (6.0), so the deck page's number does not move |
+| admin Engine / Words | yes | they read `cards_pool` directly |
+
+**The generator had the rule written down and the optimiser never got it.** That
+is the fourth instance of a fix reaching one half of the engine and not the
+other, and the first time the whole surface has been swept in one go.

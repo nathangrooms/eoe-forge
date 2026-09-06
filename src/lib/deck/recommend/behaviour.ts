@@ -735,6 +735,41 @@ function readSizeAndCost(row: FacetInput, out: Set<Facet>): void {
   }
   const power = r.power == null || r.power === '' ? NaN : Number(r.power);
   if (Number.isFinite(power) && power >= 5) out.add('pt:big');
+
+  /*
+   * COLOURLESS IS READ OFF THE ROW, like the size bands above.
+   *
+   * Nothing in the vocabulary recorded it, so "big colourless creatures that
+   * cost nothing once Animar is large" could not be asked for by any plan and
+   * that benchmark job has been stuck at zero. A generic cost reduction makes a
+   * colourless card FREE, because a colourless card's whole cost is generic.
+   *
+   * Colour IDENTITY, not the `colors` array: a card with a coloured ability
+   * cost is not colourless for this purpose even with no coloured pip in its
+   * mana cost. Lands are excluded - almost every land is identity-empty and
+   * calling them colourless would put the word on a third of the pool.
+   */
+  const identity = (r as { color_identity?: unknown }).color_identity;
+  if (!isLand && Array.isArray(identity) && identity.length === 0) out.add('col:none');
+}
+
+/*
+ * Facets that are a property of the ROW rather than a reading of the card, so
+ * they can be derived wherever a row is held and never need a memo entry.
+ *
+ * `col:none` is the only member today. It is deliberately NOT in the memo: the
+ * memo is keyed on oracle_id and versioned by the COMPILER, and a version bump
+ * costs a refill and two reader moves. A colour identity is not a reading of
+ * rules text and cannot change with the compiler, so paying that price would
+ * buy nothing.
+ */
+export function rowDerivedFacets(row: FacetInput): readonly string[] {
+  const out = new Set<Facet>();
+  const r = row as { type_line?: string | null; color_identity?: unknown };
+  const isLand = /Land/.test(r.type_line ?? '');
+  const identity = r.color_identity;
+  if (!isLand && Array.isArray(identity) && identity.length === 0) out.add('col:none');
+  return [...out];
 }
 
 function readTypeLine(typeLine: string | null, out: Set<Facet>): void {

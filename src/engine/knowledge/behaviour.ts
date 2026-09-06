@@ -3064,6 +3064,17 @@ export const PLAN_RULES: readonly {
     wants: [
       { facet: 'mv:big', weight: 0.7 },
       { facet: 'pt:big', weight: 0.5 },
+      /*
+       * A GENERIC REDUCTION MAKES A COLOURLESS CARD FREE, because a colourless
+       * card's whole cost is generic. That is why "big colourless creatures"
+       * is one of Animar's own benchmark jobs and why it sat at zero: no plan
+       * could ask for a property the vocabulary did not record.
+       *
+       * Below `pt:big`, because it is a consequence of the reduction rather
+       * than a statement the card makes: a reducer deck wants big things
+       * first, and a colourless big thing is the best of them.
+       */
+      { facet: 'col:none', weight: 0.4 },
     ],
   },
   {

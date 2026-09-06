@@ -75,10 +75,59 @@ export function replaying() {
   const snap = JSON.parse(readFileSync(FILE, 'utf8'));
   const tape = new Map(snap.calls);
   const cat = { recordedAt: snap.recordedAt, size: tape.size };
+
+  /*
+   * NAME LOOKUPS ARE SERVED FROM THE ROWS ALREADY RECORDED, not from an exact
+   * key match, and that is what makes the tape useful for testing a CHANGE.
+   *
+   * `cardsByName` and `poolFacetsByName` are called with THE FINISHED DECK'S
+   * names, so any change that moves one card changes the arguments and no
+   * exact recording can exist. The cards themselves are in the recorded pools
+   * regardless, because that is where the deck drew them from - so the answer
+   * is reconstructed rather than replayed, from rows the tape genuinely holds.
+   *
+   * A name in NO recorded pool still throws. Never an empty row: a missing
+   * card silently dropped from a deck is a fault that reads as the generator's.
+   */
+  const byName = new Map();
+  const facetsByName = new Map();
+  for (const [k, v] of tape) {
+    if (k.startsWith('poolFor:') || k.startsWith('landPoolFor:') || k.startsWith('cardsByName:')) {
+      for (const row of Array.isArray(v) ? v : []) if (row?.name && !byName.has(row.name)) byName.set(row.name, row);
+    } else if (k.startsWith('poolFacetsByName:') && v?.__map) {
+      for (const [n, f] of v.__map) if (!facetsByName.has(n)) facetsByName.set(n, f);
+    }
+  }
+
+  const reconstruct = (method, args) => {
+    if (method === 'cardsByName') {
+      const names = args[0] ?? [];
+      const rows = [], missing = [];
+      for (const n of names) (byName.has(n) ? rows : missing).push(byName.get(n) ?? n);
+      if (missing.length) return { missing };
+      return { value: rows };
+    }
+    if (method === 'poolFacetsByName') {
+      const names = args[0] ?? [];
+      const out = new Map();
+      for (const n of names) if (facetsByName.has(n)) out.set(n, facetsByName.get(n));
+      /* A card with no facets is a real answer here, so a partial map is fine:
+         `poolFacetsByName` is a lookup, and its caller already treats an absent
+         name as "no facets recorded", which is what a live miss also gives. */
+      return { value: out };
+    }
+    return null;
+  };
+
   for (const m of METHODS) {
     cat[m] = async (...args) => {
       const k = keyFor(m, args);
       if (!tape.has(k)) {
+        const rebuilt = reconstruct(m, args);
+        if (rebuilt?.value) return rebuilt.value;
+        if (rebuilt?.missing) {
+          throw new Error(`tape holds no row for ${rebuilt.missing.length} card(s), first: ${rebuilt.missing[0]} - re-record`);
+        }
         /* NEVER an empty result. An empty pool builds a deck of basic lands and
            reads as a catastrophic engine regression rather than a missing
            recording. */

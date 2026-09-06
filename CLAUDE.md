@@ -10170,3 +10170,51 @@ All three exist because `cards_unique` cannot return `facets` to `anon` and
 `cards_pool` carries no `oracle_text`. Neither view can serve both, and a caller
 that needs both fields for the same card has to read twice. That is the shape to
 reach for, not a widened view.
+
+## The optimiser measured your deck by TAGS and its candidates by FACETS (6 Sep 2026)
+
+`deriveDeckProfile` counts the deck's ROLES with `cardRole`, which reads a
+card's facets and **falls back to tags when it has none**. A deck row has none:
+`cardsByName` reads `cards_unique`, where `facets` is a computed column `anon`
+holds no grant on. So the player's own deck was measured in ONE vocabulary and
+every candidate offered to it in ANOTHER, and the difference became the role gap
+the ranker scores against.
+
+Measured over three generated decks, the deck's roles counted by tags against
+the same decks counted by facets:
+
+    Meren    draw 10 -> 24   removal 6 -> 12   interaction 6 -> 8   ramp 21 -> 19
+    Teysa    ramp 21 -> 15   draw 13 -> 19     removal 9 -> 10      enhance 7 -> 9
+    Talrand  draw 17 -> 20   wincon 4 -> 2     removal 10 -> 11
+
+**It thought Meren's deck held TEN draw when it holds twenty-four, and SIX
+removal when it holds twelve**, so it recommended cards to fill gaps that were
+not there.
+
+This file already records the identical trap on the other yardstick: *"the ramp
+TAG has a median of 9 and the ramp ROLE has a median of 16 - two vocabularies,
+one subtraction, and the difference called a fault."* Same shape, different
+file, three months apart.
+
+    swaps across five decks              8, all fit-neutral or better
+    decks handed a LESS played card      0 of 5
+    Teysa   Lord of the Forsaken (9,373) -> CARRION FEEDER (614)
+    the generator                        byte-identical
+
+> ⚠️ **I NEARLY DELETED IT AS DEAD CODE.** A grep for `.facets` across
+> `src/engine/advise` finds only `cuts.ts`, so the field looked unread and this
+> project's own rule says a field with no consumer is decoration. Removing it
+> changed the suggestions on three of five decks, which is what proved it read.
+> **The grep was the wrong instrument**: `cardRole` takes the CARD and reads the
+> field inside it, so no call site mentions `.facets` at all.
+>
+> **When a grep says a field is unread, DELETE IT AND MEASURE.** Two of today's
+> three optimiser findings came from removing something and watching what moved,
+> and the one I reasoned about instead was the one I got wrong.
+
+### Which is right, tags or facets, and why this is not a wash
+
+Facets. `cardRole` prefers them and uses tags as the fallback precisely because
+the facet is the engine's own reading and the tag is a coarser label - the
+fallback exists for cards the compiler cannot read, not as an equal alternative.
+The candidates were already being counted that way; only the deck was not.

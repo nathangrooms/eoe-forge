@@ -995,10 +995,33 @@ export class Catalog {
       keys.push(colours.filter((_, i) => mask & (1 << i)).join(''));
     }
     const list = keys.map(k => (k === '' ? '""' : k)).join(',');
-    const rows = await this.fetchAll<ComboRow>(
+    /*
+     * ONE PAGE, AND NOT THROUGH `fetchAll`.
+     *
+     * `fetchAll` exists to walk PAST the 1000-row cap and pages by KEYSET, so
+     * `withKeyset` REWRITES the ordering to `id.asc`. The carefully ordered
+     * query above - the one measured at 217 ms because every subset key is an
+     * index range on (identity_key, popularity DESC) - was therefore never the
+     * query that got sent. What production actually ran was
+     *
+     *     order=id.asc, no limit
+     *
+     * which bitmap-scans every matching combo and SORTS it: 1,951 rows for a
+     * mono-red commander to use 400, at width 456 with three array columns.
+     * Measured 6 Sep 2026 with the database otherwise healthy (a single-row
+     * read at 0.05 s): 709 buffers, ALL cache hits, and 9,280 ms execution -
+     * past the 3 s statement timeout, so COMBOS FAILED INSIDE EVERY BUILD and
+     * the whole request returned 500. It had been failing all day and was
+     * written off three times as general IO.
+     *
+     * `limit` is 400 and the cap is 1000, so a single request is enough and a
+     * keyset walk was never needed. `#get` keeps the path's own ordering.
+     */
+    const { rows } = await this.#get<ComboRow>(
       `combo_pool?select=id,popularity,card_count,bracket_tag,produces,oracle_ids,card_names,needs_commander` +
         `&identity_key=in.${encodeURIComponent(`(${list})`)}` +
-        `&order=popularity.desc.nullslast&limit=${limit}`
+        `&order=popularity.desc.nullslast&limit=${limit}`,
+      { Range: `0-${Math.max(0, limit - 1)}`, 'Range-Unit': 'items' }
     );
     return rows.slice(0, limit);
   }

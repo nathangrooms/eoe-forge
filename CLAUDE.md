@@ -10388,3 +10388,41 @@ home and the population does not say otherwise.
 > fine; `protection` claims 106 and is wrong. What decides it is whether the
 > members, READ AS A PLAYER, want the shell's own packages. Avacyn does not want
 > Hardened Scales or a Sword; Thalia genuinely does want sweepers and taxes.
+
+### And the -1/-1 guard was leaking out of the plan into the shell choice
+
+`planForCommander` has refused this since it was written: *"Yawgmoth, Thran
+Physician puts -1/-1 counters on other creatures; `eff:add-counters` is true of
+him and of Hardened Scales, and the rule keyed on it wanted Hardened Scales."*
+
+**The shell signal loop reads raw facets and tags and never got the memo.** Once
+`infect` came out of the counters signal, Yawgmoth became the highest-scoring
+commander of ALL 3,363 for that shell.
+
+**FILTERING THE ONE FACET IS NOT ENOUGH**, and measuring is what showed it: with
+`eff:add-counters` dropped he was STILL the champion, because he also carries
+the `proliferate` TAG - and proliferate adds to +1/+1, -1/-1, loyalty and poison
+alike. Every signal this shell has is blind to the KIND, so the refusal belongs
+on the SHELL rather than on each signal in turn.
+
+    +1/+1 counters champion   Yawgmoth (56%) -> RISHKAR, PEEMA RENEGADE (65%)
+    eighteen shells           keyed 1357 -> 1366, named 39 -> 40, ramp 304 -> 310
+
+`readsAsMinusCounters` is exported beside `namesEveryPermanentType` and for the
+same stated reason.
+
+> **THE PATTERN, now three for three in one session.** A guard written inside
+> `planForCommander` protects the PLAN and nothing else. The permanent-type
+> collapse had to be repeated in the signal loop, `readsAsMinusCounters` had to
+> be repeated in the signal loop, and both were found only because a champion
+> looked wrong. **Anything that reads a commander's raw facets to decide what
+> deck it is needs every guard `planForCommander` applies** - and there is no
+> mechanism that enforces that, only this note.
+
+### Where the three signal fixes leave the eighteen shells
+
+    keyed   1328 -> 1366 (+38)      named 40 -> 40      packages 502 -> 505
+    Voltron          Avacyn 55%  ->  Halvar 80%
+    +1/+1 counters   Etali  52%  ->  Rishkar 65%
+    shape 194/200, bench 46/71 with 4 zero groups, derived archetypes 9/10,
+    production 20/20 with 0 decks under 60% keyed - all unchanged throughout

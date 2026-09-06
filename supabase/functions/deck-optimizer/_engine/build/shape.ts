@@ -303,6 +303,18 @@ export const REAL_DECK_ROLES: Readonly<Record<Role, { p10: number; p50: number; 
 };
 
 /**
+ * The fewest of one role a real deck runs, scaled to this deck's size.
+ *
+ * The p10 of the 192 MTGJSON decks. Only used where the role's ABSENCE stops
+ * the game rather than losing it - ramp and lands - because a p10 floor on a
+ * role whose real median is zero, like tutors, asks for what no deck runs.
+ */
+function roleFloorFromReal(role: Role, slots: number): number {
+  const band = REAL_DECK_ROLES[role];
+  return Math.round((band.p10 * slots) / 99);
+}
+
+/**
  * The most of one role any deck should hold.
  *
  * The p90 of what real decks run, scaled to this deck's size, and it replaces
@@ -585,7 +597,35 @@ export function deriveDeckShape(input: ShapeInput): DeckShape {
       ? clamp(Math.round(input.landTarget), 0, slots)
       : null;
 
-  const landFloor = landDropFloor(slots);
+  /*
+   * THE REAL-DECK FLOOR, THE SAME CLAMP RAMP GETS.
+   *
+   * `landDropFloor` answers "the fewest lands that hit three land drops by turn
+   * three", which is 29 in a 99-card deck. That is a mathematical floor, and no
+   * real deck goes anywhere near it: over the 192 MTGJSON decks the tenth
+   * percentile is 37 and the median is 38.
+   *
+   * The gap showed up as decks the castability solve was happy with and a
+   * player would not be. Measured on the deployed function, sixty random
+   * commanders:
+   *
+   *     Patron of the Akki   34 lands, 21 ramp
+   *     Progenitus           32 lands, 21 ramp
+   *
+   * Both are decks whose ramp let the solve buy spells instead of lands, and
+   * both sit below anything a real deck runs. CLAUDE.md's rule for why ONLY
+   * ramp had a p10 clamp is that tutors and win conditions have a real median
+   * of ZERO, so a floor there asks for what no deck runs. Lands are the
+   * opposite and are exactly like ramp: median 38, and their absence stops the
+   * game rather than losing it.
+   *
+   * The ceiling was already the real p90. This is the other end of the same
+   * measurement.
+   */
+  const landFloor = Math.min(
+    slots,
+    Math.max(landDropFloor(slots), roleFloorFromReal('land', slots))
+  );
   /*
    * Ramp's PRESENCE floor seeds the land solve, because a deck's mana is its
    * lands plus its accelerants and neither can be solved with the other set to

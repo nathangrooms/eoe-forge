@@ -1464,7 +1464,13 @@ const PACKAGE_MATCH = 0.6;
    * that earns one. Nothing here is per-commander.
    */
   const archetypePackages = archetypePlan?.packages ?? [];
-  const ownPackages = packagesForCommander(commanderPlan);
+  const ownPackages = packagesForCommander(
+    commanderPlan,
+    facetBackground(
+      input.pool.filter(c => !isLandCandidate(c)),
+      slots
+    )
+  );
   const ownBudget = Math.min(14, PACKAGE_BUDGET_PER_PACKAGE * ownPackages.length);
   /*
    * A DERIVED SHELL TAKES ITS SHARE OF WHAT THE COMMANDER'S OWN PLAN HAS NOT

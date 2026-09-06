@@ -4820,7 +4820,34 @@ function isDoingWant(facet: Facet): boolean {
   return facet.startsWith('eff:') || facet.startsWith('trig:') || facet.startsWith('cost:');
 }
 
-export function packagesForCommander(plan: CommanderPlan): ArchetypePackagePlan[] {
+/*
+ * How much of the pool a SINGLE want may cover and still name a job.
+ *
+ * Between `cares:zone:graveyard` at 9.5%, which is Meren's and Muldrotha's deck,
+ * and `trig:enters-self` at 14.0%, which `facetBackground` already treats as too
+ * common to name one.
+ */
+const SINGLE_WANT_MAX_SHARE = 0.12;
+
+/*
+ * And the fewest cards that can FILL one.
+ *
+ * NOT `background.minCards`, which is the deck size and is the right bar for a
+ * SHELL want - "a want fewer cards than the deck holds can satisfy cannot shape
+ * the deck". A package is not the deck: it asks for a handful of slots, so a
+ * want a dozen cards can serve fills one comfortably.
+ *
+ * Using the wrong one made this whole rule a no-op for the case it was written
+ * for. `eff:impulse` is on 51 cards of Prosper's own pool against a bar of 99,
+ * and 51 is far more than the 2 to 5 slots his package would ask for.
+ */
+const SINGLE_WANT_MIN_CARDS = 12;
+const SINGLE_WANT_JOBS = 1;
+
+export function packagesForCommander(
+  plan: CommanderPlan,
+  background?: FacetBackground | null
+): ArchetypePackagePlan[] {
   /* Loud enough that the commander genuinely asked. Below this the pairings
      multiply and start describing cards nobody would call the deck's plan. */
   const LOUD = 0.6;
@@ -4839,7 +4866,57 @@ export function packagesForCommander(plan: CommanderPlan): ArchetypePackagePlan[
    * makes the pair specific, so that is where the bar belongs.
    */
   const shapes = plan.wants.filter(w => w.weight >= 0.4 && JOB_SHAPES.includes(w.facet)).slice(0, 3);
-  if (!doing.length || !shapes.length) return [];
+  if (!doing.length) return [];
+  /*
+   * A COMMANDER THAT SAYS ONLY ONE THING STILL GETS A COUNT.
+   *
+   * The pairing needs a SHAPE want - `type:creature`, `mv:big`, `pt:big`,
+   * `mv:cheap` - and a commander with none got NO PACKAGES AT ALL. Measured
+   * over the twenty benchmark commanders, TEN OF TWENTY: Prosper, Meren,
+   * Brago, Muldrotha, Atraxa, Korvold, Yawgmoth, Giada, Azusa and Krenko.
+   *
+   * That matters because a package is the ONLY machinery in the engine that can
+   * say "I need six of these and I have two". The flat want list is a mood: the
+   * reserve takes ONE card per want, and the ranker scores cards one at a time.
+   * CLAUDE.md has recorded that gap for days.
+   *
+   * PROSPER IS THE CASE. His card exiles the top of your library and lets you
+   * play it, `eff:impulse` is his second loudest want at 0.9, and asked for the
+   * Value engine shell his deck came back with ZERO cards carrying it.
+   *
+   * THE GUARD IS RARITY, AND IT IS MEASURED RATHER THAN CHOSEN. A single want
+   * is broader than a conjunction, so a common one would claim a fifth of the
+   * deck under the name of a job. Read against the pool, the loud wants of the
+   * ten package-less commanders are almost all rare:
+   *
+   *     eff:proliferate 0.2%   tok:goblin 0.2%    eff:exile-own 0.4%
+   *     eff:impulse 0.8%       tok:treasure 0.9%  eff:mill 2.3%
+   *     cost:sacrifice 2.5%    eff:return-from 5.8%   cares:zone:graveyard 9.5%
+   *
+   * and the one that is not is `trig:enters-self` at 14.0% - the facet
+   * `facetBackground` already discards as too common to name a deck. So the bar
+   * sits between them, and a want nothing can serve is skipped outright:
+   * Brago's `grants:unblockable` is on ZERO pool cards.
+   *
+   * WITHOUT A BACKGROUND THERE IS NO BAR, so nothing is emitted rather than
+   * guessing. A caller that cannot say how common a facet is cannot be told
+   * which wants are safe to count.
+   */
+  if (!shapes.length) {
+    if (!background || background.cards <= 0) return [];
+    const share = (facet: Facet) => (background.count.get(facet) ?? 0) / background.cards;
+    const countable = doing
+      .filter(w => (background.count.get(w.facet) ?? 0) >= SINGLE_WANT_MIN_CARDS)
+      .filter(w => share(w.facet) <= SINGLE_WANT_MAX_SHARE)
+      .slice(0, SINGLE_WANT_JOBS);
+    if (!countable.length) return [];
+    return countable.map(d => ({
+      name: `cards that ${describeWant(d.facet)}`,
+      wants: [{ facet: d.facet, weight: 1, because: d.because }],
+      read: 0,
+      share: 1 / countable.length,
+    }));
+  }
 
   const out: ArchetypePackagePlan[] = [];
   for (const d of doing) {

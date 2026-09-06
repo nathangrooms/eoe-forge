@@ -8595,3 +8595,80 @@ rule 3 forbids exactly that, because "a query with no timeout holds its
 connection indefinitely and nothing can kill it without a restart". It was not
 running during this outage, so it is not the cause, but it is a live hazard
 sitting in the schedule.
+
+## Record the catalogue once, replay it forever (6 Sep 2026)
+
+Owner: *"why dont you just work locally and update supabase later?"* Right, and
+it was the constraint behind almost everything that went slowly.
+
+Every probe built decks through `Catalog` against live PostgREST, so measurement
+and the live site shared one small instance. A full measurement pass was
+something that needed permission rather than something you just ran, my probe
+load took production down four times on 5-6 Sep, and "are the decks any good"
+kept being answered with "I could not measure it today".
+
+A build calls exactly FIVE catalogue methods and every one is a pure read:
+
+    poolFor   landPoolFor   cardsByName   poolFacetsByName   combosFor
+
+So `scripts/probe/offline-catalogue.mjs` proxies a real `Catalog`, records every
+`(method, args) -> result`, and replays them with no network. The probes' own raw
+PostgREST reads are taped the same way, which is what makes replay mean NO
+NETWORK rather than merely no catalogue queries. `scripts/probe/_catalog.mjs` is
+the one place a probe gets a catalogue:
+
+    (default)          live, exactly as before
+    DM_TAPE=record     live, and remember every answer
+    DM_TAPE=replay     the tape only
+
+    eighteen shells    minutes, live, one at a time  ->  9 seconds, offline
+    bench + shape                                    ->  31 seconds, offline
+    output             BYTE-IDENTICAL apart from the `in N ms` timings
+
+**RECORD/REPLAY, NOT A RECONSTRUCTED SNAPSHOT.** This file records
+`.shots/pool-snapshot.json` being used to measure the generator while carrying
+no `oracle_text`: every facet computed from it came from nothing, and Kaalia was
+diagnosed as a compiler bug on the strength of it. Recording the METHOD RESULTS
+cannot drift from what the code receives, because it IS what the code received.
+
+**A replay asked for a commander it has not recorded THROWS.** It must never
+return an empty pool: that builds a deck of basic lands and reads as a
+catastrophic engine regression rather than a missing recording.
+
+**The boundary, stated.** The tape is pool data at ONE compiler version, so it
+measures GENERATOR CODE changes for free and a COMPILER change needs a fresh
+recording. That covers the large majority of the work.
+
+### Compiler 26 moved the decks by almost nothing, and that is the answer
+
+Owner, earlier: *"Would compiler being improved sort the deck generation?"*
+Measured rather than argued, on the eighteen shells:
+
+    compiler 25 -> 26   +68 cards read whole (granted quoted abilities, incl.
+                        Chromatic Lantern #85 and Cryptolith Rite)
+    eighteen shells     keyed 1310 -> 1312. ONE shell moved by 2.
+                        packages, named and ramp ALL IDENTICAL
+
+**Reading more cards is not the same as building better decks.** The compiler
+had already read the cards these decks were choosing between; what decides a
+deck is which of them the generator reaches for. Compiler work is still worth
+doing - a card the engine cannot read cannot be chosen at all - but it is not
+the lever on deck quality, and four sessions have now implied otherwise.
+
+### Where the decks actually stand, all measured 6 Sep 2026
+
+    eighteen shells     keyed 1312, packages 489, named 41
+                        ramp 0 under the floor of 11, 1 over p90
+    twenty commanders   45/71 jobs, 7 groups the deck cannot do AT ALL
+    192 real decks      183/200 role checks in range (92%)
+    Syr Vondam + Blink  34/90 against two HUMAN decks - blink spells 7/11,
+                        blink engines 6/17, 20 arrivals, 14 ways to blink,
+                        0 cards the engine cannot read
+                        (20 at the start of this session, 28 this morning)
+
+**What is confirmed and what is not.** The shells, the bench and the job lists
+are OUR OWN constructs, so they confirm consistency rather than quality. The
+only external evidence in this repo is the 192 MTGJSON decks - all precons, so
+their FLOORS generalise and their ceilings do not - and the two human Vondam
+decks. Vondam is the one place a real player's list is the yardstick, and it is
+the number that has moved most.

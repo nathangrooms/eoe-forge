@@ -9049,3 +9049,59 @@ and the pipeline then derived it a SECOND time at read time. Verified identical
 and the runtime copy removed. Found by checking the standing `/admin` rule: the
 Words screen showed `col:none` at 2,565 cards, which it could only do if the
 word were in the pool.
+
+## A tribe the pool cannot supply is not a tribe (6 Sep 2026)
+
+`plan.tribe` and the three wants that come with it - `sub:X`, `cares:sub:X` and
+`tok:X`, all at 1.00 - are read off the commander's own type line and rules
+text, and **nothing asked whether the deck could be built.** So a commander who
+MAKES Serpent tokens, or who may cast *"a noncreature or Robot spell"*, was
+planned as tribal, every want it had was about a tribe with almost no cards in
+it, and the deck came back generic.
+
+Measured against the pool each deck is actually built from:
+
+    Koma, World-Eater   serpent  48 in UG   keyed 54%
+    Vision, Spectral    robot    88 in UR   keyed 34%
+
+    Lathliss dragon 180   Giada angel 189   Attuma merfolk 228
+    Edgar vampire 398     Lathril elf 501
+
+The gap between 88 and 180 is where the line goes; **100** sits in it and leaves
+room for a narrow but real tribe - Slivers are 115 across the whole catalogue.
+
+**Two measurements on the way, both recorded because each looked right.**
+
+- **Dropping the TRIBE alone did NOTHING.** `plan.tribe` earns the Tribal shell
+  and states the tribe package; the three WANTS are what the ranker reads. Both
+  decks came back byte-identical.
+- **Dropping the WANTS unconditionally was WORSE.** Vision's whole plan is those
+  three words plus the survival floor, so removing them left a plan made only of
+  the floor and his keyed fell 34% to **ELEVEN** - the first deck under 30% in
+  the sweep for days. **A bad theme beats no theme.**
+
+So the tribe is always dropped, and the wants go only when the commander says at
+least two other things the ranker can use. Koma keeps evasion for his tokens and
+loses the Serpents; Vision keeps his Robots and the deck says so in its notes.
+
+    below their OWN colours' p10   8/40 -> 7/40, decks under 30% keyed still 0
+    eighteen shells                1 of 18 moved, keyed 1304 -> 1303
+
+### Where the weak-theme decks come from, read as a player
+
+The eight lowest-keyed decks in a forty-commander sweep split three ways, and
+only the first is a fault:
+
+    a TOKEN TYPE read as a tribe     Koma (Serpent), Vision (Robot)
+    a shape the compiler cannot read Gorion "copy an Adventure spell" falls to
+                                     the voltron fallback
+    genuinely vanilla                Eron the Relentless is haste and regenerate,
+                                     and voltron IS his deck
+
+The second is compiler work and the third is correct behaviour, so the tribal
+misread was the only one worth a rule.
+
+> ⚠️ **A sweep taken while the database is recovering from probe load reports
+> failures that are not yours.** One run gave `1 FAILED` and a 20-second worst
+> case; both were a PostgREST 500 on `combo_pool`, and a clean re-run gave 40/40
+> at 2.9 s. Re-gate and re-run before believing a timing regression.

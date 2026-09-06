@@ -52,19 +52,48 @@ const COMMANDERS = [
   { name: 'Sythis, Harvest’s Hand', ci: 'GW' },
 ];
 
-/* Deliberately short and uncontroversial: a Commander player notices the
-   ABSENCE of every one of these. Each carries the colours it needs, so a
-   mono-red deck is not marked down for missing a blue card. */
+/*
+ * MEASURED AGAINST REAL DECKS, NOT ASSERTED.
+ *
+ * This list used to carry the comment "deliberately short and uncontroversial:
+ * a Commander player notices the ABSENCE of every one of these", which is an
+ * opinion, and this repo's standard is that a deck is good when it measures
+ * well against REAL decks and never against an opinion.
+ *
+ * `scripts/probe/real-deck-staples.mjs` asks the 192 MTGJSON Commander decks,
+ * counting a deck only where its OWN COMMANDER'S colour identity allows the
+ * card. Measured 6 Sep 2026:
+ *
+ *     Sol Ring             188/192   98%     Swords to Plowshares  41/108  38%
+ *     Command Tower        178/192   93%     Cultivate             43/98   44%
+ *     Arcane Signet        139/192   72%     Swiftfoot Boots       42/192  22%
+ *                                            Lightning Greaves     41/192  21%
+ *                                            Counterspell           4/108   4%
+ *                                            Demonic Tutor          0/96    0%
+ *
+ * So the headline counts only the three a real deck almost always runs. The
+ * rest are still checked and still printed, because their absence is worth
+ * SEEING - but it is a question rather than a fault, and 12 of the 14-deck
+ * sweep's "missing staples" were Demonic Tutor and Counterspell, which no
+ * precon in the sample runs at all.
+ *
+ * PRECONS ARE A BIASED SAMPLE AND IT CUTS BOTH WAYS. They are budget products,
+ * so an expensive card is under-represented for a reason that is not deck
+ * construction. That does not rescue Demonic Tutor at 0 of 96, and it does not
+ * explain Lightning Greaves at 21% - EDHREC rank 13 says players run it
+ * constantly, so rank and this sample genuinely disagree about Boots and
+ * Greaves. Both are recorded; neither is thrown away.
+ */
 const STAPLES = [
-  ['Sol Ring', ''],
-  ['Arcane Signet', ''],
-  ['Command Tower', ''],
-  ['Swiftfoot Boots', ''],
-  ['Lightning Greaves', ''],
-  ['Swords to Plowshares', 'W'],
-  ['Counterspell', 'U'],
-  ['Demonic Tutor', 'B'],
-  ['Cultivate', 'G'],
+  ['Sol Ring', '', true],
+  ['Command Tower', '', true],
+  ['Arcane Signet', '', true],
+  ['Swiftfoot Boots', '', false],
+  ['Lightning Greaves', '', false],
+  ['Swords to Plowshares', 'W', false],
+  ['Counterspell', 'U', false],
+  ['Demonic Tutor', 'B', false],
+  ['Cultivate', 'G', false],
 ];
 
 /* Cards whose whole job is to empty a graveyard, and the facets that say a deck
@@ -97,6 +126,8 @@ let legalFail = 0;
 let totalDeep = 0;
 let totalStaples = 0;
 let eligibleStaples = 0;
+let totalReal = 0;
+let eligibleReal_ = 0;
 
 for (const { name, ci } of COMMANDERS) {
   const started = Date.now();
@@ -120,6 +151,10 @@ for (const { name, ci } of COMMANDERS) {
   const identity = new Set([...ci]);
   const eligible = STAPLES.filter(([, cols]) => [...cols].every(c => identity.has(c)));
   const found = eligible.filter(([n]) => names.has(n.toLowerCase()));
+  /* The three a real deck almost always runs, kept apart from the six that are
+     our opinion or merely common. A miss here IS a fault. */
+  const eligibleReal = eligible.filter(([, , real]) => real);
+  const foundReal = eligibleReal.filter(([n]) => names.has(n.toLowerCase()));
 
   const text = c => `${c.oracle_text ?? ''}`;
   const usesGraveyard = nonLand.filter(c => GRAVE_PLAN.test(text(c))).length;
@@ -129,6 +164,8 @@ for (const { name, ci } of COMMANDERS) {
   totalDeep += deep;
   totalStaples += found.length;
   eligibleStaples += eligible.length;
+  totalReal += foundReal.length;
+  eligibleReal_ += eligibleReal.length;
 
   const flags = [];
   if (total !== 99) flags.push(`ONLY ${total}+1 CARDS`);
@@ -141,7 +178,8 @@ for (const { name, ci } of COMMANDERS) {
 
   console.log(
     `${name.padEnd(30)} ${String(total).padStart(3)}+1  median ${String(median).padStart(5)}  ` +
-      `past15k ${String(deep).padStart(2)}  staples ${found.length}/${eligible.length}` +
+      `past15k ${String(deep).padStart(2)}  measured ${foundReal.length}/${eligibleReal.length}` +
+      `  all ${found.length}/${eligible.length}` +
       (found.length < eligible.length
         ? ` [missing ${eligible.filter(x => !found.includes(x)).map(([n]) => n).join(', ')}]`
         : '  ') + `  ` +
@@ -157,5 +195,7 @@ for (const { name, ci } of COMMANDERS) {
 
 console.log(
   `\nacross ${COMMANDERS.length} decks: ${legalFail} not 100 cards, ` +
-    `${totalStaples}/${eligibleStaples} staples, ${totalDeep} cards past rank 15,000`
+    `${totalReal}/${eligibleReal_} MEASURED staples (Sol Ring, Command Tower, Arcane Signet - ` +
+    `98%, 93% and 72% of 192 real decks), ${totalStaples}/${eligibleStaples} counting the six ` +
+    `that are our opinion or merely common, ${totalDeep} cards past rank 15,000`
 );

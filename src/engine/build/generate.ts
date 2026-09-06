@@ -2888,10 +2888,11 @@ const PACKAGE_MATCH = 0.6;
      * Bounded by the real tenth percentile: once the deck can answer six
      * permanents this is a no-op, and a pool with nothing left falls through.
      */
+    const answerFloor = answerFloorFor(input.commander.colorIdentity ?? []);
     const answersSoFar = () =>
       picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0);
-    if (answersSoFar() < REAL_DECK_ANSWERS_P10) {
-      takeFlex(card => answersAPermanent(card) && answersSoFar() < REAL_DECK_ANSWERS_P10);
+    if (answersSoFar() < answerFloor) {
+      takeFlex(card => answersAPermanent(card) && answersSoFar() < answerFloor);
     }
     takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
     const beforeOverflow = creaturesPicked;
@@ -3167,7 +3168,7 @@ const PACKAGE_MATCH = 0.6;
       if (
         answersAPermanent(outEntry.card as BuildCard) &&
         picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0) <=
-          REAL_DECK_ANSWERS_P10
+          answerFloorFor(input.commander.colorIdentity ?? [])
       ) {
         continue;
       }
@@ -3918,7 +3919,25 @@ const PLAYED_ENOUGH_RANK = 12_000;
  * is exactly what makes a ping look like removal again.
  */
 const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'] as const;
-const REAL_DECK_ANSWERS_P10 = 6;
+
+/**
+ * The floor is COLOUR-DEPENDENT, and one number was wrong in both directions.
+ *
+ * Measured over the 30 MTGJSON Commander decks whose cards all resolve in
+ * `cards_pool`, 6 Sep 2026:
+ *
+ *     green decks       p10 5   median  8   p90 10
+ *     everything else   p10 8   median 11   p90 12
+ *
+ * That is the colour pie rather than a quirk of the sample: green answers a
+ * creature by FIGHTING it, and a fight carries `eff:damage`, which this metric
+ * deliberately excludes. Under a flat floor of 6, nine of the ten random
+ * commanders it flagged were green decks sitting on exactly 5 - their own p10 -
+ * while genuinely thin non-green decks passed unflagged.
+ */
+function answerFloorFor(identity: readonly string[]): number {
+  return identity.includes('G') ? 5 : 8;
+}
 
 function answersAPermanent(card: BuildCard): boolean {
   const facets = (card as { facets?: readonly string[] }).facets ?? [];

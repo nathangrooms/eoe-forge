@@ -38,6 +38,29 @@ import { cardRole } from '../../src/engine/index.ts';
 
 const K = readFileSync('scratch/anon.txt', 'utf8').trim();
 const H = { apikey: K, Authorization: `Bearer ${K}`, 'Content-Type': 'application/json' };
+/*
+ * HOW MANY CARDS CAN ANSWER A PERMANENT, against what real decks of the SAME
+ * COLOURS hold.
+ *
+ * The `removal` ROLE is granted by `eff:damage`, which cannot tell a creature
+ * from a face, so a deck of pings reads as fully stocked and cannot kill
+ * anything. A hard verb only - `eff:damage` is excluded on both sides, which
+ * undercounts a real burn spell but keeps the comparison honest.
+ *
+ * THE FLOOR IS COLOUR-DEPENDENT AND A SINGLE NUMBER WAS WRONG BOTH WAYS.
+ * Measured over the 30 MTGJSON Commander decks whose cards all resolve:
+ *
+ *     green decks       p10 5   median  8   p90 10
+ *     everything else   p10 8   median 11   p90 12
+ *
+ * That is the colour pie, not a quirk: green answers a creature by fighting it,
+ * which carries `eff:damage`. Nine of ten random commanders flagged under a
+ * flat floor of 6 were green decks sitting on 5 - exactly their own p10 - while
+ * genuinely thin non-green decks passed.
+ */
+const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'];
+const answerFloorFor = identity => (identity.includes('G') ? 5 : 8);
+
 const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const catalog = new Catalog({ url: BASE, anonKey: K, authorization: null });
 
@@ -228,20 +251,6 @@ for (const c of picked) {
     faces: c.faces ?? null,
   });
   const nonland = deck.filter(x => !/\bLand\b/i.test(String(x.type_line ?? '')));
-  /*
-   * HOW MANY CARDS CAN ACTUALLY ANSWER A PERMANENT, on random commanders.
-   *
-   * The `removal` ROLE is granted by `eff:damage`, which cannot tell a creature
-   * from a face, so a deck of pings reads as fully stocked. Measured on the
-   * SAME metric over the 30 MTGJSON Commander decks whose cards all resolve:
-   * min 4, p10 6, median 9, p90 12. A hard verb only - `eff:damage` is excluded
-   * on both sides, which undercounts a real burn spell but keeps the comparison
-   * honest.
-   *
-   * The eighteen shells are a fixed list. This is the instrument that says
-   * whether interaction holds up across the whole commander space.
-   */
-  const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'];
   const answers = nonland.filter(x =>
     ANSWER_FACETS.some(f => (facets.get(x.name) ?? []).includes(f))
   ).length;
@@ -257,12 +266,12 @@ for (const c of picked) {
   if (lands < 35) flags.push(`LANDS ${lands}`);
   if (staples < want.length) flags.push(`staples ${staples}/${want.length}`);
 
-  rows.push({ name: c.name, ok: true, total, ramp, lands, staples, want: want.length, keyedPct, answers, ms, flags });
+  rows.push({ name: c.name, ok: true, total, ramp, lands, staples, want: want.length, keyedPct, answers, floor: answerFloorFor(c.color_identity ?? []), ms, flags });
   console.log(
     `${c.name.slice(0, 30).padEnd(31)} ${String(total).padStart(3)} cards  ` +
       `ramp ${String(ramp).padStart(2)}  lands ${String(lands).padStart(2)}  ` +
       `staples ${staples}/${want.length}  keyed ${String(keyedPct).padStart(3)}%  ` +
-      `answers ${String(answers).padStart(2)}${answers < 6 ? '!' : ' '} ` +
+      `answers ${String(answers).padStart(2)}${answers < answerFloorFor(c.color_identity ?? []) ? '!' : ' '} ` +
       `${String(ms).padStart(5)}ms  ${flags.join(' ') || 'ok'}`
   );
 }
@@ -281,8 +290,8 @@ console.log(`NOTHING flagged  ${clean.length}/${ok.length}`);
 console.log(`keyed synergy    median ${med(ok.map(r => r.keyedPct))}%`);
 console.log(
   `answers          median ${med(ok.map(r => r.answers))}   ` +
-  `below the real p10 of 6: ${ok.filter(r => r.answers < 6).length}/${ok.length}   ` +
-  `(real decks: p10 6, median 9, p90 12)`
+  `below their OWN colours' p10: ${ok.filter(r => r.answers < r.floor).length}/${ok.length}   ` +
+  `(real decks: green p10 5 median 8, other p10 8 median 11)`
 );
 /* The SPREAD matters more than the median. A deck at 6% keyed is a pile of good
    cards in the commander's colours: legal, playable, and not that commander's

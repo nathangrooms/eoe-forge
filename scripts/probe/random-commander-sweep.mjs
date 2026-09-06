@@ -251,7 +251,17 @@ for (const c of picked) {
     faces: c.faces ?? null,
   });
   const nonland = deck.filter(x => !/\bLand\b/i.test(String(x.type_line ?? '')));
-  const answers = nonland.filter(x =>
+  /*
+   * EVERY CARD, INCLUDING LANDS, because that is what the baseline counted.
+   *
+   * The real-deck bands come from `meta_deck_cards` with no type filter, so
+   * counting only nonland here compares a smaller number against a larger one.
+   * It is not academic: Boseiju, Who Endures answers a permanent and is a land,
+   * so The Reaper's deck reached its floor of 5 inside the build and was
+   * reported at 4 - the generator and the yardstick disagreeing about the same
+   * deck.
+   */
+  const answers = deck.filter(x =>
     ANSWER_FACETS.some(f => (facets.get(x.name) ?? []).includes(f))
   ).length;
 

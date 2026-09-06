@@ -237,7 +237,10 @@ for (const shell of shells) {
    * so the gap is real even though neither number is the whole truth.
    */
   const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'];
-  const answers = nonland.filter(c =>
+  /* EVERY CARD, INCLUDING LANDS - the real-deck bands were counted with no type
+     filter, and a land like Boseiju, Who Endures genuinely answers a permanent.
+     Counting only nonland compares a smaller number against a larger one. */
+  const answers = deck.filter(c =>
     ANSWER_FACETS.some(f => (deckFacets.get(c.name) ?? []).includes(f))
   ).length;
   const ramp = deck.filter(c =>

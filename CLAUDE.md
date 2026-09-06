@@ -7963,40 +7963,53 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
-## The `granted-ability` gap, sized: what it needs and what it unlocks
+## The `granted-ability` gap is CLOSED, and it was one regex worth 68 cards
 
-`clause-rules.ts` reads "Creatures you control have flying" and produces
-`{layer:'ability', grant:['flying']}`. It reads **"Creatures you control have
-\"{T}: Add one mana of any color\""** and produces `manual` with NO EFFECTS AT
-ALL. The rule's own comment declares this: *"KEYWORDS ONLY: granting a whole
-nested ability is the declared `granted-ability` gap"*.
+"Creatures you control have flying" compiled fully. **"Creatures you control
+have \"{T}: Add one mana of any color\"" compiled to NOTHING** - manual, zero
+effects - and the rule's own comment declared it the `granted-ability` gap.
 
-    Cryptolith Rite    #690    Enduring Vitality  #431
-    Elven Chorus      #1372    Paradise Mantle   (equipped variant)
+Measured over commander-legal cards, compiled from the working tree:
 
-A card that turns your whole board into mana dorks contributes NOTHING to the
-ramp role, which is the one non-negotiable role in this engine.
+    cards granting a quoted activated ability      282
+      compiler reads an effect, BEFORE             105   37%
+      compiler reads an effect, AFTER              173   61%
 
-**What it needs, measured rather than guessed.** Two things, and the second is
-why this was not done on 6 Sep:
+**+68 cards**, and they are not obscure:
 
-1. `Modification` must carry the granted ability, not just keyword strings:
-   `{ layer:'ability'; grant?: string[]; remove?: string[]; grantAbility?: Ability[] }`.
-   That change is one line and `tsc` is clean with it.
-2. **`clause-rules.ts` imports TYPES ONLY from `dsl.ts` and can reach no
-   compiler function.** Compiling the quoted ability needs either an import of
-   `compiler.ts` - which imports `clause-rules` and would be circular - or a
-   compile hook threaded through `BuildCtx`. The hook is the right answer and it
-   is a refactor, not a rule.
+    #85    Chromatic Lantern      eff:add-mana
+    #378   Goldspan Dragon        eff:add-mana
+    #690   Cryptolith Rite        eff:add-mana
+    #815   The World Tree         eff:add-mana eff:search-library
+    #1551  Pawn of Ulamog         eff:create-token
+    #1575  Awakening Zone         eff:create-token
+    #1989  Bootleggers' Stash     eff:create-token
 
-> **The DSL field was written and then REVERTED.** An optional field nothing
-> produces is decoration, and this file records five words shipped without a
-> consumer. It goes in with the hook or not at all.
+Three parts, none of them a card list:
 
-**Sizing.** This is the DSL half of the route-to-full split: 6,197 cards are
-blocked by markers rather than by unread text, and a granted ability is one of
-the marker shapes. The four named above are the mana cluster; the general form
-covers every "creatures you control have <quoted>".
+    dsl.ts           Modification.ability gains `grantAbility?: Ability[]`
+    clause-rules.ts  reads `X have "<costs>: <effects>"`, compiles the quoted
+                     body with `compileEffectBody`
+    behaviour.ts     walks the granted ability's effects as the card's own
+
+> **THE RULE CONTAINS ZERO CARD NAMES.** It is
+> `/^(.+?) (?:have|has|gains?) "(.+)"$/` over English; only the comments name
+> cards, to say why. A granted "{T}: Draw a card" emits `eff:draw` through the
+> same path with no second rule and no card I ever looked at. That is the
+> difference between a rule and a tag, and it is the answer to "should we grade
+> 33,000 cards by hand": this edit covered 68 of them, including one in the top
+> hundred, and covers whatever is printed next year with the same wording.
+
+Only the ACTIVATED shape is read. A granted TRIGGERED ability still falls to
+manual - it needs a trigger parser this rule has no business reaching for, and
+half a fix that claims coverage is worse than none.
+
+> ⚠️ **A CORRECTION.** This section previously said the fix needed a `BuildCtx`
+> hook because "clause-rules.ts imports TYPES ONLY and can reach no compiler
+> function". **Wrong.** Lines 32-33 import `BuildCtx` AND `phraseSelector` from
+> `effect-rules.ts`, which also exports `compileEffectBody`. The claim came from
+> reading `head -30` of a file whose relevant imports are on line 32. No
+> refactor was needed and none was done.
 
 ## `combo_pool` HAD NEVER BEEN VACUUMED, and every build fetches combos
 

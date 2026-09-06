@@ -429,6 +429,27 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
 
   const unresolved = deckEntries.filter(e => !e.card).map(e => e.name);
 
+  /*
+   * THE DECK'S OWN CARDS GET THEIR FACETS, and `DeckCard.facets` has carried
+   * the comment "when the caller has them" since it was written.
+   *
+   * `cuts.ts` ranks the deck's cards worst-first and its own doc says *"fit
+   * comes from `scoreCandidate`, the same ranker that chooses which cards to
+   * suggest ADDING, so the reason to cut a card is the reverse of the reason
+   * its replacement would be offered"*. That symmetry was broken: the
+   * ADDITIONS are scored against a pool that carries facets, and the CUTS were
+   * scored against deck rows that carry none, so `planFit` was silent for every
+   * card the player already owns and the cut order came from castability and
+   * the role gap alone.
+   *
+   * A deck row cannot carry them: `cardsByName` reads `cards_unique`, where
+   * `facets` is a computed column `anon` holds no grant on. So they come from
+   * `cards_pool` in one narrow read by name, the same shape `landPoolFor` and
+   * the commander read above both use.
+   */
+  const deckPoolFacets = await catalog.poolFacetsByName(
+    deckEntries.filter(e => e.card).map(e => e.card!.name)
+  );
   const profileCards: DeckCard[] = deckEntries
     .filter(e => e.card)
     .map(e => ({
@@ -438,6 +459,7 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       cmc: e.card!.cmc,
       tags: e.card!.tags,
       quantity: e.quantity,
+      facets: deckPoolFacets.get(e.card!.name) ?? null,
     }));
 
   /* --- 3b. The shared brain, FIRST. Score and cuts alike ------------ */

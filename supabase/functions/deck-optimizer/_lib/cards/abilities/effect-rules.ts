@@ -2363,6 +2363,13 @@ export function compileEffectPhrase(phrase: string, ctx: BuildCtx, depth = 0): E
  * honesty mechanism: the ability still runs the clauses we read, and the stack
  * item carries `needsManual` so the marker is visible BEFORE it resolves.
  */
+/* The two halves of a delayed blink printed as two sentences. See the glue in
+   `compileEffectBody`. Deliberately narrow: an exile at the START of the first,
+   and the timing-first return as the WHOLE of the second. */
+const DELAYED_BLINK_EXILE = /^(?:you may )?exile /i;
+const DELAYED_BLINK_RETURN =
+  /^at the beginning of the next end step, return (?:it|each of them|that card|those cards|them)(?= |$)/i;
+
 export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
   const cleaned = body.trim().replace(/[.]+$/, '');
   if (!cleaned) return [];
@@ -2438,6 +2445,35 @@ export function compileEffectBody(body: string, ctx: BuildCtx): Effect[] {
      * unreadable library owner, say) falls through to being read one sentence
      * at a time, exactly as before, and lands in manual. */
     const next = i + 1 < sentences.length ? sentences[i + 1].trim().replace(/[.]+$/, '') : '';
+
+    /* THE DELAYED BLINK is one effect printed as two sentences, and unlike the
+     * pair below it is often followed by a THIRD.
+     *
+     * "Exile up to one other target nontoken creature. At the beginning of the
+     * next end step, return that card to the battlefield under its owner's
+     * control. If it's a land card, put a +1/+1 counter on Phelia" is PHELIA,
+     * EXUBERANT SHEPHERD - a blink COMMANDER. Semester's End is the same shape.
+     * The blink rule matches across ONE full stop and anchors at the end, so
+     * the trailing rider made the whole thing miss and both cards carried
+     * `eff:exile-own` with no `eff:return-from`: the blink was half read.
+     *
+     * Gluing exactly TWO sentences is what makes this safe. Widening the rule's
+     * own regex to run past the full stop would swallow the rider and still
+     * report `rec:full`, which is the one property this compiler must never
+     * break - "coverage full never overstates". Here the third sentence goes
+     * back through the loop and is compiled or marked unread on its own merits.
+     *
+     * Two guards, the same shape as the pair below: the first sentence must
+     * START with an exile, and the second must BE the delayed return. */
+    if (next && DELAYED_BLINK_EXILE.test(s) && DELAYED_BLINK_RETURN.test(next)) {
+      const pair = compileEffectPhrase(`${s}. ${next}`, ctx);
+      if (pair) {
+        out.push(...pair);
+        i += 1;
+        continue;
+      }
+    }
+
     if (next && IMPULSE_EXILE_TAIL.test(s) && IMPULSE_GRANT.test(next)) {
       const pair = compileEffectPhrase(`${s}. ${next}`, ctx);
       if (pair) {

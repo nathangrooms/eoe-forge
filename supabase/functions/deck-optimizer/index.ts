@@ -480,6 +480,20 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
       cmc: e.card!.cmc,
       tags: e.card!.tags,
       quantity: e.quantity,
+      /*
+       * AND THE PROFILE READS THEM THROUGH `cardRole`.
+       *
+       * A grep for `.facets` over `src/engine/advise` finds only `cuts.ts`, so
+       * this looked like decoration. It is not: `deriveDeckProfile` counts the
+       * deck's ROLES with `cardRole`, which reads facets and falls back to tags
+       * without them - so the deck's own role counts, and therefore every role
+       * GAP the ranker scores a candidate against, were computed from tags
+       * alone.
+       *
+       * PROVED BY REMOVING IT: the suggestions changed on three of five decks,
+       * so the field is read. The grep was the wrong instrument for the
+       * question - `cardRole` takes the card, not the facets.
+       */
       facets: deckPoolFacets.get(e.card!.name) ?? null,
     }));
 

@@ -2610,6 +2610,33 @@ const PACKAGE_MATCH = 0.6;
    * A card that closes both floors at once closes both for free, so those are
    * taken first and neither floor can starve the other.
    */
+  /*
+   * THE TRIBE FILLS THE CREATURE FLOOR FIRST.
+   *
+   * The floor is raised to 26 for a tribal commander and its own note says why:
+   * "A TRIBAL DECK IS A CREATURE DECK... twenty-six is the low end of what they
+   * run." Nothing made those 26 creatures be the TRIBE, so the floor was met
+   * with generic good creatures and the tribe stayed small. SLIVER HIVELORD
+   * held 27 creatures and only 19 Slivers.
+   *
+   * A tribe's members rank badly - they are played only in that tribe's decks -
+   * so `playedFirst` inside `fillTo` puts Birds of Paradise ahead of Gemhide
+   * Sliver every time, and it is right to for a deck that is not a Sliver deck.
+   *
+   * AN ORDERING, NOT A FILTER, on the precedent this file uses everywhere: the
+   * second call carries no restriction, so a tribe too small to fill the floor
+   * still gets a full creature count rather than a short deck.
+   */
+  const tribeMemberFacet = commanderPlan.tribe ? `sub:${commanderPlan.tribe}` : null;
+  if (tribeMemberFacet !== null) {
+    fillTo(
+      () => creaturesPicked >= creatureFloor,
+      card =>
+        cardRole(card, 'creature') &&
+        ((card as { facets?: readonly string[] }).facets ?? []).includes(tribeMemberFacet),
+      'creature'
+    );
+  }
   fillTo(
     () => creaturesPicked >= creatureFloor || colouredPicked >= colourFloor,
     card => cardRole(card, 'creature') && hasColour(card),

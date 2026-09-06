@@ -10467,3 +10467,36 @@ are genuine lands commanders whose corroborating signal is not in that list, so
 `planForCommander` gives them no land echo at all. Widening the list is a
 separate change with its own measurement - the guard exists to stop Quake, and
 anything added has to keep stopping him.
+
+### And the open item is closed: returning lands from a graveyard corroborates
+
+The refusal above stands - the plan's guard does not belong in the signal loop -
+but it named a real fault on the PLAN side, and that IS fixed. The corroboration
+list misses how a whole family of lands commanders speaks: they RETURN LANDS
+FROM A GRAVEYARD.
+
+    genuine, and were getting no land want at all
+      Titania Protector of Argoth, Lumra, Shigeki, Multani, Teval, Bonny Pall,
+      Erinis, Hazezon, and SOUL OF WINDGRACE - the archetypal Jund lands commander
+
+**The conjunction is what keeps it safe.** `eff:return-from` alone is every
+recursion commander in the format; with `cares:type:land` beside it, it rescues
+20 and admits none of the three the guard exists for. Quake and Thalia both say
+`eff:tap` and neither returns anything.
+
+    nonland cards that care about lands
+      Multani  15 -> 33     Soul of Windgrace  11 -> 14
+      Titania  17 -> 17     Quake and Thalia   UNCHANGED
+    land counts stay sane: Multani 39, Windgrace 41, Quake 38
+    every yardstick IDENTICAL, because Tatyova and Azusa already corroborate
+
+> ⚠️ **THE PROBE SAID KRENKO HAD 26 LANDS AND HE HAS 38.** A basic-land entry
+> carries its `type_line` ON THE ENTRY with `card.typeLine` UNDEFINED, and it
+> carries a QUANTITY - twelve Mountains are one entry. Reading only `e.card` and
+> counting entries rather than quantities lost every basic in the deck, and the
+> result looked exactly like decks failing the land floor. Two separate faults
+> in one line.
+>
+> `random-commander-sweep.mjs` gets this right and reads `x.type_line` and
+> `x.quantity` off the entry. **Copy the count from a probe that already works
+> rather than writing a fourth one.**

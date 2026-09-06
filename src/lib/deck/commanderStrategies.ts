@@ -297,7 +297,34 @@ export const SHELL_SIGNALS: Record<string, ShellSignal> = {
     fallback: 'This commander wants to be suited up and swung with',
   },
   spellslinger: {
-    facets: ['type:instant', 'type:sorcery', 'cares:type:instant', 'cares:type:sorcery', 'trig:cast'],
+    /*
+     * `trig:cast:instant` and `trig:cast:sorcery`, NOT the bare `trig:cast`.
+     *
+     * The bare word says a cast trigger exists and nothing about WHOSE spell or
+     * WHAT KIND. It is on 1,273 cards and on 328 legendary creatures, 208 of
+     * which carry no other spellslinger signal - and reading those 208, almost
+     * none is a spellslinger commander:
+     *
+     *   trig:cast-own       100   Sram (equipment), Sythis (enchantments),
+     *                             Sai (artifacts), Birgi, Liberator
+     *   trig:cast-opponent   12   Mangara, Boromir, Kambal, Kaervek - STAX
+     *   neither              96   Lotho, Jhoira, Kozilek, Ulamog, Teshar
+     *
+     * CLAUDE.md records the ambiguity in so many words - "Birgi and K'rrik are
+     * paid when YOU cast - spellslinger. Lotho, Mangara and Kambal when an
+     * OPPONENT casts - stax" - and the typed facets have existed since the
+     * compiler learned to split them: 139 cards say `trig:cast:instant` and 136
+     * say `trig:cast:sorcery`. A spellslinger commander is paid for casting an
+     * INSTANT OR A SORCERY, which is exactly what those two say.
+     */
+    facets: [
+      'type:instant',
+      'type:sorcery',
+      'cares:type:instant',
+      'cares:type:sorcery',
+      'trig:cast:instant',
+      'trig:cast:sorcery',
+    ],
     tags: ['spellslinger', 'prowess', 'storm'],
     fallback: 'This commander is paid for casting instants and sorceries',
   },

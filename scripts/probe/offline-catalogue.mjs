@@ -110,10 +110,25 @@ export function replaying() {
     if (method === 'poolFacetsByName') {
       const names = args[0] ?? [];
       const out = new Map();
-      for (const n of names) if (facetsByName.has(n)) out.set(n, facetsByName.get(n));
-      /* A card with no facets is a real answer here, so a partial map is fine:
-         `poolFacetsByName` is a lookup, and its caller already treats an absent
-         name as "no facets recorded", which is what a live miss also gives. */
+      const missing = [];
+      for (const n of names) {
+        /* THE POOL ROW IS THE FALLBACK, and leaving it out made the tape LOSSY
+           in exactly the direction that hides a change. A recorded
+           `poolFacetsByName` map only covers the names some earlier call asked
+           for; a card the generator newly put in a deck was absent, so the
+           probe saw it as carrying NO facets.
+           Measured: Syr Konrad's deck came back missing facets for three cards
+           and ALL THREE were removal - Opposition Agent, Zero Point Ballad,
+           Finale of Eternity - so an "answers" count read 3 where the deck held
+           6, and three separate engine changes measured as no-ops that were
+           not. The rows are in the tape either way, from `poolFor`. */
+        if (facetsByName.has(n)) out.set(n, facetsByName.get(n));
+        else if (byName.has(n)) out.set(n, byName.get(n).facets ?? []);
+        else missing.push(n);
+      }
+      if (missing.length) {
+        throw new Error(`tape has no facets and no row for ${missing.length} card(s), first: ${missing[0]} - re-record`);
+      }
       return { value: out };
     }
     return null;

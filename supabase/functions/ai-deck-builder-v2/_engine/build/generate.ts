@@ -54,7 +54,9 @@ import type { EngineCard, EngineDeckEntry } from '../core/card.ts';
 import { deriveDeckProfile } from '../advise/profile.ts';
 import { rankCandidates, scoreCandidate } from '../advise/rank.ts';
 import { cardRole, styleFor, type DeckStyle } from '../advise/roles.ts';
-import { worksAgainstPlan } from '../knowledge/behaviour.ts';
+import { worksAgainstPlan,
+  PLAN_IGNORED,
+} from '../knowledge/behaviour.ts';
 /* Identity only. Legality is settled by the pool query before a card ever
    reaches this module, so re-testing it here would be a second opinion about
    something already decided. */
@@ -2265,23 +2267,14 @@ const PACKAGE_MATCH = 0.6;
           reservedNames.join(', ')
       );
       /*
-       * WHICH OF THE COMMANDER'S OWN ASKS THE DECK STILL HAS NOTHING FOR.
-       *
-       * A deck that ends with a loud want served by one card or none is the
-       * two-strategy failure, and it is invisible from the decklist: Syr
-       * Vondam's came back 67% on theme with every themed card belonging to the
-       * same half of him. Saying it out loud is how the next one gets noticed
-       * without anyone running a probe.
+       * WHICH OF THE COMMANDER'S OWN ASKS THE DECK STILL HAS NOTHING FOR is
+       * said at the END of the build instead of here. Computed at this point it
+       * described the deck as the RESERVE pass left it, and the commander-asks
+       * swap below then fixed some of what it named - so the note went on
+       * claiming a shortfall the finished deck did not have. Same fault the gap
+       * clauses had: a sentence a player disproves by counting the cards in
+       * front of them is worse than no sentence.
        */
-      const stillShort = [...wantWeightOf.entries()]
-        .filter(([facet, weight]) => weight >= 0.6 && (servedCount.get(facet) ?? 0) < 2)
-        .sort((a, b) => b[1] - a[1])
-        .map(([facet]) => facet);
-      if (stillShort.length) {
-        notes.push(
-          `still short of ${commanderPlan.commanderName}'s own asks: ${stillShort.join(', ')}`
-        );
-      }
     }
   }
 
@@ -3096,6 +3089,143 @@ const PACKAGE_MATCH = 0.6;
         `${outgoing.name} out for ${incoming.name}: this deck had ${answersSoFar() - 1} ways to ` +
           `answer a permanent and real decks in these colours run ${answerFloor}. ` +
           `Dealing one damage is not removal.`
+      );
+    }
+  }
+
+  /*
+   * AND THE COMMANDER'S OWN LOUDEST ASKS GET THE SAME TREATMENT.
+   *
+   * The build already SAYS when it has failed one - "still short of Prosper,
+   * Tome-Bound's own asks: eff:impulse" - and nothing acted on it. Measured
+   * over the twenty benchmark commanders, TWELVE OF TWENTY ended short of a
+   * want the commander itself stated:
+   *
+   *   Prosper   eff:impulse        his card exiles the top of your library
+   *   Brago     eff:extra-combat   Yuriko  grants:unblockable, tok:ninja
+   *   Meren     eff:recur-self     Korvold eff:multiply-triggers, eff:bounce-own
+   *
+   * Prosper is the clearest: asked for the Value engine shell - which he
+   * genuinely earns - his deck went from NINE cards carrying `eff:impulse` to
+   * ZERO, while the shell filled 27 of 27 of its own jobs. A shell taking 45%
+   * of the spells can leave the commander's defining mechanic unserved.
+   *
+   * A SWAP, NOT AN ADDITION, and the same guards as the answers swap beside it:
+   * the deck size never moves, a preferred card is never given up, a land is
+   * never given up, the outgoing card must not be the last of some other job,
+   * and a card people play is never handed over for one they do not. Bounded to
+   * the loudest wants and to a handful of cards, so this cannot rebuild a deck.
+   */
+  const stillShortWants = commanderPlan.wants
+    .filter(w => w.weight >= COMMANDER_ASK_WEIGHT)
+    .map(w => w.facet as string)
+    .filter(f => !PLAN_IGNORED.has(f));
+  if (stillShortWants.length > 0) {
+    const carries = (card: BuildCard, facet: string) =>
+      ((card as { facets?: readonly string[] }).facets ?? []).includes(facet);
+    const servedNow = (facet: string) =>
+      picked.reduce((n, e) => (carries(e.card as BuildCard, facet) ? n + 1 : n), 0);
+    let spent = 0;
+    for (const facet of stillShortWants) {
+      if (spent >= COMMANDER_ASK_SWAPS) break;
+      if (servedNow(facet) >= COMMANDER_ASK_SERVED) continue;
+      const candidates = playedFirst(
+        rankedSpells
+          .filter(
+            rec =>
+              !takenOracleIds.has((rec.card as BuildCard).oracleId) &&
+              carries(rec.card as BuildCard, facet)
+          )
+          .slice(0, 200)
+      );
+      for (const rec of candidates) {
+        if (spent >= COMMANDER_ASK_SWAPS) break;
+        if (servedNow(facet) >= COMMANDER_ASK_SERVED) break;
+        const incoming = rec.card as BuildCard;
+        if (takenOracleIds.has(incoming.oracleId)) continue;
+        if (overColourlessCap(incoming)) continue;
+        if (worksAgainstPlan(commanderPlan, incoming)) continue;
+        /*
+         * THE ROLE CEILING HOLDS THROUGH THIS SWAP.
+         *
+         * The answers swap beside this one does not need the check, because
+         * both cards carry `removal` and the count never moves. This one trades
+         * across roles, so it can push one past the p90 of what real decks
+         * hold - and it did: Giada came back with 6 protection against a real
+         * range of 0 to 5, which the shape check caught at once.
+         */
+        if (overRoleCeiling(incoming)) continue;
+        const inRank = incoming.edhrecRank ?? Number.MAX_SAFE_INTEGER;
+        if (inRank > PLAYED_ENOUGH_RANK) continue;
+
+        let worstAt = -1;
+        let worstScore = Infinity;
+        for (let i = 0; i < picked.length; i++) {
+          const entry = picked[i];
+          const card = entry.card as BuildCard;
+          if (entry.preferred || preferred.has(card.oracleId)) continue;
+          if (isLandCandidate(card)) continue;
+          if (stillShortWants.some(f => carries(card, f))) continue;
+          /* Never hand over a card people play for one they do not - the rule
+             the ramp guarantee, the answer swap and `deck-optimizer` all use. */
+          if ((card.edhrecRank ?? Number.MAX_SAFE_INTEGER) < inRank) continue;
+          /* Every job the outgoing card does must survive the trade. */
+          let lastOfSomething = false;
+          for (const r of rolesOf(card)) {
+            if (r === 'land') continue;
+            if (!rolesOf(incoming).has(r) && carriedCount(r) - 1 < (targets[r] ?? 0)) {
+              lastOfSomething = true;
+              break;
+            }
+          }
+          if (lastOfSomething) continue;
+          const score = entry.score ?? 0;
+          if (score < worstScore) { worstScore = score; worstAt = i; }
+        }
+        if (worstAt < 0) continue;
+
+        const outgoing = picked[worstAt].card as BuildCard;
+        takenOracleIds.delete(outgoing.oracleId);
+        takenOracleIds.add(incoming.oracleId);
+        if (!hasColour(incoming) && hasColour(outgoing)) colourlessPicked += 1;
+        if (hasColour(incoming) && !hasColour(outgoing)) colourlessPicked -= 1;
+        picked[worstAt] = {
+          card: incoming,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'commander',
+          preferred: false,
+        };
+        carriedStamp += 1;
+        spent += 1;
+        notes.push(
+          `${outgoing.name} out for ${incoming.name}: ${commanderPlan.commanderName} asks ` +
+            `for this and the deck had ${servedNow(facet) - 1}`
+        );
+      }
+    }
+  }
+
+  /* Said out loud AFTER every pass that could serve one, so it describes the
+     deck the player is holding. */
+  {
+    const carriesFinal = (card: BuildCard, facet: string) =>
+      ((card as { facets?: readonly string[] }).facets ?? []).includes(facet);
+    const stillShort = commanderPlan.wants
+      .filter(w => w.weight >= 0.6 && !PLAN_IGNORED.has(w.facet))
+      .filter(
+        w =>
+          picked.reduce(
+            (n, e) => (carriesFinal(e.card as BuildCard, w.facet as string) ? n + 1 : n),
+            0
+          ) < 2
+      )
+      .sort((a, b) => b.weight - a.weight)
+      .map(w => w.facet as string);
+    if (stillShort.length) {
+      notes.push(
+        `still short of ${commanderPlan.commanderName}'s own asks: ${stillShort.join(', ')}`
       );
     }
   }
@@ -4131,6 +4261,18 @@ const PLAYED_ENOUGH_RANK = 12_000;
  * is real even though neither number is the whole truth. Widening it to damage
  * is exactly what makes a ping look like removal again.
  */
+/*
+ * A want this loud is the commander's own statement about its deck, so a deck
+ * that ends with fewer than two cards carrying it has not been built for that
+ * commander. 0.8 is the same "loud" line `shellsForCommander` admits on.
+ *
+ * Bounded hard: at most three cards move, which is about one twentieth of the
+ * spells, so this corrects a deck rather than rebuilding one.
+ */
+const COMMANDER_ASK_WEIGHT = 0.8;
+const COMMANDER_ASK_SERVED = 2;
+const COMMANDER_ASK_SWAPS = 3;
+
 const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'] as const;
 
 /**

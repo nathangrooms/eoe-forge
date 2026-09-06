@@ -4660,6 +4660,9 @@ export interface ArchetypeInfluence {
  */
 const ARCHETYPE_MIN_EXEMPLARS = 2;
 
+/** How much commoner in the shell than in the pool a facet must be to be a want. */
+const ARCHETYPE_MIN_LIFT = 2.5;
+
 /** The only prefixes a shell may want. See the header above for the measurements. */
 /**
  * The facet families a shell is allowed to want.
@@ -5012,7 +5015,29 @@ export function planForArchetype(
       continue;
     }
     const lift = inShell / (poolCards / background.cards);
-    if (lift <= 1) {
+    /*
+     * LIFT ABOVE ONE IS NOT EVIDENCE. It says only that the facet is commoner
+     * in the shell than in the pool, which TWO cards out of twelve can clear by
+     * accident - and `ARCHETYPE_MIN_EXEMPLARS` is 2.
+     *
+     * Measured on SYR VONDAM asked for BLINK, the case the owner keeps raising.
+     * The Blink shell's twelve exemplars include Panharmonicon (an artifact),
+     * Cloudblazer (gains life) and Solemn Simulacrum (draws, and fetches a
+     * LAND), so the shell came out wanting `type:artifact`, `eff:gain-life`,
+     * `eff:draw` and `cares:type:land` - and the deck justified its junk with
+     * them, verbatim from the build log:
+     *
+     *   Field-Tested Frying Pan (rank 6,763)  "7 of the 12 cards that make up
+     *                                          the shell trigger on something
+     *                                          arriving"
+     *   Revel in Riches, Treasure Chest, Academy Manufactor, Forsaken Monument,
+     *   Bloodforged Battle-Axe  -  all "2 to 4 of the 12 ... are about
+     *   artifacts / gain life / draw cards"
+     *
+     * A blink deck wants cards that EXILE AND RETURN, and those wants were in
+     * the same list at the same kind of weight.
+     */
+    if (lift <= ARCHETYPE_MIN_LIFT) {
       dropped.push({ facet, reason: 'common', poolCards });
       continue;
     }

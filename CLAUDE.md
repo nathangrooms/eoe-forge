@@ -10573,3 +10573,63 @@ written down rather than acted on.
 > has none, so every commander it claims is claimed by something else too and
 > the signal is doing no independent work - harmless, and worth knowing before
 > anyone "simplifies" it away.
+
+## The FACET half of the signal table, checked the same way (6 Sep 2026)
+
+The tag audit is done; these are the facet signals with a large bare population -
+commanders carrying the facet and NOTHING ELSE that shell wants.
+
+    shell         signal                  carried   BARE
+    artifacts     cares:type:artifact       339      219
+    spellslinger  trig:cast                 328      208
+    value         trig:enters               698      189
+    aggro         eff:damage                259      191
+    value         eff:return-from           264      148
+    reanimator    cares:zone:graveyard      386      101
+    landfall      cares:type:land           164       87
+    enchantress   type:enchantment           72       62
+    blink         eff:move-zone              47       46
+
+### FIXED: `trig:cast` said a spell was cast and not whose, or what kind
+
+208 bare, and reading them almost none is a spellslinger:
+
+    trig:cast-own       100   Sram (equipment), Sythis (enchantments),
+                              Sai (artifacts), Birgi, Liberator
+    trig:cast-opponent   12   Mangara, Boromir, Kambal, Kaervek - STAX
+    neither              96   Lotho, Jhoira, Kozilek, Ulamog, Teshar
+
+**The typed facets already existed** - 139 cards say `trig:cast:instant` and 136
+say `trig:cast:sorcery` - and swapping to them discriminates perfectly:
+
+    Sram      trig:cast trig:cast-own          -> loses it
+    Kambal    trig:cast trig:cast-opponent     -> loses it
+    Talrand   ...trig:cast:instant :sorcery    -> keeps it
+    Niv-Mizzet ...trig:cast:instant :sorcery   -> keeps it
+
+Every yardstick identical, because Talrand was already the champion and
+qualifies through `cares:type:instant` anyway.
+
+### REFUSED, measured: `cares:type:artifact`
+
+219 bare, and the read is genuinely split - **DESTROYING an artifact and being
+paid for CASTING one say the same word**, which is the direction problem
+`cares:type:land` has:
+
+    genuine   Sai Master Thopterist, Losheel Clockwork Scholar, Jhoira,
+              Jin-Gitaxias Progress Tyrant, Mondrak, Tekuthal
+    wrong     Braids (the permanent-type enumeration), Loran of the Third Path,
+              Kogla, Muldrotha, Myrel, Bartolome, Zacama - all of which merely
+              DESTROY an artifact
+
+About 35% right. **Removing it costs roughly 77 genuine commanders to block
+142 wrong ones**, and Losheel says it only that way - she is a Human Artificer,
+so `type:artifact` does not carry her. That is between the 0-12% signals that
+were removed and the 60-80% ones that were kept, so it needs a real fix rather
+than a deletion: the compiler would have to separate "cares about artifacts" the
+payoff from "points removal at an artifact", the way `effect.who` separated
+whose effect it is.
+
+> `trig:cast:artifact` exists (30 cards) and would name the payoff precisely,
+> but ADDING it changes nothing - Sai and Jin-Gitaxias already match through
+> `cares:type:artifact`. It only helps once that one is gone.

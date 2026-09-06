@@ -8921,3 +8921,131 @@ change with its own measurement, and that it cost two capabilities when tried.
 A cheaper idea nobody has measured: give interaction a share of the BUDGET the
 way the archetype has one, so it competes at the point the budget is divided
 rather than by taking cards from a pass that already spent it.
+
+## The interaction gap, closed from 24 decks in 40 to 8 (6 Sep 2026)
+
+The `removal` ROLE is granted by `eff:damage`, which cannot tell a creature from
+a face. So a deck of pings reads as fully stocked, `deck-shape-check` counts the
+ROLE and says it is fine, and **Edgar Markov, in MARDU, came back holding ONE
+card able to answer a permanent.**
+
+Measured the same way on both sides, over the 30 MTGJSON Commander decks whose
+cards all resolve in `cards_pool`. A hard verb only - `eff:destroy`,
+`eff:exile`, `eff:neutralise`, `eff:gain-control` - which undercounts a real
+burn spell on BOTH sides and so keeps the comparison honest.
+
+### THE FLOOR IS COLOUR-DEPENDENT, and one number was wrong both ways
+
+    has green    p10 5   median 8       has white   p10 6   median 9
+    has red      p10 5   median 8       has blue    p10 6   median 9
+                                        has black   p10 8   median 9
+
+GREEN AND RED answer a creature by DAMAGING it - a fight, a Lightning Bolt - and
+damage is exactly what this metric excludes, so their hard-verb count is
+genuinely lower and a deck is not thin for matching it. Under a flat floor of 6,
+NINE of the ten random commanders flagged were green decks sitting on exactly 5,
+their own p10, while thin non-green decks passed unflagged.
+
+Shipped as `green -> 5, everything else -> 8`. **The stricter per-colour p10 was
+measured and REJECTED**: relaxing red, white and blue to their own p10 lost 15
+answers across eighteen decks and gained nothing on shape. Real medians are 8 to
+9 in every colour, so holding non-green decks to 8 lands them at the real
+MEDIAN, which is a good deck rather than an excessive one.
+
+### The whole diagnosis, and four mechanisms that reached none of it
+
+    Inferno of the Star Mounts, mono-red, THREE answers
+    [answers] floor 8 held 3 cands 300 flexSlots 12
+              taken 0 colourCap 0 against 0 ceiling 300 OK 0
+              blocked by: removal 300 (have 20/20)
+
+**The deck held TWENTY cards with the removal role - exactly its p90 ceiling -
+of which three could answer a permanent.** Every candidate answer was refused by
+the removal ceiling. The role was full of cards that do not do its job, so the
+deck was locked out of removal by its own removal count.
+
+Four mechanisms were built and measured before anything reached that, all
+recorded so nobody retries them:
+
+| | result |
+|---|---|
+| a floor GUARANTEE swapping at the END | shape 183 -> 179; two decks over the ramp p90 with no ramp card swapped |
+| PLACING answers before the packages | keyed -82, packages -23, named -4 |
+| requiring the removal QUOTA to answer | NOTHING moved, in either mode |
+| requiring the short-role BACKFILL to answer | NOTHING moved, alone or with the quota change |
+
+The quota loop assigns ONE OR TWO removal slots while the `commander` bucket -
+packages plus the fit reserve - takes 26 to 40 cards, so no rule about who may
+take a removal slot can matter. **Each pass measured as a no-op and none of them
+was the constraint.**
+
+### What worked: a wider candidate list, and a SWAP inside the role
+
+1. **The flex pass prefers an answer while the deck is short.** Flex places
+   cards filling NO role the deck still needs, so this is a substitution inside
+   slots already being spent.
+2. **A round may not cut the deck's last answers.** The rounds rank against the
+   commander's plan and removal is a weak fit for almost every plan, so they cut
+   answers first. Bounded to at most the floor, and only while below it.
+3. **The candidates come from the WHOLE RANKED POOL, not the shortlist.**
+   `flexOrder` ranks the shortlist - the cards this commander scores well on -
+   so a mono-red commander's shortlist held no hard answer at all while mono-red
+   has 185 played cards that can answer. ⚠️ Filter on the CHEAP facet test and
+   bound it: the first version ran `worksAgainstPlan` over 5,000 cards and took
+   the worst build from 4 s to TWENTY-ONE, failing one commander in forty.
+4. **If the role is full of pings, trade one for a real answer.** A SWAP, not an
+   addition: both cards carry `removal`, so the role count does not move and no
+   ceiling, floor or budget changes. Never trades a played card for an unplayed
+   one, never a preferred card, never the last card doing some other job.
+
+    DEPLOYED, forty random commanders
+      below their OWN colours' p10    24/40 -> 13 -> 14 -> 8/40
+      answers median                       6 -> 8
+      every gate                      40/40 throughout, keyed median 80%,
+                                      0 decks generic, slowest build 4.1 s
+
+    eighteen shells   answers 96 -> 142; keyed and named both ROSE at the end,
+                      which is the sign a constraint was fighting the deck
+    192 real decks    184 -> 182 role checks in range
+
+**Still short: eight of forty, most by one card.** Bristly Bill 4/5, Koma 4/5,
+Captain America 7/8, Diaochan 7/8, Amy Rose 7/8.
+
+## THE TAPE WAS LOSSY IN EXACTLY THE DIRECTION THAT HIDES A CHANGE
+
+`poolFacetsByName` on replay served only names some recorded call had already
+asked for. A card a CHANGE newly puts in a deck was in no such map, so it came
+back carrying NO FACETS - and every probe that reads facets by name undercounted
+precisely the cards being measured.
+
+Caught by counting ONE DECK BY HAND. Syr Konrad's holds six cards that answer a
+permanent and the probe said three; the three it lost were Opposition Agent,
+Zero Point Ballad and Finale of Eternity, all removal, all introduced by the
+change under test.
+
+    the flex + rounds change   measured   answers 96 -> 103, keyed -34
+                              ACTUALLY   answers 96 -> 115, keyed -8
+    decks below the floor      measured   11 -> 9
+                              ACTUALLY   11 -> 4
+
+The rows were in the tape the whole time, from `poolFor`. The reconstruction
+falls back to them now and THROWS when it has neither - never an empty facet
+list, which is the failure that reads as an engine regression. Measurements
+against the LIVE database were never affected.
+
+> **The general lesson, and it is the third instrument fault this week.** A
+> cache or a replay that is INCOMPLETE rather than wrong will fail on exactly
+> the new thing, because the new thing is what nothing has asked for yet. Make
+> the fallback path complete, or make the miss throw. Never let it return empty.
+
+## `col:none` was in the memo all along
+
+The commit adding it said "NOT IN THE MEMO, DELIBERATELY", on the argument that
+a colour identity is not a reading of rules text and so should not cost a
+compiler version. The argument is sound and the claim was false: the facet was
+added inside `readSizeAndCost`, which lives in `facetsForCard`, and that is
+exactly what `facet-memo-fill` calls - so compiler 27 wrote it on 2,565 cards
+and the pipeline then derived it a SECOND time at read time. Verified identical
+and the runtime copy removed. Found by checking the standing `/admin` rule: the
+Words screen showed `col:none` at 2,565 cards, which it could only do if the
+word were in the pool.

@@ -8672,3 +8672,166 @@ only external evidence in this repo is the 192 MTGJSON decks - all precons, so
 their FLOORS generalise and their ceilings do not - and the two human Vondam
 decks. Vondam is the one place a real player's list is the yardstick, and it is
 the number that has moved most.
+
+## Compiler 27: the board wipe the engine could not see (6 Sep 2026)
+
+Edgar Markov is MARDU - the three best removal colours in Magic - and the
+benchmark said *"removal that fits 0 of 2"*. Asking WHICH PASS took each card,
+rather than instrumenting the passes, gave the answer in one line: exactly ONE
+card in his deck was bucketed as removal, and it was **TOXIC DELUGE**. A
+symmetric board wipe, in a go-wide Vampire deck, taken by the popularity filler.
+`worksAgainstPlan` exists to refuse precisely that and could not see it.
+
+### Three causes, and the fix is a grammar rule, not a card list
+
+    -X/-X DID NOT PARSE         the pump rule required a literal signed number,
+                                so the whole of Toxic Deluge (rank 67) compiled
+                                to NOTHING. Its eff:shrink in the pool came
+                                from the TAG MERGE, not from us. Deluge of Doom
+                                and Bane of the Living are the same shape.
+
+    scope:wipe WAS destroy      its note said "-X/-X sweepers' selectors are
+    ONLY                        frequently players rather than permanents" - but
+                                sweepsYourBoardToo IS that test, so the selector
+                                guard already refused them.
+
+    A COMPOUND FILTER           "each OTHER creature" is an `and` of [type
+                                creature, other] and the flat test took only a
+                                bare type, so MASSACRE GIRL was not a wipe.
+
+**X IS AN EXPRESSION AND ITS SIGN IS STILL KNOWN.** Refusing to guess the
+MAGNITUDE is right; refusing to read the MINUS left the clause unread entirely.
+`-X` is `{v:'sub', a:0, b:{v:'x'}}`, which the DSL has always been able to say,
+and zero minus a count is negative whatever the count turns out to be. Any other
+expression still returns null and stays `eff:pump`.
+
+### The first version used `some` and was WRONG, caught before the swap
+
+Reading the 182 cards it claimed showed every FILTERED wipe had become a
+symmetric one - and a filtered wipe is usually the card a go-wide deck most
+wants:
+
+    Elspeth, Sun's Champion   destroy all creatures with POWER 4 OR GREATER
+    Hour of Reckoning         destroy all NONTOKEN creatures
+    Olivia's Wrath            each NON-VAMPIRE creature gets -X/-X
+    Dusk // Dawn              destroy all creatures with power 3 or greater
+
+It is `every` now, with only the source exclusion (`other`) treated as benign:
+anything else in the conjunction is a restriction, and a restriction is exactly
+what turns a wipe into a payoff. **278 wrongly-marked cards became 153.**
+
+> Third time this project has been saved by reading the cards a rule CLAIMS
+> rather than reading the rule. The measurement was taken on `cards_pool_next`
+> before the swap, so production never saw the wrong version.
+
+    scope:wipe in the pool    96 -> 153
+    read as a player          17 of the 18 most played additions correct
+    marked   Toxic Deluge, Massacre Girl, Languish, The Meathook Massacre,
+             Yahenni's Expertise, Golgari Charm, Demon of Dark Schemes
+    refused  Massacre Wurm, Doomwake Giant, Chittering Witch, Silumgar,
+             Elspeth, Hour of Reckoning, Olivia's Wrath, Dusk // Dawn
+
+    eighteen shells    keyed 1312 -> 1307, packages and named IDENTICAL
+    twenty commanders  45/71 -> 44/71 jobs, 6 groups at zero UNCHANGED and
+                       nothing new fell to NONE
+    192 real decks     183/200, UNCHANGED
+    production         Edgar, Najeela, Krenko 200 in 2-5 s, and EDGAR NO LONGER
+                       HOLDS TOXIC DELUGE
+
+**The two instrument numbers fell slightly and the real-deck yardstick did not,
+and neither can see the fault this fixes.** `keyed` counts cards the commander
+wanted; a wipe that was keyed and is now refused makes it fall. The known cost
+is The Meathook Massacre, which an aristocrats deck genuinely wants and which
+genuinely is a symmetric wipe.
+
+### information_schema.columns DOES NOT LIST MATERIALIZED VIEWS
+
+The pre-swap column check compared `cards_pool` against `cards_pool_next`
+through it and answered **0 matching of 0 columns**, which reads as a pass at a
+glance. Use `pg_attribute`, joined on `attname`, `attnum` AND `atttypid` - a
+reordered column silently breaks every PostgREST caller that selects by name.
+
+### The top-up cannot start a new version by itself
+
+`fill_card_facets_if_needed` reads `max(compiler_version)` FROM THE MEMO to work
+out the gap, so after bumping the writer it still sees the old version, reports
+`gap 0`, and never starts. Insert a row into `facet_memo_runs` and POST
+`facet-memo-fill` directly: 34 calls at batch 1000, about 80 seconds.
+
+## A zero on the benchmark now says whether the MEASURE could see the job
+
+`[NONE]` prints the conjunction it asked for, or why it derived none. This
+project's method says to ask whether the deck holds the cards, then whether the
+measure can see them, and only then blame the generator - and three of the last
+four "generator failures" were one of the first two. That question took a
+bespoke scratch probe per job; it is one line of output now.
+
+Run against the seven zero groups it answered all seven at once, and **SIX WERE
+THE MEASURE**:
+
+    Edgar   removal that fits      eff:exile                      REAL GAP
+    Prosper impulse draw           cares:zone:exile + eff:impulse
+    Korvold comes back after sac   eff:recur-self + cares:type:land
+    Animar  big colourless         kw:annihilator + sub:eldrazi
+    Niv x2, Animar bounce          no capability measure at all
+
+### The conjunction ranked a coincidence above the job
+
+Rarity alone was the sort, and it put every one of those wrong:
+
+    Korvold  cares:zone:graveyard  agree 100%  pool 7.1%   <- the job
+             eff:recur-self        agree  56%  pool 0.4%   } what rarity
+             cares:type:land       agree  56%  pool 8.8%   } actually picked
+
+    Animar   sub:eldrazi/pt:big/mv:big   agree 100%
+             kw:annihilator              agree  55%  pool 0.1%  <- picked
+
+**A facet nearly every example carries is what the job IS. A rare facet a BARE
+MAJORITY happen to share is a coincidence.** Most agreed first, rarity as the
+tie-break. Brago's "blink effects" is now `cares:zone:exile + eff:return-from`,
+both unanimous, which IS blinking. Jobs 46 -> 45, zero groups 7 -> 6, and the
+false positive these guards exist for - "Curiosity effects on Niv" - is still
+refused.
+
+## col:none: colourless is a word now, and it needs no compiler version
+
+Nothing recorded that a card is colourless, so *"big colourless creatures that
+cost nothing once Animar is large"* could not be asked for by any plan. A
+generic cost reduction makes a colourless card FREE, because a colourless card's
+whole cost is generic, so `eff:reduce-cost` wants `col:none` at 0.4 - below
+`pt:big`, since a reducer deck wants big things first and a colourless big thing
+is the best of them.
+
+**NOT IN THE MEMO, DELIBERATELY.** The memo is keyed on oracle_id and versioned
+by the COMPILER, and a bump costs a refill and two reader moves. A colour
+identity is not a reading of rules text and cannot change with the compiler.
+`rowDerivedFacets` is read wherever a row is held, and the pool already carries
+`color_identity`.
+
+    twenty commanders   45/71 jobs -> 46/71, 7 groups at zero unchanged
+    Animar              0/4 jobs -> 1/4, median EDHREC rank 940 -> 793
+    eighteen shells     0 of 18 moved. keyed, packages, named, ramp IDENTICAL
+    192 real decks      183/200, unchanged
+
+Animar's colourless job still reads 0/4 and that is the INSTRUMENT: all eleven
+exemplars are Eldrazi, so `sub:eldrazi` is genuinely unanimous AND rare. An
+exemplar-list problem is editorial, not a sort that can be fixed.
+
+## REFUSED, measured: a two-sweep so weak removal declines the removal role
+
+`eff:damage` confers `removal` and cannot say whether the damage points at a
+creature or a face. The fix looked obvious: on a first sweep, a card that cannot
+answer a threat declines the role, so real removal fills the quota while it is
+open; on a second it may have it. An ORDERING, not a filter, so the ~50%
+precision of "permanent whose only removal facet is damage" would not matter.
+
+**Edgar's deck came back BYTE-IDENTICAL** - same 95 cards, same median - and
+shape fell 183 -> 182. The quota loop was never where his removal came from:
+exactly one card in his deck is bucketed `removal` and it arrived through the
+popularity filler. Rule 1 again, and the deck entry's own `reason` said so in
+one line.
+
+Reverted. Worth knowing for the next attempt: reading the population found the
+rule would also have been wrong as a filter - Eiganjo, Walking Ballista,
+Voracious Hydra, Ulvenwald Tracker and Apex Altisaur are permanents whose only
+removal facet is damage and which genuinely do kill creatures.

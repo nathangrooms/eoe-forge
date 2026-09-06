@@ -994,6 +994,28 @@ export class Catalog {
     for (let mask = 0; mask < 1 << colours.length; mask++) {
       keys.push(colours.filter((_, i) => mask & (1 << i)).join(''));
     }
+    /*
+     * THROUGH THE `combos_for` RPC, WHICH ASKS ONE KEY AT A TIME.
+     *
+     * The index is on (identity_key, popularity DESC) and can serve ONE key in
+     * popularity order for free. Asked for all eight subsets of a three-colour
+     * identity at once, the planner cannot walk eight ordered ranges and merge
+     * them: it bitmaps all eight, reads EVERY matching row from the heap and
+     * top-N sorts. Measured 6 Sep 2026 on a HEALTHY instance - the db-gate warm
+     * median was 0.04 s either side of it:
+     *
+     *     in.(eight keys)   18,580 rows of width 456 materialised   2,196 ms
+     *     combos_for        8 index scans + 400 lookups by id         297 ms
+     *
+     * Every buffer was a cache hit both times, so this was never IO or a cold
+     * view - it was the row count. 2,196 ms against a 3 s statement_timeout is
+     * not a margin, and it FAILED REAL BUILDS: Ghave, Guru of Spores returned
+     * a 57014 on `combo_pool` while the database was otherwise healthy. A
+     * five-colour identity has 32 keys and is worse.
+     *
+     * The function is STABLE and SECURITY INVOKER, so grants and RLS behave
+     * exactly as they do for a direct read.
+     */
     const list = keys.map(k => (k === '' ? '""' : k)).join(',');
     /*
      * ONE PAGE, AND NOT THROUGH `fetchAll`.
@@ -1018,9 +1040,8 @@ export class Catalog {
      * keyset walk was never needed. `#get` keeps the path's own ordering.
      */
     const { rows } = await this.#get<ComboRow>(
-      `combo_pool?select=id,popularity,card_count,bracket_tag,produces,oracle_ids,card_names,needs_commander` +
-        `&identity_key=in.${encodeURIComponent(`(${list})`)}` +
-        `&order=popularity.desc.nullslast&limit=${limit}`,
+      `rpc/combos_for?p_keys=${encodeURIComponent(`{${list}}`)}&p_limit=${limit}` +
+        `&select=id,popularity,card_count,bracket_tag,produces,oracle_ids,card_names,needs_commander`,
       { Range: `0-${Math.max(0, limit - 1)}`, 'Range-Unit': 'items' }
     );
     return rows.slice(0, limit);

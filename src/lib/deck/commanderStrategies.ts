@@ -159,7 +159,36 @@ export const SHELL_SIGNALS: Record<string, ShellSignal> = {
        commander that points damage at things is playing a deck that kills
        you, whether by combat or by burn, and this is the shell for that. */
     facets: ['trig:attacks', 'kw:haste', 'eff:extra-combat', 'eff:pump', 'eff:damage'],
-    tags: ['extra-combat', 'haste-enabler', 'evasion'],
+    /*
+     * NOT `evasion`. HAVING FLYING IS NOT PLAYING AN AGGRO DECK.
+     *
+     * The tag is derived from flying, menace, trample and friends, so it is
+     * true of 799 legendary creatures - and 511 of them carry NO OTHER aggro
+     * signal at all. Read as a player, the most played of those 511 are not
+     * aggro commanders in any sense:
+     *
+     *   Avacyn Angel of Hope (an 8-mana anthem), Old Gnawbone (treasures),
+     *   Vilis (draw and drain), Shalai (protection), Tekuthal (proliferate),
+     *   Wan Shi Tong (draw), Junji (reanimator), Atsushi (treasures),
+     *   Miirym (dragon tokens), Beledros (lands)
+     *
+     * Of the sixteen most played, ONE is arguably aggro - Gisela, Blade of
+     * Goldnight, who doubles damage - and she carries `eff:damage` anyway.
+     * AVACYN WAS THE HIGHEST-SCORING COMMANDER OF ALL 3,363 FOR THIS SHELL,
+     * so the eighteen-shell probe was measuring an aggro deck built on an
+     * 8-mana Angel, and it was the worst row on the board at 46% keyed.
+     *
+     * ⚠️ AND MY FIRST CHECK OF THIS SIGNAL WAS CIRCULAR. I "corroborated" the
+     * tag against `kw:flying`, `kw:menace` and `kw:trample` and got 88%, which
+     * proves only that a tag matches the keywords it is MADE FROM. The question
+     * is whether those commanders want to attack, and the answer needed the
+     * bare population read as a player.
+     *
+     * The five facets and the two remaining tags are what an aggro commander
+     * actually says: it attacks, it has haste, it takes extra combats, it pumps
+     * or it points damage at things.
+     */
+    tags: ['extra-combat', 'haste-enabler'],
     fallback: 'This commander wants to attack every turn',
   },
   tokens: {

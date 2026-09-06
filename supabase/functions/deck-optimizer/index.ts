@@ -139,7 +139,7 @@ import {
   type Role,
 } from './_engine/advise/index.ts';
 import { pipDemand } from './_engine/build/generate.ts';
-import { planForCommander, type CommanderPlan } from './_engine/knowledge/behaviour.ts';
+import { planForCommander, planFit, type CommanderPlan } from './_engine/knowledge/behaviour.ts';
 import { facetsForCard } from './_lib/deck/recommend/behaviour.ts';
 import type { ManaColour, ManaProfile } from './_engine/playability/castability.ts';
 import {
@@ -493,6 +493,31 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
    * for a commander the compiler cannot read rather than guessed at.
    */
   const commanderRow = commanderCard ? rowByName.get(normalizeName(commanderCard.name)) : undefined;
+  /*
+   * THE COMMANDER'S FACETS COME FROM THE POOL, NOT FROM THE COMPILER.
+   *
+   * The comment below says this is about "reading the SAME record the generator
+   * reads", and it never did: `commanderRow` comes from `cardsByName`, which
+   * reads `cards_unique`, where `facets` is a computed column `anon` holds no
+   * grant on. So the array was never present and every commander fell through
+   * to `facetsForCard` - the COMPILER half alone, without the community tag
+   * merge that `cards_pool` carries.
+   *
+   * This is the fault CLAUDE.md records for the GENERATOR on 4 Sep - *"the
+   * commander was read by the compiler alone, and the commander is the card the
+   * entire plan is derived from"* - sitting unfixed in the optimiser.
+   *
+   * Measured on Teysa Karlov: the compiler alone gives a plan of TWELVE wants,
+   * the pool gives SIXTEEN. Commander fit is 2.2 of the ranker's weight, so a
+   * quarter of the plan missing is a quarter of that signal missing from every
+   * suggestion this function makes.
+   *
+   * One narrow read by name, the same shape `landPoolFor` uses and for the same
+   * reason: selecting `facets` from `cards_unique` returns 401.
+   */
+  const commanderPoolFacets = commanderCard
+    ? (await catalog.poolFacetsByName([commanderCard.name])).get(commanderCard.name) ?? null
+    : null;
   const commanderPlan: CommanderPlan | null = commanderRow
     ? planForCommander({
         name: commanderRow.name,
@@ -501,9 +526,12 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
            loop above gives. The commander is one card, so this is about
            reading the SAME record the generator reads rather than about
            cost. */
-        facets: Array.isArray((commanderRow as { facets?: unknown }).facets)
-          ? ((commanderRow as { facets?: readonly string[] }).facets as readonly string[])
-          : facetsForCard(commanderRow).facets,
+        facets:
+          commanderPoolFacets && commanderPoolFacets.length > 0
+            ? commanderPoolFacets
+            : Array.isArray((commanderRow as { facets?: unknown }).facets)
+              ? ((commanderRow as { facets?: readonly string[] }).facets as readonly string[])
+              : facetsForCard(commanderRow).facets,
         tags: commanderRow.tags ?? null,
         oracleText: commanderRow.oracle_text ?? null,
         /* NULL on every multi-face layout, where the words live in the faces.
@@ -785,6 +813,13 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     missingCards,
     excessCards,
     fillPlan: plan,
+    /* THE DECK'S OWN CARDS CARRY NO FACETS. `cardsByName` reads `cards_unique`,
+       where `facets` is a computed column `anon` holds no grant on, so a deck
+       row resolves without them and `planFit` is silent for every card the
+       player already owns. The pool memo has them, keyed on oracle_id, and the
+       deck's cards are in the pool. */
+    facetOf: (card: CandidateCard | null) =>
+      (card?.oracleId ? facetMemo.get(card.oracleId) : null) ?? null,
   });
   console.log(
     `chose: ${sections.additions.length} additions, ${sections.removals.length} removals, ` +
@@ -1180,6 +1215,7 @@ function buildSections(args: {
   candidates: Recommendation[];
   landCandidates: RankedLand[];
   swapTargets: SwapTarget[];
+  facetOf?: (card: CandidateCard | null) => readonly string[] | null;
   deckEntries: readonly DeckEntry[];
   profile: DeckProfile;
   commanderish: boolean;
@@ -1281,10 +1317,54 @@ function buildSections(args: {
     rankOfDeckCard.set(normalizeName(entry.name), typeof rank === 'number' ? rank : null);
   }
 
+  /*
+   * AND A SWAP MAY NOT TAKE THE DECK OFF THE COMMANDER'S OWN PLAN.
+   *
+   * The generator treats commander fit as the CERTAINTY - it is in the deck and
+   * its plan is what the deck does - and weighs a guess below it everywhere.
+   * This pass consulted the score and the play rate and never the plan.
+   *
+   * Measured 6 Sep 2026 with `scratch/_optfit.mjs` over three generated decks,
+   * FOUR OF ELEVEN swaps dropped commander fit by more than 0.15, and all four
+   * were on Teysa Karlov - an aristocrats deck being asked to give up its own
+   * theme for cards that fill a role gap:
+   *
+   *     Sling-Gang Lieutenant  0.90 -> Scavenger's Talent  0.52
+   *     Anointed Procession    0.74 -> Chrome Mox          0.49
+   *     Radiant Lotus          0.85 -> Luck Bobblehead     0.65
+   *     Lord of the Forsaken   0.85 -> Currency Converter  0.65
+   *
+   * Every one PASSES the score and PASSES the play-rate rule beside this, which
+   * is the same lesson those two guards already record: the score's blind spots
+   * are where the format's staples live, and the play rate cannot see theme.
+   *
+   * Meren's and Talrand's swaps in the same run all held or RAISED fit, so this
+   * refuses a specific failure rather than swaps in general. The margin is what
+   * separated the two groups in that measurement: Titania at 0.93 leaving for
+   * Vampiric Rites at 0.85 is a tie in a noisy signal, not a theme being sold.
+   *
+   * UNKNOWN STAYS UNKNOWN. With no commander plan there is no fit to compare
+   * and every pair passes, which is the behaviour before this existed.
+   */
+  const OFF_PLAN_MARGIN = 0.15;
+  const plan = args.profile.commanderPlan ?? null;
+  const fitOf = (card: CandidateCard | null): number | null => {
+    if (!plan || !card) return null;
+    const own = (card as { facets?: readonly string[] | null }).facets;
+    const facets = own && own.length > 0 ? own : args.facetOf?.(card);
+    if (!facets || facets.length === 0) return null;
+    return planFit(plan, { ...card, facets } as never)?.fit ?? null;
+  };
+  const cardOfDeckCard = new Map<string, CandidateCard | null>();
+  for (const entry of args.deckEntries) cardOfDeckCard.set(normalizeName(entry.name), entry.card);
+
   const pairs = incoming
     .map((r, i) => ({ r, t: swapTargets[i] }))
     .filter(({ r, t }) => {
       if (!t) return false;
+      const fitOut = fitOf(cardOfDeckCard.get(normalizeName(t.name)));
+      const fitIn = fitOf(r.card as CandidateCard);
+      if (fitOut !== null && fitIn !== null && fitIn + OFF_PLAN_MARGIN < fitOut) return false;
       const out = rankOfDeckCard.get(normalizeName(t.name));
       const arriving = (r.card as { edhrecRank?: number | null }).edhrecRank;
       /* Unknown stays unknown. A card with no rank is not evidence either way,

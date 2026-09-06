@@ -60,20 +60,37 @@ const THIN = Number(process.env.THIN ?? 2);
 async function commanders() {
   const seen = new Map();
   let from = 0;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
+    /*
+     * NO LEADING WILDCARD, and the type is filtered in JAVASCRIPT.
+     *
+     * `type_line=like.*Legendary*Creature*` cannot use a btree index, so this
+     * scanned the view and returned 57014 on the first page. CLAUDE.md records
+     * the identical fault in `random-commander-sweep`'s `allCommanders()` and
+     * the identical fix: walk `edhrec_rank` in bands that ride
+     * `cards_pool_rank_idx`, and decide what is a commander here.
+     *
+     * Bands of 600 stay under PostgREST's 1000-row cap, which is a hard cap
+     * whatever `limit` says - a band that comes back AT the cap is silently
+     * truncated, so it throws rather than reporting a short population.
+     */
     const res = await fetch(
       `${BASE}/rest/v1/cards_pool?select=name,type_line,edhrec_rank,tags,facets` +
-        `&commander_legal=eq.legal&type_line=like.*Legendary*Creature*` +
-        `&edhrec_rank=gte.${from}&order=edhrec_rank.asc&limit=1000`,
+        `&commander_legal=eq.legal` +
+        `&edhrec_rank=gte.${from}&edhrec_rank=lt.${from + 600}` +
+        `&order=edhrec_rank.asc&limit=1000`,
       { headers: H }
     );
     if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 160)}`);
     const rows = await res.json();
-    if (!rows.length) break;
-    for (const r of rows) seen.set(r.name, r);
-    const last = rows[rows.length - 1].edhrec_rank;
-    if (rows.length < 1000) break;
-    from = last === from ? last + 1 : last;
+    if (rows.length >= 1000) {
+      throw new Error(`band ${from}-${from + 600} came back at the 1000-row cap and is truncated`);
+    }
+    for (const r of rows) {
+      if (/Legendary/.test(r.type_line ?? '') && /Creature/.test(r.type_line ?? '')) seen.set(r.name, r);
+    }
+    from += 600;
+    if (from > 30000) break;
   }
   return [...seen.values()];
 }

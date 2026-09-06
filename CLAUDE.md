@@ -7963,6 +7963,62 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## `combo_pool` HAD NEVER BEEN VACUUMED, and every build fetches combos
+
+    last_vacuum   NULL          56,240 rows
+    last_analyze  4 Sep 2026
+
+A materialized view gets no visibility map from a refresh, so every index-only
+scan falls back to the heap - the same condition this file records for
+`cards_unique`, where the first VACUUM took a page from 12 s to 2.9 s.
+`combo_pool` had never had one at all, and **every deck build fetches combos**,
+so this had been quietly taxing the whole product. Its 57014 timeouts recurred
+all through 5 and 6 Sep and were repeatedly written off as general IO.
+
+Vacuumed and analysed 6 Sep. The plan is visibly better: bitmap index scan on
+`combo_pool_key_pop_idx`, 709 buffers, all cache hits.
+
+> **The scheduled vacuums cover `cards_unique` and `cards_pool` and NOT
+> `combo_pool`.** Jobs 27 and 28 name the first two. A third matview was added
+> later and nobody added a job for it. Anything that adds a matview must add its
+> vacuum, or it degrades silently for months.
+
+## A GOOD PLAN THAT TAKES 15 SECONDS IS NOT A PLANNING PROBLEM
+
+The measurement that ends an argument about a slow query:
+
+    Bitmap Index Scan ... Buffers: shared hit=709   (ALL cache hits, no reads)
+    Execution Time: 15,308 ms
+
+709 cached buffers is about a millisecond of work. Fifteen seconds for it means
+the INSTANCE is starved, and no index, no rewrite and no plan hint will help.
+Read `Buffers` before theorising: `shared hit` with a long execution time is
+starvation, `shared read` with a long execution time is IO, and a bad plan shows
+up in the row counts rather than the timing.
+
+## THE BUMP SEQUENCE NEEDS SPACING, EVEN THOUGH EVERY STEP IS SAFE ALONE
+
+A compiler bump is: bump the writer, deploy it, refill 33,036 rows, move
+`public.facets(cards_unique)`, build `cards_pool_next`, refresh it, swap, vacuum
+both. Every one of those is documented here as safe. Run back to back on an
+instance that had already taken three outages the same day, the sequence left it
+CPU-starved and production returned 500 for some minutes.
+
+**Space them, or run the bump when nobody is playing.** The refill alone is
+33,036 writes; the refresh is a second full build of a 13 MB view; the vacuums
+are two more passes over the same data.
+
+### And the FIRST write at a new version has to be kicked by hand
+
+`fill_card_facets_if_needed` reads `max(compiler_version)` FROM THE MEMO to work
+out the gap, so after bumping the writer it still sees the old version, reports
+`gap 0, called false`, and never starts. The cron job will not self-heal from
+this. Insert a run into `facet_memo_runs` and invoke `facet-memo-fill` directly:
+
+    insert into public.facet_memo_runs (max_calls, note) values (60, '...')
+      returning run_token;
+    -- then POST {run_token, batch:1000} until done:true, 34 calls, 66 s
+
 ## THE 192 REAL DECKS ARE ALL PRECONS, AND USING THEM AS CEILINGS WAS WRONG
 
 The owner, 6 Sep 2026: *"Why are you looking at precons at all?"*

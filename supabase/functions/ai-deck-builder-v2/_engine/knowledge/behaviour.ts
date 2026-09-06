@@ -5944,4 +5944,33 @@ const EFFECT_PHRASES: Readonly<Record<string, string>> = {
   'extra-combat': 'takes an extra combat',
   scry: 'scries',
   impulse: 'exiles cards off the top of the library to play them',
+  /*
+   * THE VERBS ADDED SINCE THIS TABLE WAS WRITTEN, in a player's words.
+   *
+   * `describeWant` falls back to "do <the facet with its prefix stripped>", so
+   * these were reaching the build log as "do exile own", "do set pt" and, worst,
+   * "do do if cost paid". Seventeen of the eighty-three effects in the pool had
+   * no phrase, and they are the ones the newest rules emit - which is exactly
+   * what a commander's own single-want package gets named after.
+   *
+   * Third person, because `depluralise` strips the s off the first word. NOT
+   * "does more if you pay": that verb ends in `es` and comes out as "doe".
+   */
+  'exile-graveyard': 'exiles cards from graveyards',
+  'discard-self': 'makes you discard',
+  shrink: 'makes creatures smaller',
+  'look-and-pick': 'looks at cards and takes one',
+  'set-pt': 'sets power and toughness',
+  choose: 'lets you choose what they do',
+  surveil: 'surveils',
+  'damage-self': 'deals damage to you',
+  'exile-self': 'exiles itself',
+  'exile-own': 'flickers your own permanents',
+  'tap-own': 'taps your own permanents',
+  'do-if-cost-paid': 'gives more if you pay',
+  'extra-land-drop': 'lets you play an extra land',
+  'draw-each': 'makes everyone draw',
+  shuffle: 'shuffles your library',
+  'multiply-triggers': 'makes your triggers happen twice',
+  'destroy-own': 'destroys your own permanents',
 };

@@ -10545,3 +10545,31 @@ keyed.
     Aggro            Avacyn 46%  ->  Aurelia 47%
     shape 194/200, bench 46/71 with 4 zero groups, derived archetypes 9/10 and
     production 20/20 with 0 decks under 60% keyed - unchanged throughout all four
+
+### The whole tag table, re-checked with the non-circular test
+
+Every tag signal, asked the right question: **how many commanders carry it and
+NOTHING ELSE that shell wants, and are those commanders right for it?**
+
+    tag              carried by   BARE   verdict
+    treasure    ->artifacts   93        1    clean
+    etb         ->value      464       14    clean, and all fourteen past rank 2,900
+    planeswalker->superfriends 13        0    clean
+    stax        ->control     50        -    members read correctly, left alone
+    mass-pump   ->tokens      99       17    mixed: Morophon, Tyvar, Ruxa are
+                                             anthems rather than token makers
+    lifegain    ->lifegain   273      137    mixed: Vito, Heliod and Elenda are
+                                             right; K'rrik and Beledros PAY life
+    evasion     ->aggro      799      511    WRONG, 2 of 16 right -> REMOVED
+    infect      ->counters    11       11    WRONG, 0 of 11 right -> REMOVED
+    protection  ->voltron    106      104    WRONG, 2 of 106 -> REMOVED
+
+**The three removed were 0-12% right on their bare population. The two left are
+around 60-80%**, which is not the same thing, and this project does not remove a
+signal that is mostly right to catch a minority. `mass-pump` and `lifegain` are
+written down rather than acted on.
+
+> **A bare population of ZERO is as informative as a large one.** `planeswalker`
+> has none, so every commander it claims is claimed by something else too and
+> the signal is doing no independent work - harmless, and worth knowing before
+> anyone "simplifies" it away.

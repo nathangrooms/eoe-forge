@@ -171,7 +171,19 @@ const CONJ = new Map();
 function groupCapability(group, deckFacets, spells) {
   const names = group.cards ?? [];
   const sets = names.map(n => exampleFacets.get(n)).filter(Boolean);
-  if (sets.length < 3) { WHY.set(group.job, `only ${sets.length} of ${names.length} example cards resolved`); return null; }
+  if (sets.length < 3) {
+    /* A typeMatch group is scored by COUNTING cards of that type and carries no
+       example list at all, so "0 of 0 resolved" reads as a broken instrument
+       when the number is real. It cost an hour: Yuriko's Ninja job went from
+       `ok 11/6` to `NONE 0/6` and the message blamed the exemplars. */
+    WHY.set(
+      group.job,
+      group.typeMatch
+        ? `scored by counting ${group.typeMatch}s, and the deck holds none - this is the DECK, not the measure`
+        : `only ${sets.length} of ${names.length} example cards resolved`
+    );
+    return null;
+  }
 
   const count = new Map();
   for (const facets of sets) {

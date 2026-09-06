@@ -679,6 +679,14 @@ export function buildManaProfile(deck: readonly PlayabilityCardInput[]): ManaPro
  */
 export const STATE_BUDGET = 3_000_000;
 
+/**
+ * The largest theoretical state space worth attempting, checked BEFORE the DP
+ * starts. See the note at the bail-out for the measurements that place it: the
+ * last cost that finishes exactly bounds at 3.3e9 and the first that gives up
+ * bounds at 6.0e9, so 4e9 sits in the gap and changes no answer.
+ */
+export const STATE_BOUND = 4e9;
+
 export interface CastabilityResult {
   probability: number;
   /** True when the marginal-product fallback was used. Never present this
@@ -800,14 +808,82 @@ export function castability(
   const otherLiveSize = otherLive;
   const remainder = N - live.length; // cards that are not live mana sources
 
+  /*
+   * THE STATE SPACE IS KNOWN BEFORE THE DP RUNS, so a cost that cannot finish
+   * should not start.
+   *
+   * `visited > STATE_BUDGET` was checked only BETWEEN categories, so a
+   * pathological cost built a Map of over a million entries, spent seconds
+   * doing it, and then threw the work away and returned the approximation
+   * anyway. The answer was already approximate; the seconds bought nothing.
+   *
+   * `dims` is the per-dimension bound and its product is the most states this
+   * DP could ever hold. It hugely overestimates the actual count - the Hall
+   * collapse keeps the real map far smaller - but it ORDERS the cases
+   * correctly, which is all a bail-out needs. Measured on a five-colour base of
+   * 12 basics, 20 duals and 6 rainbow lands, 6 Sep 2026:
+   *
+   *     {W}{U}{B}{R}{G}                  512 ms   bound  0.8e9   exact
+   *     {W}{W}{U}{B}{R}{G}               865 ms   bound  1.8e9   exact
+   *     {W}{W}{U}{U}{B}{R}{G}          2,101 ms   bound  3.3e9   exact
+   *     {W}{W}{U}{U}{B}{B}{R}{G}       3,844 ms   bound  6.0e9   APPROXIMATE
+   *     {W}{W}{U}{U}{B}{B}{R}{R}{G}    2,899 ms   bound 10.7e9   APPROXIMATE
+   *     ...{R}{R}{G}{G}                2,333 ms   bound 18.8e9   APPROXIMATE
+   *
+   * THE THRESHOLD SITS IN THAT GAP, so every cost that finishes exactly today
+   * still does and every cost that already gives up now gives up in
+   * microseconds. It is answer-preserving by construction, not by hope.
+   *
+   * And it is the SOURCES that explode it, not the pips: the same ten-pip cost
+   * solves in 9 ms off 38 basics, because every distinct colour combination in
+   * the mana base is another dimension. PROGENITUS's own cost cost 3,607 ms
+   * inside a build that then returned 546 WORKER_RESOURCE_LIMIT, while every
+   * other card in his deck solved in a millisecond or less.
+   */
+  let stateBound = 1;
+  for (const d of dims) {
+    stateBound *= d;
+    if (stateBound > STATE_BOUND) break;
+  }
+  if (stateBound > STATE_BOUND) {
+    return { probability: marginalProduct(profile, cost, turn, D, N), approximate: true };
+  }
+
   let dp = new Map<number, number>();
   dp.set(0, 1);
   let visited = 0;
 
+  /*
+   * THE SAFETY VALVE HAS TO FIRE DURING A STEP, NOT BETWEEN THEM.
+   *
+   * `visited > STATE_BUDGET` was checked only after a whole category had been
+   * expanded, so ONE step could build a Map of 1.7 MILLION entries, and the
+   * budget then threw that work away and returned the approximation anyway.
+   * The answer was already approximate; the seconds bought nothing.
+   *
+   * Measured on a ten-pip five-colour cost, 6 Sep 2026:
+   *
+   *     38 basics                  9 ms   dp max     1,961   exact
+   *     18 basics + 20 duals   2,086 ms   dp max 1,695,161   APPROXIMATE
+   *     ...and 6 rainbow       4,233 ms   dp max 2,819,938   APPROXIMATE
+   *
+   * It is the SOURCES, not the pips: every distinct colour combination is
+   * another dimension, so a real five-colour mana base full of duals explodes
+   * a cost that solves instantly off basics. PROGENITUS's own cost took 3,607
+   * ms inside a build that then returned 546 WORKER_RESOURCE_LIMIT, while every
+   * other card in the deck solved in a millisecond or less.
+   */
+  let overBudget = false;
   const step = (size: number, catIndex: number) => {
     if (size === 0) return;
     const next = new Map<number, number>();
     for (const [key, weight] of dp) {
+      /* Once per outer entry, so the cost of checking is negligible against the
+         inner loop that grows `next`. */
+      if (next.size > STATE_BUDGET) {
+        overBudget = true;
+        return;
+      }
       const used = key % dims[0];
       const rest = (key - used) / dims[0];
       const liveCount = rest % dims[1];
@@ -852,6 +928,9 @@ export function castability(
 
   for (let i = 0; i < nCat; i++) {
     step(categories[i].size, i);
+    if (overBudget) {
+      return { probability: marginalProduct(profile, cost, turn, D, N), approximate: true };
+    }
     collapse();
     if (visited > STATE_BUDGET) {
       return { probability: marginalProduct(profile, cost, turn, D, N), approximate: true };
@@ -1099,12 +1178,19 @@ export function createPlayabilityEngine(
     if (hit) return { ...hit, name: input.name, isCommander: !!input.isCommander };
     /* Every option that can change the answer goes in the key. */
     const shared = `${signature}|${key}|${options.onThePlay ?? ''}|${options.threshold ?? ''}`;
+    if (globalThis.__SC) globalThis.__SC.look++;
     const across = SOLVE_CACHE.get(shared);
     if (across) {
+      if (globalThis.__SC) globalThis.__SC.hit++;
       memo.set(key, across);
       return { ...across, name: input.name, isCommander: !!input.isCommander };
     }
+    if (globalThis.__SC) { globalThis.__SC.miss++; globalThis.__SC.sigs.add(signature); globalThis.__SC.t0 = Date.now(); }
     const computed = cardPlayability(input, profile, options);
+    if (globalThis.__SC) {
+      const ms = Date.now() - globalThis.__SC.t0;
+      globalThis.__SC.costs.push([ms, input.mana_cost ?? '', input.name ?? '']);
+    }
     memo.set(key, computed);
     /* A plain cap rather than an LRU: this is a build-scoped working set, and
        a wrong eviction only costs a re-solve. */

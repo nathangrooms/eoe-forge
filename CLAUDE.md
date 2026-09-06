@@ -10237,3 +10237,68 @@ than the three that happened to show up.
 **The generator had the rule written down and the optimiser never got it.** That
 is the fourth instance of a fix reaching one half of the engine and not the
 other, and the first time the whole surface has been swept in one go.
+
+## Mana dorks: the shell starves them and NEITHER knob is the cause (6 Sep 2026)
+
+Four of the fourteen worst benchmark shortfalls are the same thing - creatures
+that make mana. Kinnan, Animar and Chulane all short of them.
+
+**Kinnan is the real case.** His card is *"whenever you tap a nonland permanent
+for mana, add one more"*, so a mana creature is the card he doubles:
+
+    no shell named          7 mana creatures, ramp 21
+    Big mana shell named    4 mana creatures, ramp 22
+
+Naming a shell he genuinely earns costs him three of the cards his own card is
+about, and the build log says why in one line: his *"creatures that add mana"*
+package took **2 slots** while the shell's generic *"Acceleration"* package took
+**TEN**.
+
+**Chulane and Animar are NOT the same case.** Chulane's plan never asks for
+`eff:add-mana` at all - his card draws and puts lands onto the battlefield - so
+"cheap creatures that make mana, so every cast is ramp twice" is the
+BENCHMARK'S reading of him, typed from knowledge, not something his record
+states. That job cannot be fixed by slot policy.
+
+### REFUSED, measured: the role ceiling is not the constraint
+
+The obvious suspect, and CLAUDE.md records it being the constraint once before -
+*"the shell's ramp SPELLS filled the ramp role to its p90 ceiling and
+`overRoleCeiling` then refused every mana DORK"*. Disabling the ceiling for
+package picks entirely changes **nothing**: 4 mana creatures either way. The
+`archetypeChosenExempt` path already gives a chosen shell's packages the looser
+`overRoleFloorCeiling` bound.
+
+### REFUSED, measured: splitting the package budget by want weight
+
+The share was `1 / (doing * shapes)` - even - on the argument that the shells'
+shares are exemplar counts and there are none here. Even is honest about the
+EXEMPLARS and says nothing about the COMMANDER, who states a weight per want.
+Weighting it is a pure reallocation and **it is a no-op**, because
+`slots = max(1, round(budget * share))` and Kinnan has NINE packages sharing
+fourteen slots: 1.56 rounds to 2, and 1.71 rounds to 2.
+
+**Raising the budget cannot fix that either.** CLAUDE.md already records 14, 18
+and 22 measuring identically; at 20 slots over 9 packages it is still 2.2, which
+still rounds to 2. To give one package four slots the budget would have to be
+about 36.
+
+### REFUSED, measured: fewer, more concentrated packages
+
+Cutting `shapes` from 3 to 2 halves the package count and doubles what each can
+hold. Kinnan NAMED goes 4 mana creatures to 5 and his ramp comes back inside the
+ceiling at 20 - and Kinnan DERIVED goes 7 to 5, which is the case that was
+already right.
+
+    eighteen shells    0 of 18 moved, EVERY COLUMN IDENTICAL
+    twenty commanders  46/71 jobs, 4 zero groups, unchanged
+
+Neutral on every yardstick and mixed on the one commander it was written for, so
+it is churn by this project's own standard.
+
+> **What is actually left**: nine packages sharing fourteen slots is the
+> structure, and every way of dividing fourteen differently has now been
+> measured. The lever that has never been tried is letting a commander's
+> LOUDEST want state one package instead of three - it is `doing x shapes` that
+> makes nine, and a want that matters could name one job well rather than three
+> thinly. That is a change to how packages are FORMED, not to how they are fed.

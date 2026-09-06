@@ -420,9 +420,33 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
     });
   }
 
+  /*
+   * THE DECK'S OWN CARDS GET THEIR FACETS, BEFORE ANYTHING READS THEM.
+   *
+   * This has to happen here rather than beside the profile, because
+   * `evaluateUserDeck` runs on `deckLines` and IT is what chooses the cuts.
+   * `cuts.ts` builds a candidate from each deck card and never set the field,
+   * so `planFit` was silent for every card the player owns: the cut order came
+   * from castability and the role gap alone, while the ADDITIONS were scored
+   * against pool rows that carry facets. The file's own doc says the two are
+   * meant to be reverses of each other.
+   *
+   * One narrow read by name from `cards_pool`, the same shape `landPoolFor` and
+   * the commander read both use, because `cardsByName` reads `cards_unique`
+   * where `facets` is a computed column `anon` holds no grant on.
+   */
+  const deckPoolFacets = await catalog.poolFacetsByName(
+    deckEntries.filter(e => e.card).map(e => e.card!.name)
+  );
+  const withFacets = (row: CatalogRow | null): CatalogRow | null => {
+    if (!row) return null;
+    const facets = deckPoolFacets.get(row.name);
+    return facets && facets.length > 0 ? ({ ...row, facets } as CatalogRow) : row;
+  };
+
   const deckLines: ResolvedDeckLine[] = deckEntries.map(e => ({
     name: e.name,
-    row: rowByName.get(normalizeName(e.name)) ?? null,
+    row: withFacets(rowByName.get(normalizeName(e.name)) ?? null),
     quantity: e.quantity,
     isCommander: e.isCommander,
   }));
@@ -447,9 +471,6 @@ async function optimise(input: OptimiseInput): Promise<OptimiseResult> {
    * `cards_pool` in one narrow read by name, the same shape `landPoolFor` and
    * the commander read above both use.
    */
-  const deckPoolFacets = await catalog.poolFacetsByName(
-    deckEntries.filter(e => e.card).map(e => e.card!.name)
-  );
   const profileCards: DeckCard[] = deckEntries
     .filter(e => e.card)
     .map(e => ({

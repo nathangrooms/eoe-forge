@@ -83,6 +83,8 @@ export interface ResolvedDeckLine {
  */
 export function toEngineCard(row: CatalogRow): EngineCard {
   return {
+    /* From `cards_pool`, attached by the caller - see `EngineCard.facets`. */
+    facets: (row as { facets?: readonly string[] | null }).facets ?? null,
     name: row.name,
     type_line: row.type_line ?? '',
     mana_cost: row.mana_cost ?? null,

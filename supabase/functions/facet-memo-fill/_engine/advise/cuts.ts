@@ -83,6 +83,18 @@ export function toCandidate(entry: EngineDeckEntry): CandidateCard {
     manaCost: card.mana_cost ?? null,
     usd: card.usd ?? null,
     legalities: (card.legalities ?? {}) as Record<string, string>,
+    /*
+     * WITHOUT THESE, `planFit` IS SILENT FOR EVERY CARD IN THE DECK.
+     *
+     * The doc at the top of this file says fit comes from `scoreCandidate`, the
+     * same function that ranks cards to ADD, "so the reason to cut a card is
+     * the reverse of the reason its replacement would be offered". That was
+     * only ever half true: the additions are scored against pool rows that
+     * carry facets and this builder did not set the field at all, so the whole
+     * commander-fit half of a cut decision was missing and the order came from
+     * castability and the role gap alone.
+     */
+    facets: card.facets ?? null,
     // Not known for a card already in the deck, and it would not change a cut
     // decision if it were: how often other people play a card says nothing
     // about whether THIS deck can cast it.

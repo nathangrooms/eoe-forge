@@ -4118,22 +4118,42 @@ const PLAYED_ENOUGH_RANK = 12_000;
 const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'] as const;
 
 /**
- * The floor is COLOUR-DEPENDENT, and one number was wrong in both directions.
+ * THE FLOOR IS PER COLOUR, and the split this used to carry did not exist.
  *
- * Measured over the 30 MTGJSON Commander decks whose cards all resolve in
- * `cards_pool`, 6 Sep 2026:
+ * It read `identity.includes('G') ? 5 : 8`, from a derivation over the 30
+ * MTGJSON decks whose cards ALL resolved in `cards_pool` at the time. Every one
+ * of the 192 resolves now, and over the full set the split is not there:
  *
- *     green decks       p10 5   median  8   p90 10
- *     everything else   p10 8   median 11   p90 12
+ *     green-heavy       p10 5   p50 8   p90 11
+ *     everything else   p10 5   p50 8   p90 12
  *
- * That is the colour pie rather than a quirk of the sample: green answers a
- * creature by FIGHTING it, and a fight carries `eff:damage`, which this metric
- * deliberately excludes. Under a flat floor of 6, nine of the ten random
- * commanders it flagged were green decks sitting on exactly 5 - their own p10 -
- * while genuinely thin non-green decks passed unflagged.
+ * The 8 was a thirty-deck artefact, and it was forcing non-green decks to hold
+ * three more answers than any real deck runs at the tenth percentile.
+ *
+ * Asked per colour instead - a deck counts toward a colour when that colour is
+ * more than a quarter of its spells - the colour pie is real and is not the
+ * shape the old constant guessed (`scripts/probe/real-deck-answers.mjs`):
+ *
+ *     W 6      B 6      G 5      U 4      R 4
+ *
+ * BLUE AND RED ARE LOW FOR THE SAME REASON GREEN IS. Blue answers a permanent
+ * by countering the spell or bouncing it and red answers it with damage, and
+ * `eff:counter`, a bounce and `eff:damage` are all excluded from this metric on
+ * purpose. Mono-blue Curie was being held to 8 in a colour whose real decks
+ * hold 4.
+ *
+ * The floor is the LARGEST p10 among the deck's colours, because a deck has
+ * access to the answers of every colour it plays: a white-blue deck can cast
+ * white removal, so white's expectation is the one that binds. A colourless
+ * commander gets the overall p10 of 5.
  */
-function answerFloorFor(identity: readonly string[]): number {
-  return identity.includes('G') ? 5 : 8;
+const ANSWER_FLOOR_BY_COLOUR: Record<string, number> = { W: 6, U: 4, B: 6, R: 4, G: 5 };
+const ANSWER_FLOOR_DEFAULT = 5;
+
+export function answerFloorFor(identity: readonly string[]): number {
+  let floor = 0;
+  for (const c of identity) floor = Math.max(floor, ANSWER_FLOOR_BY_COLOUR[c] ?? 0);
+  return floor === 0 ? ANSWER_FLOOR_DEFAULT : floor;
 }
 
 /*

@@ -34,6 +34,7 @@ import process from 'node:process';
 
 import { Catalog } from '../../supabase/functions/deck-optimizer/catalog.ts';
 import { planForCommander, planFit } from '../../src/engine/knowledge/behaviour.ts';
+import { answerFloorFor } from '../../src/engine/build/generate.ts';
 import { cardRole } from '../../src/engine/index.ts';
 
 const K = readFileSync('scratch/anon.txt', 'utf8').trim();
@@ -59,7 +60,11 @@ const H = { apikey: K, Authorization: `Bearer ${K}`, 'Content-Type': 'applicatio
  * genuinely thin non-green decks passed.
  */
 const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'];
-const answerFloorFor = identity => (identity.includes('G') ? 5 : 8);
+/* IMPORTED, never re-typed. This was a local copy reading
+   `identity.includes('G') ? 5 : 8`, so the sweep and the generator could
+   disagree about whether a deck met its floor - and for three days they did,
+   because the constant moved on one side only. Same question, one definition. */
+
 
 const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const catalog = new Catalog({ url: BASE, anonKey: K, authorization: null });
@@ -301,7 +306,7 @@ console.log(`keyed synergy    median ${med(ok.map(r => r.keyedPct))}%`);
 console.log(
   `answers          median ${med(ok.map(r => r.answers))}   ` +
   `below their OWN colours' p10: ${ok.filter(r => r.answers < r.floor).length}/${ok.length}   ` +
-  `(real decks: green p10 5 median 8, other p10 8 median 11)`
+  `(real decks, per colour p10: W 6  B 6  G 5  U 4  R 4)`
 );
 /* The SPREAD matters more than the median. A deck at 6% keyed is a pile of good
    cards in the commander's colours: legal, playable, and not that commander's

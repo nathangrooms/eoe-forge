@@ -10021,3 +10021,49 @@ it ran.
 > fix is to drop one or genuinely merge them, which is a judgement about card
 > lists rather than something a rule can decide. Three attempts, all measured,
 > all recorded - **do not spend a fourth session on the exemplars.**
+
+## The p10 clamp does NOT generalise past ramp and lands, measured twice (6 Sep 2026)
+
+`REAL_DECK_ROLES` gives every role a p10, and only `ramp` and `land` are clamped
+to it. The recorded argument for singling them out is that tutors and win
+conditions have a real median of ZERO, so a floor there asks for what no deck
+runs. **That argument does not cover `draw` (real median 17) or `removal`
+(median 13)**, whose derived floors ask for six, so both looked like obvious
+next candidates. Both were built and both are refused.
+
+| | shape /200 | 18 shells named | zero groups |
+|---|---|---|---|
+| baseline | 194 | 40 | 4 |
+| draw clamped to p10 11 | 194 (+1 then, since fixed elsewhere) | **30** | 8 |
+| removal clamped to p10 9 | **194, unchanged** | **33** | 5 |
+
+**Removal's is the sharper result: the shape number does not move at all.** The
+`removal` row leaves the failing list and `interaction` and `protection` each
+gain a deck, because the slots have to come from somewhere. It buys nothing and
+costs seven of the shell's own cards.
+
+> **The distinction that actually separates them.** Ramp and lands are what makes
+> a deck FUNCTION - their absence stops the game rather than losing it, which is
+> the owner's own standing rule about ramp. Draw and removal compete with the
+> deck's THEME for the same slots, and forcing a real-deck median into every deck
+> spends the archetype to buy the median. Both reverts restored every number
+> exactly, so both attributions are sound.
+
+## And the colour split does NOT generalise either
+
+`answerFloorFor` is per colour because blue answers by countering and red by
+burning, and both are excluded from `ANSWER_FACETS` on purpose - a real 50%
+spread, W 6 down to R 4. The obvious next move is per-colour bands for every
+role. Measured over the 192 real decks (`scratch/_rolecol.mjs`), the roles are
+colour-INDEPENDENT:
+
+    role       all          W          U          B          R          G
+    removal    9/13/20    9/13/20   9/13/18   10/14/21  10/16/22   9/13/18
+    draw      11/17/24    9/16/23  11/18/24   11/19/26  11/17/25   9/17/22
+    creature  22/29/37   21/29/36  20/29/35   23/31/37  20/28/36  23/30/38
+    ramp      10/15/20   10/14/19  11/15/21    9/14/18  11/15/21  12/16/21
+
+**And the reason is self-consistent**: the `removal` ROLE is conferred by
+`eff:damage`, which is exactly how red and green answer a threat, so the role
+does not see the colour pie that the answers METRIC deliberately excludes. One
+number varies by colour and the others do not, for a reason that is legible.

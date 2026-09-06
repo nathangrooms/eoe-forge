@@ -9619,3 +9619,79 @@ Birds of Paradise"*).
 > 3 forbids. Ninja 62 is a real tribe and Robot 88 is not, and **no count
 > separates them.** Any future viability test has to read what the cards DO, not
 > how many there are.
+
+## The answers floor was a thirty-deck artefact, and the pass could not run (6 Sep 2026)
+
+Two separate faults, both found by asking why sixty random commanders kept
+drifting further below their interaction floor after every tribal change.
+
+### The floor itself was measured on a biased sample
+
+`answerFloorFor` read `identity.includes('G') ? 5 : 8`, derived over the 30
+MTGJSON decks whose cards ALL resolved in `cards_pool` at the time. **Every one
+of the 192 resolves now**, and over the full set the split is not there:
+
+    green-heavy       p10 5   p50 8   p90 11
+    everything else   p10 5   p50 8   p90 12
+
+The 8 was forcing every non-green deck to hold three more answers than any real
+deck runs at the tenth percentile.
+
+Asked per colour instead - a deck counts toward a colour when that colour is
+more than a quarter of its spells - the colour pie is real and is **not** the
+shape the old constant guessed:
+
+    W 6      B 6      G 5      U 4      R 4
+
+**Blue and red are low for the same reason green is.** Blue answers a permanent
+by countering the spell or bouncing it, red answers it with damage, and
+`eff:counter`, a bounce and `eff:damage` are all excluded from `ANSWER_FACETS`
+on purpose. Mono-blue Curie was being held to 8 in a colour whose real decks
+run 4.
+
+The floor is the **largest** p10 among the deck's colours, because a deck can
+cast the answers of every colour it plays: a white-blue deck can cast white
+removal, so white's expectation binds. `scripts/probe/real-deck-answers.mjs`
+derives the bands so this never has to be done ad hoc again.
+
+> ⚠️ **The sweep carried its own copy of `answerFloorFor`**, so the two sides
+> could disagree about whether a deck met its floor - and for three days they
+> did, because the constant moved on one side only. It imports the engine's now.
+> This is the same two-definitions trap recorded for `cardRole` vs tags, for
+> "green-heavy", and for nonland counting.
+
+### And the pass was nested inside the flex block
+
+`takeFlex` genuinely needs a spare slot. **The swap beside it does not** - it
+exchanges one card for another and the deck size never moves. Both sat inside
+`if (flexRoom > 0)`, so a deck with no room had no answers pass AT ALL, and the
+decks with no room are exactly the ones whose floors were already fully spent.
+
+    Curie · Glacian · Jhoira     flexRoom 0, every line of the pass skipped
+
+Curie came back with ONE way to answer a permanent while holding NINE cards
+carrying the `removal` role that could not answer one, and fourteen real blue
+answers sat unused in her pool under rank 4,000.
+
+    Curie     1 -> 4 answers      Glacian   1 -> 4
+    DEPLOYED, sixty random commanders
+      below their own colours' p10   8/60 -> 0/60
+      keyed synergy median            76% -> 77%
+      built / ramp / lands / staples / nothing flagged   60/60 throughout
+    eighteen shells   0 of 18 moved, EVERY COLUMN IDENTICAL
+    192 real decks    186/200 -> 187/200
+    twenty commanders 48/71 -> 47/71 jobs
+
+**Every yardstick being untouched by the hoist is the point rather than a
+disappointment:** the shells and the bench all finish with flex room to spare,
+so none of them could ever have exercised it. A fault reachable only when a
+budget is exhausted is invisible to every instrument whose decks have room.
+
+> ⚠️ **`_ansl.mjs` reported all three decks at ZERO answers before it reported
+> them at four**, because it read `card.facets` off the RESPONSE. A response
+> card carries no facets - CLAUDE.md has recorded that trap since 4 Sep and I
+> walked into it anyway. Facets come from the pool, by name.
+>
+> ⚠️ **And the first trace printed nothing because I had not vendored.**
+> `pipeline.ts` imports `_engine/`, not `src/engine/`. An instrumented source
+> file that is never vendored reads exactly like a code path that does not run.

@@ -35,6 +35,7 @@ import { build } from '../../supabase/functions/ai-deck-builder-v2/pipeline.ts';
 import { DECK_ARCHETYPES, shellCardNames } from '../../src/lib/deck/archetypeShells.ts';
 import { strategiesFor } from '../../src/lib/deck/commanderStrategies.ts';
 import { planForCommander, planFit } from '../../src/engine/knowledge/behaviour.ts';
+import { answerFloorFor } from '../../src/engine/build/generate.ts';
 import { facetsForCard } from '../../src/lib/deck/recommend/behaviour.ts';
 import { cardRole } from '../../src/engine/index.ts';
 
@@ -236,6 +237,11 @@ for (const shell of shells) {
    * a real burn spell - both sides of the comparison are counted the same way,
    * so the gap is real even though neither number is the whole truth.
    */
+  /* THE BANDS ARE PER COLOUR AND THE FLOOR IS IMPORTED, never re-typed here.
+     This row read `answers < 6 ? ' LOW'`, a flat number from a thirty-deck
+     derivation, and it flagged FIVE of the eighteen shells against a floor no
+     real deck meets: mono-red decks run 4 and were being called short. Third
+     copy of this function found in three days. */
   const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'];
   /* EVERY CARD, INCLUDING LANDS - the real-deck bands were counted with no type
      filter, and a land like Boseiju, Who Endures genuinely answers a permanent.
@@ -258,6 +264,8 @@ for (const shell of shells) {
   ).reduce((n, c) => n + Math.max(1, Number(c.quantity) || 1), 0);
   const rampFlag = ramp < REAL_RAMP.p10 ? ' RAMP TOO LOW' : ramp > REAL_RAMP.p90 ? ' ramp high' : '';
 
+  const answerFloor = answerFloorFor(champ.color_identity ?? champ.colorIdentity ?? []);
+
   const combo = (log.find(l => /go in together/.test(l)) ?? '').split(' go in together')[0];
 
   rows.push(
@@ -268,7 +276,7 @@ for (const shell of shells) {
       `pkgs ${String(filled).padStart(2)}/${String(asked).padStart(2)}  ` +
       `keyed ${String(Math.round((100 * keyed) / Math.max(1, nonland.length))).padStart(3)}%  ` +
       `ramp ${String(ramp).padStart(2)}${rampFlag}` +
-      `  answers ${String(answers).padStart(2)}${answers < 6 ? ' LOW' : ''}` +
+      `  answers ${String(answers).padStart(2)}${answers < answerFloor ? ` LOW (floor ${answerFloor})` : ''}` +
       /*
        * `named` IS NAME OVERLAP, and overlap punishes a different-but-correct
        * card. Say so on the row where it happens, rather than leaving a `0/4`

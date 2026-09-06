@@ -96,6 +96,30 @@ export const POOL_TABLE = 'cards_unique';
  */
 export const RANK_POOL_TABLE = 'cards_pool';
 
+/**
+ * The lands, and only the lands, with the rules text the mana base needs.
+ *
+ * `landPoolFor` is the one caller that genuinely needs `oracle_text` - it is how
+ * the deck learns what a land taps for - so it read `cards_unique`, which is
+ * 187 MB, and scanned it for the ~1,200 land rows. That scan is 18 ms warm and
+ * SIXTEEN SECONDS cold, and an edge function spends its CPU budget across the
+ * whole request, so a slow fetch is what the build does not have left.
+ * PROGENITUS - five colours, the largest land pool there is - returned 546
+ * WORKER_RESOURCE_LIMIT on every attempt, and each retry warmed the cache a
+ * little further until the fourth succeeded.
+ *
+ *     cards_unique      187 MB    894-1,565 ms for this query
+ *     cards_land_pool   728 kB           18 ms
+ *
+ * 728 kB stays resident, so the cold case stops existing rather than being made
+ * faster.
+ *
+ * ⚠️ IT CARRIES COMMANDER LEGALITY AND NOTHING ELSE, exactly like
+ * `RANK_POOL_TABLE`. Any other format must read `POOL_TABLE`, or the deck is
+ * built from a pool filtered on the wrong legality without erroring.
+ */
+export const LAND_POOL_TABLE = 'cards_land_pool';
+
 /** PostgREST's configured `db-max-rows` for this project, measured. */
 export const PAGE_SIZE = 1000;
 
@@ -782,8 +806,20 @@ export class Catalog {
       `legal_in_format:legalities->>${fmt}`,
     ].join(',');
 
+    /*
+     * Commander reads the narrow lands view; every other format reads the fat
+     * one, because only Commander legality is materialised there.
+     */
+    const narrow = fmt === 'commander';
+    const landSelect = narrow
+      ? select.replace('usd:prices->>usd', 'usd').replace(`legal_in_format:legalities->>${fmt}`, 'legal_in_format:commander_legal')
+      : select;
     const lands = await this.fetchAll<CatalogRow>(
-      `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
+      narrow
+        ? `${LAND_POOL_TABLE}?select=${encodeURIComponent(landSelect)}` +
+            `&commander_legal=eq.${query.legalityFilter.equals}` +
+            `&color_identity=cd.${encodeURIComponent(identity)}`
+        : `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
         `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
         `&color_identity=cd.${encodeURIComponent(identity)}` +
         /*

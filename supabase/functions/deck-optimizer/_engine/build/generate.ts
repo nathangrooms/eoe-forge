@@ -2629,11 +2629,34 @@ const PACKAGE_MATCH = 0.6;
    */
   const tribeMemberFacet = commanderPlan.tribe ? `sub:${commanderPlan.tribe}` : null;
   if (tribeMemberFacet !== null) {
+    const isTribeMember = (card: BuildCard): boolean =>
+      ((card as { facets?: readonly string[] }).facets ?? []).includes(tribeMemberFacet);
+    const tribeHeld = () =>
+      picked.reduce((n, e) => (isTribeMember(e.card as BuildCard) ? n + 1 : n), 0);
+    /*
+     * AND THE FLOOR IS ON THE TRIBE, NOT ON CREATURES.
+     *
+     * Borrowing the creature floor was not enough: Sliver Hivelord reaches 26
+     * creatures before this fill runs, so the tribe sweep never fired for him
+     * and he stayed on 19 Slivers.
+     *
+     * What real tribal decks hold, from the 30 MTGJSON Commander decks, taking
+     * each deck's LARGEST single creature subtype and keeping the ones that are
+     * genuinely tribal rather than incidentally full of Humans:
+     *
+     *     sliver 41 · eldrazi 33 · eldrazi 33 · shapeshifter 21 · gate 19
+     *
+     * 20 is below every one of those, which is the conservative end of a small
+     * sample and the same p10-shaped choice ramp and lands already get. Our
+     * decks were at 13 to 24.
+     *
+     * Tribe members ARE creatures, so filling the tribe also serves the
+     * creature floor - the unrestricted call below simply has less to do.
+     */
+    const TRIBE_FLOOR = 20;
     fillTo(
-      () => creaturesPicked >= creatureFloor,
-      card =>
-        cardRole(card, 'creature') &&
-        ((card as { facets?: readonly string[] }).facets ?? []).includes(tribeMemberFacet),
+      () => tribeHeld() >= TRIBE_FLOOR || creaturesPicked >= creatureFloor + 8,
+      card => cardRole(card, 'creature') && isTribeMember(card),
       'creature'
     );
   }

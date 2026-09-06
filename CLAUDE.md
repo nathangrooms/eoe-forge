@@ -10120,3 +10120,53 @@ right. The function's log settled it in one query:
 
     select event_message from logs
      where source = 'function_logs' and event_message like '%[fitdbg]%'
+
+## The cut list was chosen with commander fit silent for every card (6 Sep 2026)
+
+`cuts.ts` opens by saying fit comes from `scoreCandidate`, *"the same function
+that ranks cards to ADD, so the reason to cut a card is the reverse of the
+reason its replacement would be offered"*. **That was never true.** The
+additions are scored against pool rows that carry facets; the builder that turns
+a deck card into a candidate for cutting **never set the field at all**, so
+`planFit` returned NO_FIT for every card the player owns and the cut order came
+from castability and the role gap alone.
+
+It needed the facet threaded through four places, because a deck row cannot
+carry one: `cardsByName` reads `cards_unique`, where `facets` is a computed
+column `anon` holds no grant on.
+
+    EngineCard      gains an optional `facets`
+    toEngineCard    copies it off the row
+    cuts.ts         sets it on the candidate it builds per deck card
+    index.ts        attaches pool facets to `deckLines`' rows BEFORE
+                    `evaluateUserDeck` reads them
+
+    swaps across five decks              7 -> 8
+    swaps that drop commander fit        0 of 8
+    decks handed a LESS played card      0 of 5
+    Meren   cuts Junji (fit 0.94) rather than Titania; Verdant Confluence
+            (11,225) -> Ghost Lantern (8,187)
+    HTTP 200, Teysa 1.9 s, five-colour Najeela 3.8-4.3 s
+    THE GENERATOR IS BYTE-IDENTICAL: 18 shells 0 moved, shape 194/200,
+    bench 46/71 with 4 zero groups - checked because `cuts.ts` is vendored into
+    four functions.
+
+> ⚠️ **I FIXED THE WRONG PATH FIRST AND THE COMMIT SAID OTHERWISE.** `f10062f`
+> carries this diagnosis and attaches facets to `profileCards`, which feeds
+> `deriveDeckProfile` and therefore the ranking of CANDIDATES. The cuts come
+> from `evaluateUserDeck(deckLines)`, which runs earlier and on different
+> objects. The swaps DID change, so the commit looked verified - the ADD side
+> was reading a profile that now describes the deck's behaviour - and the thing
+> it claimed to repair was untouched. **A measurement moving is not proof you
+> changed what you think you changed. Trace the call.**
+
+### Three narrow reads by name, and why each exists
+
+    the commander's facets   the plan is derived from that one card
+    the deck's facets        cuts and the profile both read the player's cards
+    the land pool            it needs oracle_text, which cards_pool has not got
+
+All three exist because `cards_unique` cannot return `facets` to `anon` and
+`cards_pool` carries no `oracle_text`. Neither view can serve both, and a caller
+that needs both fields for the same card has to read twice. That is the shape to
+reach for, not a widened view.

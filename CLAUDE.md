@@ -10067,3 +10067,56 @@ colour-INDEPENDENT:
 `eff:damage`, which is exactly how red and green answer a threat, so the role
 does not see the colour pie that the answers METRIC deliberately excludes. One
 number varies by colour and the others do not, for a reason that is legible.
+
+## The optimiser read its commander with the compiler alone (6 Sep 2026)
+
+The comment on that read says it is about *"reading the SAME record the
+generator reads"*. **It never did.** `commanderRow` comes from `cardsByName`,
+which reads `cards_unique`, where `facets` is a computed column `anon` holds no
+grant on - so the array was never present and every commander fell through to
+`facetsForCard`, the COMPILER HALF ALONE, without the community tag merge that
+`cards_pool` carries.
+
+This is the fault recorded for the GENERATOR on 4 Sep - *"the commander was read
+by the compiler alone, and the commander is the card the entire plan is derived
+from"* - sitting unfixed in the optimiser ever since. **A fix applied to one
+half of the engine was never checked in the other**, which is now the fourth
+instance of that shape.
+
+    Teysa Karlov's plan    12 wants (compiler)  ->  16 wants (pool)
+
+Commander fit is 2.2 of the ranker's weight, so a quarter of the plan missing is
+a quarter of that signal missing from every suggestion the optimiser has made.
+
+    swaps that drop commander fit by more than 0.15   4 of 11  ->  0 of 11
+    Teysa                                             5 swaps  ->  3
+      no longer cuts ANOINTED PROCESSION (0.74) for Chrome Mox (0.49)
+      no longer cuts SLING-GANG LIEUTENANT (0.90) for Scavenger's Talent (0.52)
+    Meren      Jecht (6,485) -> Entomb (326), Vindictive Vampire -> Unearth
+    decks handed a LESS played card                   0 of 5, unchanged
+
+### And a swap may not take the deck off the commander's plan
+
+The guard that found it. The generator treats commander fit as the CERTAINTY and
+weighs a guess below it everywhere; this pass consulted the score and the play
+rate and never the plan. Kept as a safety net: with the plan read properly
+nothing currently trips it, and the two guards beside it record the same lesson -
+the score's blind spots are where the format's staples live, and the play rate
+cannot see theme.
+
+> **A DECK ROW CARRIES NO FACETS EITHER**, for the same reason, so the guard
+> reads them from the pool's own facet memo keyed on oracle_id. That also means
+> `cuts.ts` has been ranking the deck's own cards with `planFit` silent for all
+> of them - worth chasing, and not chased here.
+
+### The instrument disagreed with the function, and the FUNCTION was right
+
+`scratch/_optfit.mjs` reported "4 of 11 swaps drop fit" while the function's own
+`[fitdbg]` line showed every pair within 0.05. Both were computing honestly; the
+PLANS differed, 16 wants against 12, and the difference WAS the bug. **When a
+probe and the deployed function disagree about the same cards, the disagreement
+is the finding** - do not assume the probe is wrong, and do not assume it is
+right. The function's log settled it in one query:
+
+    select event_message from logs
+     where source = 'function_logs' and event_message like '%[fitdbg]%'

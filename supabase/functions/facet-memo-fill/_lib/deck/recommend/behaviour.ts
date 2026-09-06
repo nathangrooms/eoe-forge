@@ -1028,6 +1028,37 @@ function readAbility(ability: Ability, out: Set<Facet>): void {
           out.add(`grants:${kw}`);
           out.add(`kw:${kw}`);
         }
+        /*
+         * A GRANTED ABILITY IS READ FOR WHAT IT DOES.
+         *
+         * "Creatures you control have \"{T}: Add one mana of any color\"" is
+         * CRYPTOLITH RITE (#690), ENDURING VITALITY (#431) and ELVEN CHORUS
+         * (#1372). The clause compiled to nothing at all until 6 Sep 2026, so a
+         * card that turns your whole board into mana dorks contributed NOTHING
+         * to the ramp role - the one role this engine treats as non-negotiable.
+         *
+         * The effects of the granted ability are walked exactly as the card's
+         * own would be, so Cryptolith Rite emits `eff:add-mana` and is ramp. A
+         * granted "{T}: Draw a card" emits `eff:draw` by the same path, without
+         * a second rule.
+         *
+         * NOT a `grants:` word. `grants:` exists to separate HAVING a keyword
+         * from GIVING it, because a flier and a card that gives flying are
+         * different things to a deck. A granted mana ability is not that
+         * distinction: the deck really can make the mana, and the ramp role is
+         * the consumer that needs to know.
+         */
+        for (const granted of mod.grantAbility ?? []) {
+          /* Only the kinds that carry `effects`. The rule in `clause-rules`
+             builds an ACTIVATED ability and nothing else today, but the field is
+             typed as `Ability[]`, so this stays honest if that widens. */
+          if (granted.kind === 'static' || granted.kind === 'replacement' || granted.kind === 'keyword') continue;
+          readEffects(
+            granted.effects,
+            out,
+            (granted as { targets?: readonly TargetSpec[] }).targets
+          );
+        }
       }
       /*
        * An extra land drop is RAMP, and it had no facet at all.

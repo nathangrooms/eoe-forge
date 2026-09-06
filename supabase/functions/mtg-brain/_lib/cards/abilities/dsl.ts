@@ -943,7 +943,17 @@ export type Modification =
   | { layer: 'control'; newController: PlayerSelector }
   | { layer: 'type'; addTypes?: string[]; addSubtypes?: string[]; removeTypes?: string[] }
   | { layer: 'color'; setColors: ManaColor[] }
-  | { layer: 'ability'; grant?: string[]; remove?: string[] }
+  /*
+   * `grantAbility` carries a QUOTED ability granted to something else, which
+   * `grant` cannot: it holds keyword strings only.
+   *
+   * "Creatures you control have \"{T}: Add one mana of any color\"" is
+   * CRYPTOLITH RITE (rank 690), ENDURING VITALITY (431) and ELVEN CHORUS
+   * (1372); "Equipped creature has ..." is Paradise Mantle. Every one compiled
+   * to `manual` with NO effects at all, so a card that turns your whole board
+   * into mana dorks contributed nothing to the ramp role.
+   */
+  | { layer: 'ability'; grant?: string[]; remove?: string[]; grantAbility?: Ability[] }
   | { layer: 'pt-set'; power: ValueExpr; toughness: ValueExpr }
   | { layer: 'pt-modify'; power: ValueExpr; toughness: ValueExpr }
   | { layer: 'pt-switch' }

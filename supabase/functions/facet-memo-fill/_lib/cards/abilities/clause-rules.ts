@@ -13,6 +13,7 @@
  */
 
 import type {
+  Ability,
   AlternativeCost,
   CardFilter,
   Condition,
@@ -30,7 +31,7 @@ import type {
 } from './dsl.ts';
 import { andF, isWatchableFilter, notF, orF } from './dsl.ts';
 import type { BuildCtx } from './effect-rules.ts';
-import { phraseSelector } from './effect-rules.ts';
+import { phraseSelector, compileEffectBody } from './effect-rules.ts';
 import {
   CHOICE_SUBJECT_WORDS,
   NUM,
@@ -939,9 +940,43 @@ function parseStaticBody(paragraph: string, ctx: BuildCtx): StaticShape | null {
     }
   }
 
-  /* Layer 6 — keyword granting. KEYWORDS ONLY: granting a whole nested ability
-     is the declared `granted-ability` gap, and `parseKeywordList` refusing a
-     non-keyword list is what keeps us on the right side of it. */
+  /* Layer 6 — granting a whole QUOTED ability, which used to be the declared
+     `granted-ability` gap.
+     -------------------------------------------------------------------------
+     "Creatures you control have \"{T}: Add one mana of any color\"" compiled to
+     `manual` with NO effects, so CRYPTOLITH RITE (#690), ENDURING VITALITY
+     (#431), ELVEN CHORUS (#1372) and Paradise Mantle contributed nothing to the
+     ramp role - the one role this engine treats as non-negotiable.
+
+     The quoted body is compiled by `compileEffectBody`, which this module
+     already imports for `phraseSelector`, so there is no new dependency and no
+     import cycle. Only an ACTIVATED shape is read - "<costs>: <effects>" - and
+     anything else inside the quotes still falls through to manual, because a
+     granted TRIGGERED ability needs a trigger parser this rule has no business
+     reaching for. */
+  const grantQuoted = p.match(/^(.+?) (?:have|has|gains?) "(.+)"$/);
+  if (grantQuoted) {
+    const affects = staticSubject(grantQuoted[1], ctx);
+    const inner = grantQuoted[2].match(/^([^:]{1,60}):\s*(.+)$/);
+    if (affects && inner) {
+      const costs = parseCosts(inner[1]);
+      const effects = compileEffectBody(inner[2], ctx);
+      const readable = effects.length > 0 && !effects.some(e => e.do === 'manual');
+      if (costs && readable) {
+        return {
+          affects,
+          modifications: [
+            {
+              layer: 'ability',
+              grantAbility: [{ kind: 'activated', costs, effects } as Ability],
+            },
+          ],
+        };
+      }
+    }
+  }
+
+  /* Layer 6 — keyword granting. */
   const grantKw = p.match(/^(.+?) (?:have|has|gains?) ([a-z, ]+)$/);
   if (grantKw) {
     const affects = staticSubject(grantKw[1], ctx);

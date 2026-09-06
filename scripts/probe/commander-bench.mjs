@@ -162,10 +162,16 @@ const TOO_COMMON = new Set([
  * no facet is a job this engine cannot express, and pretending otherwise would
  * hide exactly the gap worth knowing about.
  */
+/* WHY a job produced no capability measure, so a zero can be read as an
+   over-narrow instrument rather than assumed to be the deck. Three of the last
+   four "generator failures" in this project were the measure, not the deck. */
+const WHY = new Map();
+const CONJ = new Map();
+
 function groupCapability(group, deckFacets, spells) {
   const names = group.cards ?? [];
   const sets = names.map(n => exampleFacets.get(n)).filter(Boolean);
-  if (sets.length < 3) return null;
+  if (sets.length < 3) { WHY.set(group.job, `only ${sets.length} of ${names.length} example cards resolved`); return null; }
 
   const count = new Map();
   for (const facets of sets) {
@@ -216,7 +222,7 @@ function groupCapability(group, deckFacets, spells) {
    */
   const need = Math.max(2, Math.floor(sets.length * 0.5) + 1);
   let shared = [...count].filter(([, n]) => n >= need).map(([f]) => f);
-  if (shared.length === 0) return null;
+  if (shared.length === 0) { WHY.set(group.job, 'the examples agree on nothing'); return null; }
   /*
    * AT MOST THE TWO RAREST FACETS. A third is nearly always an accident of the
    * example list rather than part of the job.
@@ -227,15 +233,35 @@ function groupCapability(group, deckFacets, spells) {
    * Korvold's "things that come back after being sacrificed" picked up
    * `cares:type:land`, because its examples are mostly lands.
    *
-   * Rarest first, because the rare facets are the ones that say what the job
-   * IS - `eff:recur-self` is the job and `cares:type:land` is what its
-   * exemplars happen to be printed on.
+   * MOST AGREED FIRST, then rarest. Rarity alone was the sort and it is what
+   * put every one of these conjunctions wrong, measured 6 Sep 2026:
+   *
+   *     Korvold "things that come back after being sacrificed"
+   *       cares:zone:graveyard   agree 100%   pool 7.1%   <- the job
+   *       eff:recur-self         agree  56%   pool 0.4%   } the pair rarity
+   *       cares:type:land        agree  56%   pool 8.8%   } actually picked
+   *
+   *     Animar "big colourless creatures"
+   *       sub:eldrazi / pt:big / mv:big   agree 100%
+   *       kw:annihilator                  agree  55%   pool 0.1%   <- picked
+   *
+   * A facet nearly every example carries is what the job IS. A rare facet that
+   * a BARE MAJORITY happen to share is a coincidence, and rarity-first ranked
+   * the coincidence top every time. The comment that stood here asserted the
+   * opposite - that `eff:recur-self` was the job and `cares:type:land` the
+   * accident - and the measurement says both are accidents at 56% while the
+   * real job sat unanimous and unread.
+   *
+   * Rarity stays as the TIE-BREAK, which is where it was always right: among
+   * facets the examples agree on equally, the rarer one says more.
    */
   if (poolSize > 0 && shared.length > 2) {
+    const agree = f => (count.get(f) ?? 0) / sets.length;
     shared = shared
       .slice()
       .sort(
         (a, b) =>
+          agree(b) - agree(a) ||
           (poolFacetFrequency.get(a) ?? 0) - (poolFacetFrequency.get(b) ?? 0)
       )
       .slice(0, 2);
@@ -306,11 +332,13 @@ function groupCapability(group, deckFacets, spells) {
      */
     if (rarest > 0.1) {
       const strongest = Math.max(...shared.map(f => (count.get(f) ?? 0) / sets.length));
-      if (strongest < 0.85) return null;
+      if (strongest < 0.85) { WHY.set(group.job, `only shared facets are broad (rarest ${(rarest * 100).toFixed(1)}% of pool, best agreement ${(strongest * 100).toFixed(0)}%)`); return null; }
     }
   } else if (out.length > (spells || 1) * 0.2) {
+    WHY.set(group.job, 'conjunction too broad against the deck');
     return null;
   }
+  CONJ.set(group.job, shared.join(' + '));
   return out;
 }
 
@@ -437,6 +465,11 @@ for (const entry of bench.commanders) {
     `${ranks.filter(r => r > 15000).length} past 15k`);
   for (const p of parts) {
     const mark = p.hit.length === 0 ? 'NONE' : p.hit.length >= p.floor ? ' ok ' : 'thin';
+    /* A zero is only worth acting on once it is known whether the MEASURE could
+       see the job at all. Printed inline so the answer is beside the failure. */
+    const why = p.hit.length === 0
+      ? (CONJ.has(p.job) ? `  [asked for: ${CONJ.get(p.job)}]` : `  [no capability measure: ${WHY.get(p.job) ?? 'unknown'}]`)
+      : '';
     /* When the two disagree, say so: a job passing on capability while the
        named cards are absent is a different fact from both of them passing. */
     const both =
@@ -444,7 +477,7 @@ for (const entry of bench.commanders) {
         ? `  [named ${p.named.length}, able ${p.able.length}]`
         : '';
     console.log(`      [${mark}] ${p.job.padEnd(26)} ${p.hit.length}/${p.floor} needed${both}` +
-      (p.hit.length ? `   ${p.hit.slice(0, 5).join(', ')}` : ''));
+      (p.hit.length ? `   ${p.hit.slice(0, 5).join(', ')}` : why));
   }
 }
 

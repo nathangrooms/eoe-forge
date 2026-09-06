@@ -10331,3 +10331,60 @@ PERMANENT for mana"*: a Caged Sun is exactly as doubled as a Llanowar Elf.
 > mana creatures - but it does mean the gap is much smaller than "2 against 10"
 > suggested, and three slot-policy changes measuring neutral is what that looks
 > like from the inside.
+
+## Two shell signals were pointing commanders at the wrong deck (6 Sep 2026)
+
+`SHELL_SIGNALS` decides which strategies a commander is OFFERED and which shell
+the eighteen-shell probe builds each on. Two of its tag signals named a
+different archetype from the shell they sat in, and both were found the same
+way: **read the whole population and check how many corroborate.**
+
+### `infect` was a signal for the "+1/+1 counters" shell
+
+That shell is *"grow a small board into an unanswerable one, a counter at a
+time"*, and two of its three packages are Hardened Scales, Corpsejack Menace,
+Branching Evolution, Forgotten Ancient and The Ozolith. None does anything in an
+infect deck; only Proliferate overlaps.
+
+**ELEVEN legendary creatures carry the tag and NOT ONE carries `ctr:+1/+1`.**
+The most played is **Etali, Primal Conqueror** - a colourless Eldrazi whose
+front face exiles and casts and whose BACK face happens to have infect - and he
+scored highest of all 3,363 commanders for this shell. **Melira, Sylvok Outcast**
+is the sharpest: her card PROHIBITS poison and -1/-1 counters and she was being
+offered a counters deck.
+
+    +1/+1 counters champion   Etali (keyed 52%)  ->  Yawgmoth (56%)
+
+### `protection` was a signal for Voltron
+
+**106 legendary creatures carry it and only TWO carry any of the shell's five
+facets.** Avacyn, Boromir, Padeem, Yahenni, Shalai, Koma - anthem and
+team-protection commanders, none of which wants to be suited up and swung with.
+This file already named Avacyn as a false positive from exactly this flattening,
+and she was the probe's Voltron champion the whole time.
+
+    Voltron champion   Avacyn (keyed 55%)  ->  HALVAR, GOD OF BATTLE (80%),
+                       whose back face is literally an Equipment
+    eighteen shells    keyed 1328 -> 1357 across both fixes, named 40 -> 39
+    everything else    shape 194/200, bench 46/71 with 4 zero groups, derived
+                       archetypes 9/10, production 20/20 - ALL UNCHANGED
+
+### The rest of the table, checked and left alone
+
+    signal                 legendary creatures    corroborated
+    value    <- etb                464                448   97%
+    aggro    <- evasion            799                701   88%
+    control  <- stax                50                 18   36%
+    superfriends <- planeswalker    13                 13  100%
+
+**`stax` is the one that looks wrong and is not.** Its members read as genuine
+stax commanders - Grand Arbiter Augustin IV, Myrel, Thalia, Baird, Dromoka -
+and the low corroboration is my guessed facet list rather than the tag. Stax and
+control are arguably different archetypes, but the Control shell is a defensible
+home and the population does not say otherwise.
+
+> **The test that separates a bad signal from a broad one**: not the count, and
+> not the corroboration rate on its own. `evasion` claims 799 commanders and is
+> fine; `protection` claims 106 and is wrong. What decides it is whether the
+> members, READ AS A PLAYER, want the shell's own packages. Avacyn does not want
+> Hardened Scales or a Sword; Thalia genuinely does want sweepers and taxes.

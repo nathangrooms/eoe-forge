@@ -9695,3 +9695,74 @@ budget is exhausted is invisible to every instrument whose decks have room.
 > ⚠️ **And the first trace printed nothing because I had not vendored.**
 > `pipeline.ts` imports `_engine/`, not `src/engine/`. An instrumented source
 > file that is never vendored reads exactly like a code path that does not run.
+
+## A card that finds a land is not a tutor (6 Sep 2026)
+
+`ROLE_FACETS.tutor` is `eff:search-library` ALONE, and that claimed **495 of the
+1,046** commander-legal cards carrying it: Cultivate, Farseek, Rampant Growth,
+Nature's Lore, Kodama's Reach, Evolving Wilds, Terramorphic Expanse and every
+fetch land. Path to Exile too, because it hands an opponent a basic.
+
+The tutor role counts how many ways a deck can find THE CARD IT NEEDS. A fetch
+land finds a land, which the mana base already accounts for. So EIGHT of the
+twenty benchmark decks were reported holding three tutors against a real range
+of 0-2, and in every one of them the three were the same: Polluted Delta,
+Bloodstained Mire, Scalding Tarn.
+
+**WHAT THE CARDS THEMSELVES SAY**, read over the whole population rather than a
+sample. A land-finder names a basic land subtype (`cares:sub:island` on the
+fetches), the land zone (`cares:zone:library-land` on Cultivate and Evolving
+Wilds), or the type. A real tutor names what it is looking for -
+`cares:type:artifact` on Urza's Saga and Inventors' Fair, a creature on Worldly
+Tutor, nothing at all on Demonic Tutor.
+
+    removed  Path to Exile, Evolving Wilds, Cultivate, Farseek, Rampant Growth,
+             Nature's Lore, Terramorphic Expanse, Myriad Landscape, the fetches
+    kept     Demonic, Vampiric, Enlightened, Mystical and Worldly Tutor, Gamble,
+             Diabolic Intent, Entomb, Buried Alive, Fabricate, Finale of
+             Devastation - AND the lands that genuinely tutor: Urza's Saga,
+             Inventors' Fair, Tolaria West, Sanctum of Ugin, Eye of Ugin
+
+24 of the 24 most played on each side are correct. The one it gets wrong is The
+World Tree, which searches for a God and says `cares:type:land` about itself.
+
+    192 real decks      187/200 -> 193/200, `tutor` off the failing list (8 -> 0)
+    eighteen shells     keyed 1318 -> 1322, packages and named identical
+    twenty commanders   47/71 -> 46/71 jobs, 5 zero groups unchanged
+    DEPLOYED, sixty     60/60 every gate, keyed median 77%, 0/60 under the
+                        answers floor
+
+> **CLAUDE.md had already diagnosed this row as a NON-fault** - *"all three are
+> FETCH LANDS ... being above that band is being better than the yardstick"* -
+> and declined to fix it for *"a payoff of one cosmetic row"*. That was right
+> about the fetches and wrong about the size: it was EIGHT decks and 495 cards,
+> and the cards it wrongly claimed were Cultivate and Farseek, not only lands.
+> **Re-read a recorded non-fault when it becomes the worst row.**
+
+**`cardRole` changed, so `real-deck-roles.json` had to be re-derived** - and the
+tutor band does NOT move (p10 0, p50 0, p90 2, max 12), because precons run no
+fetch lands. So the change moves our decks and not the yardstick, which is why
+the shape number can be read straight. The other drift the re-derivation reports
+(ramp p10 11 -> 10) is pre-existing and is its own decision.
+
+## REFUSED, measured: a real-deck p10 floor for `draw`
+
+The obvious follow-on, and the same shape as the clamps ramp and lands already
+have. Draw's real median is SEVENTEEN and its p10 is eleven, against a derived
+floor of six - so Krenko came back with 8 draw, Atraxa and Edgar with 10.
+
+    192 real decks      193/200 -> 194/200   (+1, and draw leaves the list)
+    eighteen shells     keyed 1322 -> 1333   (+11)
+    twenty commanders   46/71 -> 49/71 jobs  (+3)
+    ...and              named 40 -> 30       (-10)
+                        groups the deck cannot do AT ALL   5 -> 8
+
+**Eleven reserved draw slots crowd the archetype out of the deck.** `named` is
+the count of a shell's own cards a deck holds, and losing ten of them plus three
+whole capabilities to gain one shape check is the trade this project keeps
+refusing. Reverted; the revert restores 193/200, named 40 and keyed 1322
+exactly, so the attribution is sound.
+
+The seven checks still outside the real range are draw on 3 decks, creature on 3
+(Talrand 18, Niv-Mizzet 19, Feather 21 against 22-37) and removal on Azusa. All
+are one to four cards short, and none is worth a floor that costs the archetype.

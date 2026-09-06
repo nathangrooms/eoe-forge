@@ -8011,6 +8011,55 @@ half a fix that claims coverage is worse than none.
 > reading `head -30` of a file whose relevant imports are on line 32. No
 > refactor was needed and none was done.
 
+## THE COMBO QUERY NEVER SENT THE ORDERING IT WAS WRITTEN WITH
+
+`combosFor` builds a path ending `order=popularity.desc.nullslast&limit=400` and
+hands it to `fetchAll`. **`fetchAll` exists to walk PAST the 1000-row cap and
+pages by KEYSET, so `withKeyset` REWRITES the ordering to `id.asc`.** The
+carefully ordered query - the one whose own comment records 3,328 ms -> 217 ms
+because every subset key is an index range on `(identity_key, popularity DESC)` -
+was never the query that got sent.
+
+What production actually ran:
+
+    order=id.asc, NO limit    bitmap scan of every match, sorted
+                              1,951 rows for mono-red to use 400, width 456
+                              with three array columns
+
+Measured 6 Sep with the database otherwise healthy (single-row read 0.05 s):
+
+    order=id.asc, no limit            709 buffers, all cache hits,  9,280 ms
+    order=popularity.desc, limit 400  709 buffers, top-N heapsort,    719 ms
+
+Past the 3 s statement timeout, so **combos failed inside EVERY build** and the
+whole request returned 500. It had been failing all day and I wrote it off as
+general IO three separate times, including once after vacuuming the view.
+
+`limit` is 400 and the page cap is 1000, so one request is enough and the keyset
+walk was never needed. `combosFor` calls `#get` directly, which keeps the path's
+own ordering.
+
+> **The general trap: a helper that rewrites your query.** `fetchAll` takes a
+> path and silently replaces its `order`. Any caller that cares about ordering
+> must not use it. Check what the FAILING request actually contained - the error
+> string carries the real URL, and it read `order=id.asc` while the source read
+> `order=popularity.desc`.
+
+## A truncated probe run looks exactly like a successful one
+
+A `strategy-decks` run died partway with a database timeout, produced 12 shell
+rows instead of 18, and the inline `grep | sum` comparison I had hand-written a
+dozen times summed 12 against 18 and reported **"keyed +2"**.
+
+`scripts/probe/compare-shells.mjs` refuses two conditions: either file
+containing an `Error`, a stack frame or a `57014`, and differing row counts.
+
+    node --experimental-strip-types scripts/probe/compare-shells.mjs BEFORE AFTER
+
+> Use it instead of writing the comparison inline again. This is the same class
+> as the gate that printed a verdict and exited 0: a check that cannot fail the
+> thing it is checking is not a check.
+
 ## `combo_pool` HAD NEVER BEEN VACUUMED, and every build fetches combos
 
     last_vacuum   NULL          56,240 rows

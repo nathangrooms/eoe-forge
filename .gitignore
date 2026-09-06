@@ -155,3 +155,4 @@ src/dev/__lobbyHarness.tsx
 # scripts/xmage/prune-verify.mjs snapshot whenever the table is rebuilt.
 .xmage/
 .pool/
+.pool/

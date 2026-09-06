@@ -70,6 +70,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { Catalog } from '../../supabase/functions/ai-deck-builder-v2/catalog.ts';
+import { makeCatalog, saveTape, tapeMode } from './_catalog.mjs';
 import { build } from '../../supabase/functions/ai-deck-builder-v2/pipeline.ts';
 
 const K = readFileSync('scratch/anon.txt', 'utf8').trim();
@@ -77,7 +78,7 @@ const BASE = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const H = { apikey: K, Authorization: `Bearer ${K}` };
 const WANT = Number(process.argv[2] ?? 12);
 
-const catalog = new Catalog({ url: BASE, anonKey: K, authorization: null });
+const catalog = makeCatalog();
 
 const decks = await (await fetch(
   `${BASE}/rest/v1/meta_decks?select=id,name,commander_oracle_ids,total_cards` +
@@ -148,3 +149,5 @@ if (pcts.length) {
   console.log('A LOW number is a question, not a fault: these are precons and overlap punishes');
   console.log('a different-but-correct card. Read the outliers as a player.');
 }
+
+if (tapeMode === 'record') { const t = saveTape(); console.log(`tape: +${t.added} calls, ${t.total} total`); }

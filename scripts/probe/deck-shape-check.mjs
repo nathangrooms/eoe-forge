@@ -35,12 +35,13 @@ import process from 'node:process';
 import { readFileSync } from 'node:fs';
 
 import { Catalog } from '../../supabase/functions/ai-deck-builder-v2/catalog.ts';
+import { makeCatalog, saveTape, tapeMode } from './_catalog.mjs';
 import { build } from '../../supabase/functions/ai-deck-builder-v2/pipeline.ts';
 import { cardRole, ROLES } from '../../src/engine/index.ts';
 
 const SUPABASE_URL = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const ANON = readFileSync('scratch/anon.txt', 'utf8').trim();
-const catalog = new Catalog({ url: SUPABASE_URL, anonKey: ANON, authorization: null });
+const catalog = makeCatalog();
 
 const bench = JSON.parse(readFileSync('scripts/probe/commander-benchmark.json', 'utf8'));
 const only = process.env.ONLY?.toLowerCase();
@@ -141,3 +142,5 @@ if (offenders.size) {
     console.log(`  ${role.padEnd(14)} ${n} decks outside ${band.p10}-${band.p90} (median ${band.p50})`);
   }
 }
+
+if (tapeMode === 'record') { const t = saveTape(); console.log(`tape: +${t.added} calls, ${t.total} total`); }

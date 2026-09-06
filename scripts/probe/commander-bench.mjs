@@ -41,10 +41,11 @@ const LOCAL = process.env.LOCAL === '1';
 
 let build = null;
 let catalog = null;
+let makeCatalog = null, saveTape = null, tapeMode = '';
 if (LOCAL) {
-  const { Catalog } = await import('../../supabase/functions/ai-deck-builder-v2/catalog.ts');
   ({ build } = await import('../../supabase/functions/ai-deck-builder-v2/pipeline.ts'));
-  catalog = new Catalog({ url: BASE, anonKey: K, authorization: null });
+  ({ makeCatalog, saveTape, tapeMode } = await import('./_catalog.mjs'));
+  catalog = makeCatalog();
 }
 
 async function deckFor(entry) {
@@ -457,3 +458,5 @@ if (rescued) {
   );
 }
 console.log(`  A group at zero is the failure worth fixing: the deck has no way to do that job.`);
+
+if (tapeMode === 'record') { const t = saveTape(); console.log(`tape: +${t.added} calls, ${t.total} total`); }

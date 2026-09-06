@@ -30,7 +30,7 @@
 import process from 'node:process';
 import { readFileSync } from 'node:fs';
 
-import { Catalog } from '../../supabase/functions/ai-deck-builder-v2/catalog.ts';
+import { makeCatalog, saveTape, tapeMode } from './_catalog.mjs';
 import { build } from '../../supabase/functions/ai-deck-builder-v2/pipeline.ts';
 import { DECK_ARCHETYPES, shellCardNames } from '../../src/lib/deck/archetypeShells.ts';
 import { strategiesFor } from '../../src/lib/deck/commanderStrategies.ts';
@@ -40,7 +40,8 @@ import { cardRole } from '../../src/engine/index.ts';
 
 const SUPABASE_URL = 'https://udnaflcohfyljrsgqggy.supabase.co';
 const ANON = readFileSync('scratch/anon.txt', 'utf8').trim();
-const catalog = new Catalog({ url: SUPABASE_URL, anonKey: ANON, authorization: null });
+process.env.SUPABASE_ANON_KEY ??= ANON;
+const catalog = makeCatalog();
 
 const REAL_RAMP = { p10: 11, p50: 16, p90: 21 };
 const only = process.env.ONLY;
@@ -249,3 +250,9 @@ for (const shell of shells) {
 console.log('\n' + '='.repeat(100));
 console.log('named = the shell\'s own example cards the deck holds; pkgs = the shell\'s jobs filled;');
 console.log(`keyed = nonland cards the commander wanted; ramp against real decks ${REAL_RAMP.p10}-${REAL_RAMP.p90}.`);
+
+if (tapeMode === 'record') {
+  const { added, total } = saveTape();
+  console.log(`
+tape: recorded ${added} calls this run, ${total} on disk`);
+}

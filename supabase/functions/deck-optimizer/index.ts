@@ -1291,7 +1291,32 @@ function buildSections(args: {
          and refusing on missing data would silently stop suggesting anything
          for a pool the popularity column does not cover. */
       if (typeof out !== 'number' || typeof arriving !== 'number') return true;
-      return !(out <= PLAYED_ENOUGH_RANK && arriving > PLAYED_ENOUGH_RANK);
+      /*
+       * NEVER HAND OVER THE MORE PLAYED CARD, which is the rule the GENERATOR
+       * already uses for its own swaps and this pass did not.
+       *
+       * Refusing only the crossing of 12,000 let through the whole middle of
+       * the range, and that is where the damage was. Measured 6 Sep 2026 over
+       * five decks the generator had just built:
+       *
+       *     Massacre Wurm    (512) -> Shambling Ghast     (3,244)
+       *     Sun Titan        (305) -> Helix Pinnacle      (4,501)
+       *     Purphoros        (680) -> Goblin Chirurgeon   (3,349)
+       *     Hullbreaker Horror (274) -> Whir of Invention (1,315)
+       *
+       * Every one of those PASSES the score - `measureImpact` already refuses a
+       * swap it measures as a loss - which is the point: CLAUDE.md records that
+       * the score's blind spots are exactly where the format's staples live, so
+       * a pass choosing by score alone will keep reaching for them. Popularity
+       * is the second opinion the score does not have, and the generator's ramp
+       * guarantee and answer swap both already use it in this exact form.
+       *
+       * It is not a ban on unplayed cards: a swap INTO a better-played card is
+       * untouched, which is where the good suggestions live -
+       * Lord of the Forsaken (9,373) -> Chrome Mox (148),
+       * General Kreat (2,307) -> Skullclamp (40).
+       */
+      return arriving <= out;
     });
 
   const replacements = pairs.map(({ r, t }) => {

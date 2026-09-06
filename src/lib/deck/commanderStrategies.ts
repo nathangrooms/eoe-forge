@@ -242,7 +242,25 @@ export const SHELL_SIGNALS: Record<string, ShellSignal> = {
   },
   voltron: {
     facets: ['sub:equipment', 'sub:aura', 'cares:sub:equipment', 'cares:sub:aura', 'eff:attach'],
-    tags: ['voltron', 'protection'],
+    /*
+     * NOT `protection`. KEEPING A CREATURE ALIVE IS NOT SUITING ONE UP.
+     *
+     * Read over the whole population: 106 legendary creatures carry the tag and
+     * only TWO of them carry any of the five facets above. The most played are
+     * AVACYN, ANGEL OF HOPE, Boromir, Padeem, Yahenni, SHALAI and Koma - anthem
+     * and team-protection commanders, none of which wants to be suited up and
+     * swung with.
+     *
+     * CLAUDE.md already names Avacyn as a false positive from exactly this:
+     * "Avacyn is read perfectly and plans as voltron, because the facet set
+     * flattens her anthem into indestructible plus a global scope". She was the
+     * eighteen-shell probe's Voltron champion, and its Aggro champion too.
+     *
+     * The five facets and the `voltron` tag are precise and carry the shell on
+     * their own. A protective commander that IS voltron - Uril, Bruna, Sram -
+     * says so through equipment or auras.
+     */
+    tags: ['voltron'],
     fallback: 'This commander wants to be suited up and swung with',
   },
   spellslinger: {

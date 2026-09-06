@@ -9571,3 +9571,51 @@ four-colour deck's castability is now approximate.
 > argument, so every recorded call key changed and the replay threw - which is
 > the guard working. `compare-shells.mjs` refused the run rather than comparing
 > against a throw. Re-record before comparing.
+
+## The tribal floor belongs on the TRIBE, and real decks say what it is (6 Sep 2026)
+
+Borrowing the creature floor for the tribe sweep was not enough. Sliver Hivelord
+reaches 26 creatures before that fill runs, so it never fired for him and he
+stayed on 19 Slivers in a deck whose commander is nothing but Slivers.
+
+**WHAT REAL TRIBAL DECKS HOLD.** Each of the 30 MTGJSON Commander decks' LARGEST
+single creature subtype, keeping the ones that are genuinely tribal rather than
+incidentally full of Humans:
+
+    sliver 41 · eldrazi 33 · eldrazi 33 · shapeshifter 21 · gate 19 · mutant 16
+
+**There is a real Sliver deck in that data running FORTY-ONE Slivers.** Ours ran
+19. `TRIBE_FLOOR` is 20 - below every clearly-tribal deck measured, the
+conservative end of a small sample, and the same p10-shaped choice ramp and
+lands already get.
+
+Bounded on the other side by `creatureFloor + 8`, so a tribe cannot turn a deck
+into forty creatures. That bound is why two decks do not reach 20: they hit the
+creature ceiling first, which is the right refusal. Tribe members ARE creatures,
+so filling the tribe also serves the creature floor.
+
+    tribe counts   Sliver 19 -> 21, Lathril 19 -> 21, Edgar 14 -> 15,
+                   Arasta 13 -> 14; Yuriko 15 -> 14, Lathliss 16 -> 15  (net +4)
+    twenty commanders  48/71 jobs, 5 zero groups, unchanged
+    eighteen shells    0 of 18 moved, every column identical
+    192 real decks     185/200, unchanged
+    DEPLOYED, sixty    60/60 on every gate, keyed median 76%, 0 generic decks
+    answers under p10  6/60 -> 7/60
+
+**The cost is one deck's interaction**, stated rather than hidden: tribe members
+are creatures, so filling the tribe spends slots that would otherwise have gone
+elsewhere.
+
+**STILL SHORT OF REAL DECKS AND HONESTLY SO** - 21 against the 41 a real Sliver
+precon runs. The rest is held down by passes this does not touch: the packages
+and the quota loop fill creature slots with non-tribe cards, and the review
+rounds then cut tribe members outright (*"round 3: Bonescythe Sliver out for
+Birds of Paradise"*).
+
+> ⚠️ **REFUSED, measured: a tribe VIABILITY guard.** Dropping `plan.tribe` when
+> the pool holds fewer than 100 of that subtype was shipped and reverted the
+> same hour: **Yuriko went from 11 Ninjas to ZERO**, because there are 62 Ninjas
+> in blue-black and the threshold was fitted to seven samples, which METHOD rule
+> 3 forbids. Ninja 62 is a real tribe and Robot 88 is not, and **no count
+> separates them.** Any future viability test has to read what the cards DO, not
+> how many there are.

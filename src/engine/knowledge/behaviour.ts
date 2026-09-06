@@ -3874,7 +3874,26 @@ export function planForCommander(commander: {
       facets.includes('eff:extra-land-drop') ||
       facets.includes('cares:zone:library-land') ||
       facets.includes('eff:play-from-graveyard') ||
-      facets.includes('eff:put-onto-battlefield');
+      facets.includes('eff:put-onto-battlefield') ||
+      /*
+       * RETURNING LANDS FROM A GRAVEYARD IS A LAND COMMANDER SAYING SO.
+       *
+       * The list above misses how a whole family of them speaks. Measured over
+       * the 3,335 legendary creatures: 164 carry `cares:type:land` and 90 have
+       * none of the signals above - and reading the most played of those 90 as
+       * a player, most are GENUINE lands commanders that say it by returning
+       * lands from the graveyard: Titania Protector of Argoth, Lumra, Shigeki,
+       * Multani, Teval, Bonny Pall, Erinis, Hazezon and SOUL OF WINDGRACE, the
+       * archetypal Jund lands commander.
+       *
+       * The conjunction is what keeps it safe. `eff:return-from` alone is every
+       * recursion commander in the format; with `cares:type:land` beside it,
+       * it rescues 20 and admits none of the three the guard exists for -
+       * QUAKE, AGENT OF S.H.I.E.L.D. and THALIA, HERETIC CATHAR both say
+       * `eff:tap` and neither returns anything, and Braids is already handled
+       * by the permanent-type collapse.
+       */
+      (facets.includes('cares:zone:graveyard') && facets.includes('eff:return-from'));
     if (alsoDoesSomethingWithLands) {
       add(f, TYPE_ECHO_WEIGHT, `${commander.name} cares about lands`);
     }

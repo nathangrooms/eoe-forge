@@ -626,6 +626,86 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   });
 
   /*
+   * A TRIBE THE POOL CANNOT SUPPLY IS NOT A TRIBE.
+   *
+   * `plan.tribe` and the three tribal wants that come with it - `sub:X`,
+   * `cares:sub:X` and `tok:X`, all at 1.00 - are read off the commander's own
+   * type line and rules text, and nothing asked whether the deck could be
+   * built. So a commander who MAKES Serpent tokens or may cast a "noncreature
+   * or Robot spell" was planned as tribal, every want it had was about a tribe
+   * with almost no cards in it, and the deck came back generic:
+   *
+   *     Koma, World-Eater     serpent, 48 cards in UG     keyed 54%
+   *     Vision, Spectral      robot,   88 cards in UR     keyed 34%
+   *
+   * against the tribes that genuinely build a deck:
+   *
+   *     Lathliss  dragon 180   Giada angel 189   Attuma merfolk 228
+   *     Edgar     vampire 398  Lathril elf 501
+   *
+   * The gap between 88 and 180 is where the line goes, and 100 sits in it while
+   * leaving room for a genuinely narrow but real tribe - Slivers are 115 across
+   * the whole catalogue.
+   *
+   * MEASURED AGAINST THE POOL THE DECK WILL BE BUILT FROM, so it answers the
+   * only question that matters: are there enough of these cards to play. The
+   * tribe is dropped rather than quietened, because a tribe is a package and a
+   * shell admission, not a weight - and both of those are all-or-nothing.
+   */
+  const TRIBE_NEEDS = 100;
+  let unbuildableTribe: string | null = null;
+  if (commanderPlan.tribe) {
+    const facet = `sub:${commanderPlan.tribe}`;
+    let held = 0;
+    for (const c of input.pool) {
+      if (((c as { facets?: readonly string[] }).facets ?? []).includes(facet)) {
+        held += 1;
+        if (held >= TRIBE_NEEDS) break;
+      }
+    }
+    if (held < TRIBE_NEEDS) {
+      /* `notes` is declared further down, so the sentence waits for it. */
+      unbuildableTribe = `${commanderPlan.tribe} is not a deck in these colours: the pool holds ` +
+        `${held} of them, and a tribe needs about ${TRIBE_NEEDS}. Built on what the commander ` +
+        `does instead.`;
+      /*
+       * THE WANTS GO WITH IT - BUT ONLY IF SOMETHING REAL IS LEFT.
+       *
+       * Dropping the tribe ALONE was measured doing nothing: `plan.tribe` earns
+       * the Tribal shell and states the tribe package, while `sub:X`,
+       * `cares:sub:X` and `tok:X` at 1.00 are what the RANKER reads, so both
+       * decks came back identical.
+       *
+       * ⚠️ Dropping the wants UNCONDITIONALLY was worse. Vision, Spectral
+       * Synthezoid's whole plan is those three words plus the survival floor
+       * every creature commander gets, so removing them left a plan made only
+       * of the floor and his keyed synergy fell from 34% to ELEVEN. A bad theme
+       * beats no theme: CLAUDE.md already records "plans made ONLY of the
+       * protection floor" as the shape behind "the deck doesn't feel like
+       * mine".
+       *
+       * So the tribe is always dropped - it cannot build a deck either way -
+       * and the wants go only when the commander says something else the ranker
+       * can use. Koma keeps evasion for his tokens and loses the Serpents;
+       * Vision keeps his Robots because he has nothing else.
+       */
+      const SURVIVAL_FLOOR = ['grants:hexproof', 'grants:shroud', 'grants:indestructible', 'grants:haste'];
+      const gone = new Set([`sub:${commanderPlan.tribe}`, `cares:sub:${commanderPlan.tribe}`, `tok:${commanderPlan.tribe}`]);
+      const remaining = commanderPlan.wants.filter(
+        w => !gone.has(w.facet as string) && !SURVIVAL_FLOOR.includes(w.facet as string) && w.weight >= 0.6
+      );
+      if (remaining.length >= 2) {
+        (commanderPlan as unknown as { wants: readonly unknown[] }).wants =
+          commanderPlan.wants.filter(w => !gone.has(w.facet as string));
+      } else {
+        unbuildableTribe = `${commanderPlan.tribe} is not really a deck in these colours - the pool ` +
+          `holds ${held} - but it is what this commander says, so the deck is built on it anyway.`;
+      }
+      (commanderPlan as { tribe?: string | null }).tribe = null;
+    }
+  }
+
+  /*
    * THEN THE ARCHETYPE, ON TOP OF THE COMMANDER RATHER THAN INSTEAD OF IT.
    *
    * `request.archetype` used to reach the language model's prompt and nothing
@@ -711,6 +791,7 @@ export function generateDeck(input: GenerateDeckInput): GeneratedDeck {
   } as Record<Role, number>;
 
   const notes: string[] = [];
+  if (unbuildableTribe) notes.push(unbuildableTribe);
   const shortfalls: string[] = [];
 
   /*

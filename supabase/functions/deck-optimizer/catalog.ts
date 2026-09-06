@@ -514,7 +514,7 @@ export class Catalog {
    */
   async poolFor(
     query: CandidateQuery,
-    opts?: { withOracleText?: boolean; maxRank?: number; limit?: number }
+    opts?: { withOracleText?: boolean; maxRank?: number; limit?: number; tribeFacet?: string }
   ): Promise<CatalogRow[]> {
     const fmt = query.legalityFilter.key;
     const identity = `{${query.colorIdentityFilter.containedBy.join(',')}}`;
@@ -724,6 +724,45 @@ export class Catalog {
       'rank',
       opts?.limit
     );
+
+    /*
+     * THE COMMANDER'S OWN TRIBE, WHATEVER ITS RANK.
+     *
+     * The pool is the top N by popularity, which is right for generic cards and
+     * wrong for a tribe: a tribe's members are played only in that tribe's
+     * decks, so they rank badly, and a bounded pool contains none of them.
+     *
+     * SLIVER HIVELORD came back with ZERO SLIVERS in 99 cards, keyed synergy
+     * SIX PER CENT, and the build log said so plainly - "The slivers 0/7" and
+     * "still short of Sliver Hivelord's own asks". Nothing was wrong with the
+     * plan: it asked for `sub:sliver` correctly and there was nothing to give
+     * it. Measured 6 Sep 2026:
+     *
+     *     slivers in the catalogue          115
+     *     ...in the top 2,500 by rank         0     best rank 3,153
+     *     five-colour pool budget         2,500     median sliver rank 11,177
+     *
+     * It is not one tribe. Of the tribes with 40+ members, Hero has 0 in the
+     * top 2,500, Mutant 1, Villain 2, Robot 2, Rat 2, Ally 3, Spider 3,
+     * Ninja 3. Any tribal commander whose identity forces a small budget - and
+     * five colours forces the smallest - was building a deck without its tribe.
+     *
+     * Bounded at 300 and only fetched when a tribe exists, so it costs nothing
+     * for the commanders that are not tribal. The rows are merged rather than
+     * appended blindly: a card already in the ranked pool must not be duplicated
+     * into it.
+     */
+    if (opts?.tribeFacet && useNarrowPool) {
+      const already = new Set(ranked.map(r => (r as { id?: string }).id));
+      const tribe = await this.fetchAll<CatalogRow>(
+        `${base}&facets=cs.${encodeURIComponent(`{${opts.tribeFacet}}`)}`,
+        'id',
+        300
+      );
+      for (const row of tribe) {
+        if (!already.has((row as { id?: string }).id)) ranked.push(row);
+      }
+    }
 
     /* THE BUDGET IS SPENT. A caller that asked for N rows has them, and every
        row past N is worse by the only order this walk has.

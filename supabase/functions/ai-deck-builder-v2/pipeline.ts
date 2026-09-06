@@ -807,6 +807,10 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
   const commanderFacets =
     fromPool && fromPool.length > 0 ? { ...compiled, facets: [...fromPool] } : compiled;
   const commander = toBuildCard(commanderRow, format, commanderFacets.facets);
+  /* Read once: the pool fetch needs it to include the tribe whatever its rank,
+     and the budget slice needs it to keep those rows. `planForCommander` is
+     pure, so asking twice would only be waste. */
+  const commanderTribe = planForCommander(commander).tribe ?? null;
   // The commander's own row is the authority on colour identity.
   const commanderIdentity = commander.colorIdentity;
   console.log(`  identity: ${commanderIdentity.join('') || 'colourless'}`);
@@ -853,6 +857,19 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     catalog.poolFor(query, {
       withOracleText: true,
       limit: poolBudgetFor(commanderIdentity.length),
+      /*
+       * A TRIBAL COMMANDER GETS ITS TRIBE WHATEVER THE BUDGET.
+       *
+       * The pool is the top N by popularity, and a tribe's members are played
+       * only in that tribe's decks, so they rank badly and a bounded pool holds
+       * none of them. Sliver Hivelord came back with ZERO Slivers in 99 cards
+       * and six per cent keyed synergy - his plan asked for `sub:sliver`
+       * correctly and there was nothing in the pool to give it.
+       *
+       * Computed here because the commander is already dressed and
+       * `planForCommander` is pure, so it costs nothing to ask.
+       */
+      tribeFacet: commanderTribe ? `sub:${commanderTribe}` : undefined,
     }),
     catalog.landPoolFor(query),
     /*
@@ -1060,7 +1077,28 @@ export async function build(input: BuildInput): Promise<BuildOutcome> {
     return Number.isFinite(n) && n > 0 ? n : Number.MAX_SAFE_INTEGER;
   };
   const rankedAll = [...poolRows].sort((a, b) => rankOf(a) - rankOf(b));
-  const ranked = rankedAll.slice(0, POOL_BUDGET);
+  /*
+   * THE COMMANDER'S TRIBE SURVIVES THE BUDGET.
+   *
+   * `catalog.poolFor` fetches the tribe whatever its rank, and this slice threw
+   * it straight back out: a tribe's members are played only in that tribe's
+   * decks, so they rank badly and land in the tail this cuts. SLIVER HIVELORD
+   * came back with ZERO SLIVERS in 99 cards and six per cent keyed synergy,
+   * with the fetch working and the log saying "ranking the top 2500 of 3197;
+   * 697 not considered" - the Slivers were all 697.
+   *
+   * Bounded by what was fetched (300) and only for a tribal commander, so a
+   * non-tribal build is unchanged to the byte.
+   */
+  const tribeFacet = commanderTribe ? `sub:${commanderTribe}` : null;
+  const isTribe = (row: { facets?: unknown }): boolean =>
+    tribeFacet !== null && Array.isArray(row.facets) && row.facets.includes(tribeFacet);
+  const ranked = tribeFacet === null
+    ? rankedAll.slice(0, POOL_BUDGET)
+    : [
+        ...rankedAll.slice(0, POOL_BUDGET),
+        ...rankedAll.slice(POOL_BUDGET).filter(isTribe),
+      ];
   if (rankedAll.length > POOL_BUDGET) {
     console.log(
       `pool: ranking the top ${POOL_BUDGET} of ${rankedAll.length} by edhrec_rank; ` +

@@ -685,7 +685,7 @@ export const STATE_BUDGET = 3_000_000;
  * last cost that finishes exactly bounds at 3.3e9 and the first that gives up
  * bounds at 6.0e9, so 4e9 sits in the gap and changes no answer.
  */
-export const STATE_BOUND = 1e9;
+export const STATE_BOUND = 3e8;
 
 export interface CastabilityResult {
   probability: number;

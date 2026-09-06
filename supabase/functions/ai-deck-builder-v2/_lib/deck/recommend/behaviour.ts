@@ -1618,13 +1618,46 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
        * whose sign cannot be read stays `eff:pump`. Refusing to guess is right
        * here, because guessing the sign backwards is what this fixes.
        */
-      const num = (v: unknown): number | null =>
-        typeof v === 'number' ? v : null;
+      /*
+       * A NUMBER, or an expression whose SIGN is known. `-X` compiles to
+       * `{v:'sub', a:0, b:{v:'x'}}` - zero minus a count is negative whatever
+       * the count turns out to be, and X is never negative. Reading that is
+       * how Toxic Deluge (rank 67) becomes a board wipe the engine can see.
+       * Any other expression still returns null and stays `eff:pump`, because
+       * guessing a sign backwards is exactly what this must not do.
+       */
+      const num = (v: unknown): number | null => {
+        if (typeof v === 'number') return v;
+        const e = v as { v?: string; a?: unknown };
+        if (e?.v === 'sub' && e.a === 0) return -1;
+        return null;
+      };
       const p = num((effect as { power?: unknown }).power);
       const t = num((effect as { toughness?: unknown }).toughness);
       const negative = (p !== null && p < 0) || (t !== null && t < 0);
       const positive = (p !== null && p > 0) || (t !== null && t > 0);
-      out.add(negative && !positive ? 'eff:shrink' : 'eff:pump');
+      const shrinks = negative && !positive;
+      out.add(shrinks ? 'eff:shrink' : 'eff:pump');
+      /*
+       * A MASS -X/-X THAT TAKES YOUR OWN BOARD WITH IT IS A BOARD WIPE.
+       *
+       * `scope:wipe` was `destroy` only, and its note gave the reason as
+       * "-X/-X sweepers' selectors are frequently players rather than
+       * permanents". `sweepsYourBoardToo` IS the test for that, so the selector
+       * guard already refuses those and the verb never needed to.
+       *
+       * It cost a real deck. Toxic Deluge is rank 67 and is "each creature gets
+       * -X/-X until end of turn": it carried `eff:shrink + scope:all` and NO
+       * `scope:wipe`, so `worksAgainstPlan` could not see it, and it walked into
+       * Edgar Markov's go-wide Vampire deck through the popularity filler - the
+       * one pass that does not consult fit at all.
+       *
+       * Massacre Wurm looks identical on those two facets and must NOT be
+       * caught: it shrinks OPPONENTS' creatures, which a go-wide deck wants.
+       * The controller test inside `sweepsYourBoardToo` is what separates them,
+       * which is why the guard is reused rather than reinvented.
+       */
+      if (shrinks && sweepsYourBoardToo(effect.what)) out.add('scope:wipe');
       readSelector(effect.what, out);
       /*
        * A pump SIZED BY A CREATURE'S POWER is a card that wants big creatures.
@@ -1723,10 +1756,16 @@ function readEffect(effect: Effect, out: Set<Facet>, targets?: readonly TargetSp
        * SACRIFICE, which is a cost or a drawback the deck accepts, and Eldrazi
        * Monument is a card a token deck actively wants.
        *
-       * `destroy` only. Damage and -X/-X sweepers exist and are the same idea,
-       * but their selectors are frequently players rather than permanents, and
-       * one clean verb that refuses cards correctly is worth more than three
-       * that sometimes do not.
+       * `destroy` AND `shrink`. The narrowing to destroy alone was written
+       * because "-X/-X sweepers' selectors are frequently players rather than
+       * permanents" - but `sweepsYourBoardToo` IS the test for that, so the
+       * selector guard already refuses those and the verb did not need to.
+       *
+       * It cost a real deck. Toxic Deluge is rank 67, is "each creature gets
+       * -X/-X", and carries `eff:shrink + scope:all` with NO `scope:wipe`, so
+       * `worksAgainstPlan` could not see it and it walked into Edgar Markov's
+       * go-wide Vampire deck through the popularity filler. Damage sweepers are
+       * still excluded: their selector genuinely is often a player.
        */
       if (effect.do === 'destroy' && sweepsYourBoardToo(effect.what)) {
         out.add('scope:wipe');
@@ -2075,12 +2114,30 @@ function sweepsYourBoardToo(selector: Selector | undefined): boolean {
   const controller = (selector as { controller?: { who?: string } }).controller?.who;
   if (controller && controller !== 'each-player') return false;
   if ((selector.zone ?? 'battlefield') !== 'battlefield') return false;
-  const filter = (selector as { where?: { is?: string; value?: string } }).where;
-  if (filter?.is === 'any') return true;
-  return (
-    filter?.is === 'type' &&
-    SWEEPABLE_TYPES.has(String(filter.value ?? '').toLowerCase())
-  );
+  const filter = (selector as { where?: unknown }).where;
+  return sweepableFilter(filter);
+}
+
+/*
+ * A COMPOUND FILTER IS STILL A SWEEP IF ITS TYPE MEMBER IS.
+ *
+ * "each OTHER creature" compiles to `{is:'and', of:[{is:'type',value:'creature'},
+ * {is:'other'}]}`, and the flat test accepted only a bare `type`, so MASSACRE
+ * GIRL - a symmetric wipe at rank 1,706 - was not recognised as one. Excluding
+ * the source does not stop a wipe taking your board: it takes everything else
+ * you control.
+ *
+ * WHOSE creatures is decided by `controller` on the SELECTOR, above, and never
+ * inside this filter, so recursing here cannot let an opponents-only sweeper
+ * through. Massacre Wurm is refused there and still is.
+ */
+function sweepableFilter(filter: unknown): boolean {
+  if (!filter || typeof filter !== 'object') return false;
+  const f = filter as { is?: string; value?: string; of?: readonly unknown[] };
+  if (f.is === 'any') return true;
+  if (f.is === 'type') return SWEEPABLE_TYPES.has(String(f.value ?? '').toLowerCase());
+  if (f.is === 'and') return (f.of ?? []).some(sweepableFilter);
+  return false;
 }
 
 function readSelector(selector: Selector, out: Set<Facet>): void {

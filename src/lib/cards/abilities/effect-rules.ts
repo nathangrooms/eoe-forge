@@ -1582,12 +1582,35 @@ export const EFFECT_RULES: EffectRule[] = [
     },
   },
   {
+    /*
+     * "+N/+N" and "-X/-X" alike. X IS AN EXPRESSION AND ITS SIGN IS STILL
+     * KNOWN: refusing to guess the MAGNITUDE is right, refusing to read the
+     * MINUS is over-cautious, and it left the clause unparsed entirely.
+     *
+     * TOXIC DELUGE IS RANK 67 and its whole card is "All creatures get -X/-X
+     * until end of turn". It compiled to NOTHING, so the engine could not see
+     * that it is a board wipe, and it walked into Edgar Markov's go-wide
+     * Vampire deck. Deluge of Doom and Bane of the Living are the same shape.
+     *
+     * `-X` is `{v:'sub', a:0, b:{v:'x'}}`, which the DSL has always been able
+     * to say. Nothing invents a number.
+     */
     id: 'pump',
-    re: /^(.+?) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/,
+    re: /^(.+?) gets? ([+-](?:\d+|x))\/([+-](?:\d+|x)) until end of turn$/i,
     build(m, ctx) {
       const what = phraseSelector(m[1], ctx, 'Choose a creature');
       if (!what) return null;
-      return [{ do: 'pump', what, power: Number(m[2]), toughness: Number(m[3]), duration: 'end-of-turn' }];
+      const value = (raw: string): ValueExpr | null => {
+        const sign = raw[0] === '-' ? -1 : 1;
+        const body = raw.slice(1);
+        if (/^\d+$/.test(body)) return sign * Number(body);
+        if (body.toLowerCase() !== 'x') return null;
+        return sign < 0 ? { v: 'sub', a: 0, b: { v: 'x' } } : { v: 'x' };
+      };
+      const power = value(m[2]);
+      const toughness = value(m[3]);
+      if (power === null || toughness === null) return null;
+      return [{ do: 'pump', what, power, toughness, duration: 'end-of-turn' }];
     },
   },
   /*

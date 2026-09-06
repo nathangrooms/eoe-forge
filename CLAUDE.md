@@ -10633,3 +10633,68 @@ whose effect it is.
 > `trig:cast:artifact` exists (30 cards) and would name the payoff precisely,
 > but ADDING it changes nothing - Sai and Jin-Gitaxias already match through
 > `cares:type:artifact`. It only helps once that one is gone.
+
+## SYR VONDAM, read as a player at last (6 Sep 2026)
+
+The owner, twice: *"and for the 100th time, syr vondam sunstar?"* Here is the
+deck list read card by card rather than as an overlap percentage.
+
+**THE BLINK ENGINE IS COMPLETE.** Thirteen ways to blink, which is essentially
+the whole white-black list: Ephemerate, Cloudshift, Eerie Interlude, Ghostway,
+Scrollshift, Semester's End, Acrobatic Maneuver, Teleportation Circle,
+Conjurer's Closet, Felidar Guardian, Restoration Angel, Flickerwisp,
+Distinguished Conjurer. **The packages also pick the right creatures**:
+
+    Things worth blinking 9/9   SOLEMN SIMULACRUM, Loran of the Third Path,
+                                Spirited Companion, Wall of Omens, Beza, ...
+    Doubling the arrival  9/9   Restoration Angel, Felidar Guardian, KARMIC
+                                GUIDE, Flickerwisp, Sun Titan, ...
+
+**AND THE REVIEW ROUNDS TURN IT BACK INTO AN ARISTOCRATS DECK.**
+
+    round 4: SOLEMN SIMULACRUM out (6.6, weak fit) for Vampiric Rites (7.6)
+    round 1: KARMIC GUIDE out (4.9) for Vampiric Rites
+    round 3: Solemn Simulacrum out for DISTINGUISHED CONJURER, rank 4,491
+
+The rounds rank against `withUrgency(commanderPlan, picked)`, and his loudest
+wants are `cost:sacrifice` 0.85 and `eff:exile-own` 0.85 - so a sacrifice outlet
+genuinely beats a blink target BY THAT MEASURE. The rank-38 card leaves for the
+rank-1,377 one and the log calls it "weak fit".
+
+### THREE MORE MEASURED REFUSALS, making six on this one behaviour
+
+| rule on the rounds | 18-shell keyed | Vondam |
+|---|---|---|
+| never hand over the more played card | **-23**, and a dead group | 33 -> 34 |
+| refuse a 4x rank crossing | **-9** | unchanged |
+| refuse a 20x rank crossing | **-4** | **unchanged** |
+
+CLAUDE.md already records three others - a blanket ban on cutting an
+archetype-placed card (45/71 jobs, nine dead groups), an archetype-fit
+comparison (+2 Vondam, two whole capabilities lost), and a narrow version that
+was a no-op. **Six attempts, all measured, none shipped.**
+
+> **The rounds are NET POSITIVE across the field and specifically harmful to a
+> commander whose plan has two halves.** Constraining them by RANK is now
+> exhausted: at every bound tried it costs keyed synergy everywhere to buy one
+> card on one commander, and at the loosest bound it buys nothing at all.
+>
+> What is untried: making the rounds rank against the ARCHETYPE plan when one is
+> NAMED, rather than against the commander's plan alone. The nearest attempt
+> compared archetype fit before and after and cost two capabilities; ranking on
+> a BLEND has not been measured.
+
+### And the junk in that deck comes from three routes, not one
+
+    Field-Tested Frying Pan 6,763   a shell want - and it genuinely does have
+                                    an enter trigger, so it MATCHES
+    Revel in Riches 1,147           tag overlap: "shares 4 tags with your deck
+                                    (treasure, aristocrats, ...)"
+    Treasure Chest, Academy Manufactor, Forsaken Monument
+                                    the COMBO pass: Cauldron Familiar + Warren
+                                    Soultrader + Academy Manufactor, chosen on
+                                    commander fit and popularity, which drags a
+                                    treasure sub-theme into a blink deck
+
+The shell-want route is narrowed by the lift bar shipped today. The other two
+are open.

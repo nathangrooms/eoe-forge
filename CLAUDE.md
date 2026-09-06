@@ -10500,3 +10500,48 @@ recursion commander in the format; with `cares:type:land` beside it, it rescues
 > `random-commander-sweep.mjs` gets this right and reads `x.type_line` and
 > `x.quantity` off the entry. **Copy the count from a probe that already works
 > rather than writing a fourth one.**
+
+## CORRECTION: the `evasion` check was CIRCULAR, and the signal was wrong
+
+The shell-signal audit recorded this table and passed `evasion`:
+
+    aggro    <- evasion            799                701   88%
+
+**That corroboration is worthless.** The `evasion` TAG is DERIVED FROM
+`kw:flying`, `kw:menace` and `kw:trample`, and I checked it against those very
+keywords. It proves a tag matches what it is made from and says nothing about
+whether the commander wants to attack.
+
+**Asked properly - the BARE population, commanders whose ONLY aggro signal is
+that tag - it is 511 of the 799**, and the most played of them are not aggro
+commanders in any sense:
+
+    Avacyn Angel of Hope (an 8-mana anthem)   Old Gnawbone (treasures)
+    Vilis (draw and drain)                    Shalai (protection)
+    Tekuthal (proliferate)                    Wan Shi Tong (draw)
+    Junji (reanimator)                        Miirym (dragon tokens)
+
+Of the sixteen most played, ONE is arguably aggro - Gisela, Blade of Goldnight -
+and she carries `eff:damage` anyway. **Avacyn was the highest-scoring commander
+of all 3,363 for this shell**, and Aggro was the worst row on the board at 46%
+keyed.
+
+    Aggro champion   Avacyn  ->  AURELIA, THE WARLEADER
+    eighteen shells  keyed 1366 -> 1367, packages +1, named 40 -> 41, ramp +1
+    everything else  shape 194/200, bench 46/71 with 4 zero, derived 9/10,
+                     production 20/20 - all unchanged
+
+> **THE TEST THAT IS NOT CIRCULAR.** A tag derived from facets will always
+> "corroborate" against those facets. Ask instead: **how many carry the tag and
+> NOTHING ELSE the shell wants, and are THOSE commanders right for it?** That is
+> what separated `evasion` (2 of 16 right) from `stax` (Grand Arbiter, Myrel,
+> Thalia, Baird - genuinely stax) when both looked equally suspect on a rate.
+
+### Where four signal fixes leave the eighteen shells
+
+    keyed   1328 -> 1367 (+39)     named 40 -> 41     packages 502 -> 506
+    Voltron          Avacyn 55%  ->  Halvar 80%
+    +1/+1 counters   Etali  52%  ->  Rishkar 65%
+    Aggro            Avacyn 46%  ->  Aurelia 47%
+    shape 194/200, bench 46/71 with 4 zero groups, derived archetypes 9/10 and
+    production 20/20 with 0 decks under 60% keyed - unchanged throughout all four

@@ -773,7 +773,51 @@ const GRANTED_PROTECTION: ReadonlySet<string> = new Set([
   'grants:indestructible', 'grants:ward',
 ]);
 
+/*
+ * A CARD THAT FINDS A LAND IS NOT A TUTOR.
+ *
+ * `ROLE_FACETS.tutor` is `eff:search-library` alone, and that claimed 495 of
+ * the 1,046 commander-legal cards carrying it - Cultivate, Farseek, Rampant
+ * Growth, Nature's Lore, Kodama's Reach, Evolving Wilds, Terramorphic Expanse
+ * and every fetch land. Path to Exile too, because it hands an opponent a
+ * basic.
+ *
+ * The tutor role counts how many ways a deck can find THE CARD IT NEEDS. A
+ * fetch land finds a land, which the mana base already accounts for, so eight
+ * of the twenty benchmark decks were reported holding three tutors against a
+ * real range of nought to two - and all three were Polluted Delta, Bloodstained
+ * Mire and Scalding Tarn.
+ *
+ * WHAT THE CARDS THEMSELVES SAY, over the whole population rather than a
+ * sample: a land-finder names a basic land subtype (`cares:sub:island` on the
+ * fetches), the land zone (`cares:zone:library-land` on Cultivate and Evolving
+ * Wilds), or the type (`cares:type:land`). A real tutor names what it is
+ * actually looking for - `cares:type:artifact` on Urza's Saga and Inventors'
+ * Fair, a creature on Worldly Tutor, nothing at all on Demonic Tutor.
+ *
+ * Read as a player, the twenty-four most played on each side are all correct:
+ * it removes Path to Exile, Cultivate, Farseek and the fetches; it keeps
+ * Demonic, Vampiric, Enlightened, Mystical and Worldly Tutor, Gamble, Entomb,
+ * Buried Alive, and the LANDS that genuinely tutor - Urza's Saga, Inventors'
+ * Fair, Tolaria West, Sanctum of Ugin, Eye of Ugin.
+ *
+ * The one card it gets wrong is The World Tree, which searches for a God and
+ * also says `cares:type:land` about itself. One card against 495.
+ */
+const FINDS_A_LAND: ReadonlySet<string> = new Set([
+  'cares:zone:library-land',
+  'cares:type:land',
+  'cares:sub:plains',
+  'cares:sub:island',
+  'cares:sub:swamp',
+  'cares:sub:mountain',
+  'cares:sub:forest',
+  'cares:sub:wastes',
+]);
+
 function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
+  if (role === 'tutor' && facets.some(f => FINDS_A_LAND.has(f))) return false;
+
   // A land taps for mana; that is not ramp, it is a land, and crediting it
   // would re-open the land quota inside the spell passes.
   if (role === 'ramp') {

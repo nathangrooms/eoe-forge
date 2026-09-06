@@ -930,6 +930,40 @@ function solveLandTarget(input: LandSolveInput): { lands: number; pct: number; s
   const sample = curveSample(input.implied);
   const commanderInput = toPlayability(input.commander, 1, true);
 
+  /*
+   * ONE EXACT SOLVE PER (LAND COUNT, COST), NOT ONE PER PROBE.
+   *
+   * `measure` is called once per candidate land count and runs the whole curve
+   * sample at each, and `cardPlayability` here is the EXACT multivariate
+   * hypergeometric - `createPlayabilityEngine`'s memo is not in this path
+   * because there is no engine, only a profile.
+   *
+   * That is affordable in one or two colours and quadratic-feeling in five.
+   * PROGENITUS took 70 SECONDS locally with the pool served from a tape in 1 ms,
+   * and a CPU profile put 60 of it inside `castability.collapse` and `step`.
+   * The module header records his ten pips across five colours solving in
+   * ~175 ms, which is true and is the whole problem: the land walk asks for it
+   * a couple of hundred times. Production returned 546 WORKER_RESOURCE_LIMIT on
+   * every attempt.
+   *
+   * The profile is a PURE FUNCTION of the land count given fixed inputs, so
+   * `${lands}|${cost}` is a sound key - the same land count and the same cost
+   * cannot mean two different answers.
+   */
+  const solved = new Map<string, number | null>();
+  const pctFor = (
+    lands: number,
+    card: PlayabilityCardInput,
+    profile: ReturnType<typeof buildManaProfile>
+  ): number | null => {
+    const key = `${lands}|${card.mana_cost ?? ''}`;
+    const hit = solved.get(key);
+    if (hit !== undefined) return hit;
+    const pct = cardPlayability(card, profile).pct;
+    solved.set(key, pct);
+    return pct;
+  };
+
   /** Mean on-curve castability off `lands` lands and the deck's accelerants. */
   const measure = (lands: number): number => {
     const spells = Math.max(0, input.slots - lands);
@@ -944,7 +978,7 @@ function solveLandTarget(input: LandSolveInput): { lands: number; pct: number; s
     let total = 0;
     let n = 0;
     for (const card of sample) {
-      const pct = cardPlayability(toPlayability(card, 1), profile).pct;
+      const pct = pctFor(lands, toPlayability(card, 1), profile);
       if (pct === null) continue;
       total += pct;
       n += 1;
@@ -1083,12 +1117,37 @@ function solveRampFloor(input: RampSolveInput): { count: number; because: string
     return n === 0 ? 100 : total / n;
   };
 
+  /*
+   * BINARY SEARCH, BECAUSE THE PREDICATE IS MONOTONIC.
+   *
+   * Adding an accelerant replaces a filler spell with a mana source, so the top
+   * end can only become MORE castable - `measure(rocks)` rises with `rocks`,
+   * and the smallest rock count meeting comfort is a boundary a bisection finds
+   * exactly. The linear walk asked the question up to 21 times per call and
+   * this asks it about 5.
+   *
+   * It matters because each question is an exact multivariate hypergeometric
+   * per probe. PROGENITUS took 70 SECONDS locally with the pool served from a
+   * tape in 1 ms, and a CPU profile put 60 of it under THIS function - not the
+   * land walk (4 ms) and not the ranker (44 ms), both measured and cleared
+   * first. Production returned 546 WORKER_RESOURCE_LIMIT on every attempt.
+   *
+   * A memo by (rocks, cost) does not help: every rock count builds a different
+   * mana base, so no two questions share a key. Asking fewer questions is the
+   * only lever, and bisection is the one that changes no answer.
+   */
   const solve = (probes: readonly PlayabilityCardInput[]): number => {
     if (probes.length === 0) return 0;
-    for (let rocks = 0; rocks <= Math.min(20, spells); rocks++) {
-      if (measure(rocks, probes) >= CASTABILITY_COMFORT_PCT) return rocks;
+    const cap = Math.min(20, spells);
+    if (measure(cap, probes) < CASTABILITY_COMFORT_PCT) return cap;
+    let lo = 0;
+    let hi = cap;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (measure(mid, probes) >= CASTABILITY_COMFORT_PCT) hi = mid;
+      else lo = mid + 1;
     }
-    return Math.min(20, spells);
+    return lo;
   };
 
   const forTopEnd = solve(topEnd.map(c => toPlayability(c, 1)));

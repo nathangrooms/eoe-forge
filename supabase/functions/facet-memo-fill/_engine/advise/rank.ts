@@ -356,17 +356,33 @@ export function ineligibility(
  * thousands of times. The memo hangs off the profile object rather than off the
  * module, so it cannot leak between decks and cannot survive the profile.
  */
-const castabilityMemo = new WeakMap<DeckProfile, Map<string, number | null>>();
+const castabilityMemo = new WeakMap<ManaProfile, Map<string, number | null>>();
 
 export function castabilityPct(card: CandidateCard, profile: DeckProfile): number | null {
   const mana: ManaProfile | null | undefined = profile.manaProfile;
   if (!mana) return null;
   if (!card.manaCost) return null;
 
-  let memo = castabilityMemo.get(profile);
+  /*
+   * KEYED ON THE MANA PROFILE, NOT THE DECK PROFILE.
+   *
+   * `cardPlayability(card, mana)` reads the MANA profile and the cost and
+   * nothing else - its own signature says so - so a memo hanging off the deck
+   * profile is strictly too narrow. A build makes a new `DeckProfile` for every
+   * pass (the seed, the role fill, the flex rerank, one per review round) while
+   * handing most of them THE SAME `provisionalMana` object, so every pass
+   * re-solved every distinct cost in the pool from scratch.
+   *
+   * Affordable in one or two colours and ruinous in five. PROGENITUS took 70
+   * SECONDS locally with the pool served from a tape in 1 ms, and a CPU profile
+   * put 60 of it inside `castability.collapse` and `step`. Production returned
+   * 546 WORKER_RESOURCE_LIMIT on every attempt. The land walk was measured at
+   * FOUR MILLISECONDS, so it was never the mana base - it was this.
+   */
+  let memo = castabilityMemo.get(mana);
   if (!memo) {
     memo = new Map();
-    castabilityMemo.set(profile, memo);
+    castabilityMemo.set(mana, memo);
   }
   const hit = memo.get(card.manaCost);
   if (hit !== undefined) return hit;

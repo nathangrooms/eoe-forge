@@ -1036,20 +1036,80 @@ export interface PlayabilityEngine {
  * page. Castability depends only on the cost and the turn, so a deck that
  * plays thirty two-mana spells does thirty lookups and one calculation.
  */
+/**
+ * One exact solve per (mana base, cost) FOR THE WHOLE PROCESS, not per engine.
+ *
+ * The engine's own memo is per-engine, and a deck build creates a new engine
+ * every time it re-evaluates the deck - once per review round, plus the final
+ * score. The mana base does not move between those: the lands are chosen before
+ * the rounds start and the rounds swap SPELLS. But `buildManaProfile` returns a
+ * fresh object each time, so identity-keyed memoisation missed every round and
+ * every distinct cost was solved again from scratch.
+ *
+ * Affordable in one or two colours and ruinous in five. PROGENITUS took 70
+ * SECONDS locally with the pool served from a tape in 1 ms, and a CPU profile
+ * put 60 of it inside `collapse` and `step` below. Production returned 546
+ * WORKER_RESOURCE_LIMIT on every attempt. Two other suspects were measured and
+ * cleared first: the land walk is FOUR MILLISECONDS, and the ranker's own memo
+ * costs 44 ms across 370 solves.
+ *
+ * KEYED BY CONTENT, because identity is exactly what fails here. The signature
+ * covers every field the solve reads - the library size, the colour mask, and
+ * each source's colours, amount, online turn and kind. `name` is excluded: two
+ * different lands that tap for the same mana on the same turn are
+ * interchangeable to this computation, and including it would only make the key
+ * longer and the hit rate worse.
+ */
+const SOLVE_CACHE = new Map<string, CardPlayability>();
+const SOLVE_CACHE_MAX = 20_000;
+
+function manaProfileSignature(profile: ManaProfile): string {
+  const parts: string[] = [
+    String(profile.librarySize),
+    String(profile.deckColourMask),
+    String(profile.landCount),
+    String(profile.rockCount),
+    String(profile.dorkCount),
+  ];
+  /* Sorted, so two profiles holding the same sources in a different order are
+     the same key - a review round that swaps a spell reorders nothing, but a
+     rebuild from a different card order would. */
+  const seen: string[] = [];
+  for (const src of profile.sources) {
+    seen.push(`${src.colourMask}:${src.amount}:${src.onlineTurn}:${src.kind}`);
+  }
+  seen.sort();
+  parts.push(seen.join(','));
+  return parts.join('|');
+}
+
 export function createPlayabilityEngine(
   deck: readonly PlayabilityCardInput[],
   options: PlayabilityOptions = {}
 ): PlayabilityEngine {
   const profile = buildManaProfile(deck);
   const memo = new Map<string, CardPlayability>();
+  /* Computed once per engine, then every card is a string lookup. */
+  const signature = manaProfileSignature(profile);
   let deckResult: DeckPlayability | null = null;
 
   const card = (input: PlayabilityCardInput): CardPlayability => {
     const key = `${isLand(input) ? 'L' : 'S'}|${input.mana_cost ?? ''}`;
     const hit = memo.get(key);
     if (hit) return { ...hit, name: input.name, isCommander: !!input.isCommander };
+    /* Every option that can change the answer goes in the key. */
+    const shared = `${signature}|${key}|${options.onThePlay ?? ''}|${options.threshold ?? ''}`;
+    const across = SOLVE_CACHE.get(shared);
+    if (across) {
+      memo.set(key, across);
+      return { ...across, name: input.name, isCommander: !!input.isCommander };
+    }
     const computed = cardPlayability(input, profile, options);
     memo.set(key, computed);
+    /* A plain cap rather than an LRU: this is a build-scoped working set, and
+       a wrong eviction only costs a re-solve. */
+    if (SOLVE_CACHE.size >= SOLVE_CACHE_MAX) SOLVE_CACHE.clear();
+    SOLVE_CACHE.set(shared, computed);
     return computed;
   };
 

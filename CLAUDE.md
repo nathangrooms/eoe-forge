@@ -9766,3 +9766,38 @@ exactly, so the attribution is sound.
 The seven checks still outside the real range are draw on 3 decks, creature on 3
 (Talrand 18, Niv-Mizzet 19, Feather 21 against 22-37) and removal on Azusa. All
 are one to four cards short, and none is worth a floor that costs the archetype.
+
+### CORRECTION: Cultivate and Farseek were never tutors
+
+The section above says the rule removes *"Path to Exile, Cultivate, Farseek and
+the fetches"* and claims 495 cards. **Wrong.** `facetRoleQualifies` already
+carried `if (role === 'tutor') return !facets.includes('cares:zone:library-land')`,
+with the comment *"Cultivate is not Demonic Tutor"*, and it already held. My
+measurement counted the whole population the new predicate matches rather than
+the DELTA against the predicate already in place.
+
+**What the fix actually changes is the FETCH LANDS**, and the reason is exact: a
+fetch land does not say `library-land` at all. Polluted Delta searches for *"an
+Island or Swamp card"*, so it carries `cares:sub:island` and `cares:sub:swamp`
+and passed straight through the old check. That is precisely what the shape
+report showed - eight decks, the same three cards in every one.
+
+The measured outcome is unaffected (193/200, tutor off the failing list); only
+the description was too big. The now-dead `library-land` line has been folded
+into the set and removed, and shape stayed at 193/200, which is what proves it
+was dead.
+
+> **The lens: a rule that looks new may be a WIDENING of one already there.**
+> Measure the delta against the predicate in the file, not against no predicate
+> at all. `grep` the function for the role before writing a rule for it.
+
+### And the Words screen was showing the facets without their conditions
+
+`/admin` -> Words draws `ROLE_FACETS`, which is a flat list, so a role whose
+facets only count under a condition was being drawn as if they always did - four
+roles carry qualifiers (`ramp`, `tutor`, `enhance`, `protection`) and the screen
+said nothing about any of them.
+
+`ROLE_QUALIFIERS` lives beside `facetRoleQualifies` in `behaviour.ts`, in the
+words a player would use, and the screen renders it under each role. Same file
+so the two cannot drift into different rooms.

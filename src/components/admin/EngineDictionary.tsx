@@ -8,7 +8,7 @@ import { CardImage } from '@/components/cards';
 import { supabase } from '@/integrations/supabase/client';
 import { DECK_ARCHETYPES, type DeckArchetype } from '@/lib/deck/archetypeShells';
 import { ROLES } from '@/engine/core/types';
-import { ROLE_FACETS } from '@/engine/knowledge/behaviour';
+import { ROLE_FACETS, ROLE_QUALIFIERS } from '@/engine/knowledge/behaviour';
 import { Search, X } from 'lucide-react';
 import { reachFor, type ArchetypeReach } from './archetypeReach';
 
@@ -787,6 +787,11 @@ export function EngineDictionary() {
               <div key={role} className="space-y-2 rounded-lg bg-muted/30 p-4">
                 <h3 className="text-sm font-semibold capitalize">{role}</h3>
                 <p className="text-xs text-muted-foreground">{ROLE_GLOSS[role] ?? ''}</p>
+                {(ROLE_QUALIFIERS[role] ?? []).map(note => (
+                  <p key={note} className="text-xs text-muted-foreground/80">
+                    {note}
+                  </p>
+                ))}
                 <div className="flex flex-wrap gap-1">
                   {(ROLE_FACETS[role] ?? []).map(f => (
                     <code key={f} className="rounded bg-background/70 px-1.5 py-0.5 font-mono text-[10px]">

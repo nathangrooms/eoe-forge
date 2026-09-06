@@ -774,35 +774,29 @@ const GRANTED_PROTECTION: ReadonlySet<string> = new Set([
 ]);
 
 /*
- * A CARD THAT FINDS A LAND IS NOT A TUTOR.
+ * A CARD THAT FINDS A LAND IS NOT A TUTOR, AND A FETCH LAND SAYS SO DIFFERENTLY.
  *
- * `ROLE_FACETS.tutor` is `eff:search-library` alone, and that claimed 495 of
- * the 1,046 commander-legal cards carrying it - Cultivate, Farseek, Rampant
- * Growth, Nature's Lore, Kodama's Reach, Evolving Wilds, Terramorphic Expanse
- * and every fetch land. Path to Exile too, because it hands an opponent a
- * basic.
+ * The rule that stood here was `!facets.includes('cares:zone:library-land')`,
+ * with the comment "Cultivate is not Demonic Tutor" - correct, and it already
+ * held. What it MISSED is that a fetch land does not say `library-land` at all:
+ * Polluted Delta searches for "an Island or Swamp card", so it carries
+ * `cares:sub:island` and `cares:sub:swamp` and passed straight through.
  *
- * The tutor role counts how many ways a deck can find THE CARD IT NEEDS. A
- * fetch land finds a land, which the mana base already accounts for, so eight
- * of the twenty benchmark decks were reported holding three tutors against a
- * real range of nought to two - and all three were Polluted Delta, Bloodstained
- * Mire and Scalding Tarn.
+ * Measured: EIGHT of the twenty benchmark decks were reported holding three
+ * tutors against a real range of nought to two, and in every one of them the
+ * three were the same - Polluted Delta, Bloodstained Mire, Scalding Tarn.
  *
  * WHAT THE CARDS THEMSELVES SAY, over the whole population rather than a
- * sample: a land-finder names a basic land subtype (`cares:sub:island` on the
- * fetches), the land zone (`cares:zone:library-land` on Cultivate and Evolving
- * Wilds), or the type (`cares:type:land`). A real tutor names what it is
- * actually looking for - `cares:type:artifact` on Urza's Saga and Inventors'
- * Fair, a creature on Worldly Tutor, nothing at all on Demonic Tutor.
+ * sample: a land-finder names a basic land subtype, the land zone, or the type.
+ * A real tutor names what it is actually looking for - `cares:type:artifact` on
+ * Urza's Saga and Inventors' Fair, a creature on Worldly Tutor, nothing at all
+ * on Demonic Tutor.
  *
- * Read as a player, the twenty-four most played on each side are all correct:
- * it removes Path to Exile, Cultivate, Farseek and the fetches; it keeps
- * Demonic, Vampiric, Enlightened, Mystical and Worldly Tutor, Gamble, Entomb,
- * Buried Alive, and the LANDS that genuinely tutor - Urza's Saga, Inventors'
+ * So the LANDS that genuinely tutor keep the role: Urza's Saga, Inventors'
  * Fair, Tolaria West, Sanctum of Ugin, Eye of Ugin.
  *
  * The one card it gets wrong is The World Tree, which searches for a God and
- * also says `cares:type:land` about itself. One card against 495.
+ * also says `cares:type:land` about itself.
  */
 const FINDS_A_LAND: ReadonlySet<string> = new Set([
   'cares:zone:library-land',
@@ -814,6 +808,36 @@ const FINDS_A_LAND: ReadonlySet<string> = new Set([
   'cares:sub:forest',
   'cares:sub:wastes',
 ]);
+
+/**
+ * The CONDITIONS on the facets above, in the words a player would use.
+ *
+ * `ROLE_FACETS` is a flat list and `/admin` -> Words draws it, so a role whose
+ * facets only count under a condition was being shown as if they always did.
+ * The standing rule is that any change to what the engine reads has to be
+ * visible on that screen in the same commit, and a qualifier is exactly that.
+ *
+ * It lives HERE, beside the function it describes, so the two cannot drift into
+ * different rooms. Every entry is a sentence about `facetRoleQualifies` below.
+ */
+export const ROLE_QUALIFIERS: Partial<Record<Role, readonly string[]>> = {
+  ramp: [
+    'A land is never ramp. It taps for mana because it is a land.',
+    'Putting a permanent onto the battlefield only counts when the permanent is a land, so Sneak Attack and Stoneforge Mystic are not mana.',
+  ],
+  tutor: [
+    'Finding a land is not tutoring. Cultivate and every fetch land are excluded, whether they name the land zone or a basic land type.',
+    "A land that finds something other than a land still counts: Urza's Saga, Inventors' Fair, Tolaria West.",
+  ],
+  enhance: [
+    'An aura or a piece of equipment always counts.',
+    'Anything else has to make your whole board bigger, not one creature.',
+  ],
+  protection: [
+    'The card has to GRANT the keyword, not merely have it. Darksteel Citadel is indestructible; Swiftfoot Boots grants it.',
+    'A spell, an aura or a piece of equipment counts on its own.',
+  ],
+};
 
 function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
   if (role === 'tutor' && facets.some(f => FINDS_A_LAND.has(f))) return false;
@@ -855,8 +879,6 @@ function facetRoleQualifies(role: Role, facets: readonly Facet[]): boolean {
     if (onlyClaim) return facets.includes('cares:type:land');
     return true;
   }
-  // Fetching a basic is ramp, not tutoring. Cultivate is not Demonic Tutor.
-  if (role === 'tutor') return !facets.includes('cares:zone:library-land');
 
   /*
    * A card that GRANTS a protective keyword, never one that merely HAS it.

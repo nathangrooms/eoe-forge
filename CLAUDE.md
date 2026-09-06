@@ -10302,3 +10302,32 @@ it is churn by this project's own standard.
 > LOUDEST want state one package instead of three - it is `doing x shapes` that
 > makes nine, and a want that matters could name one job well rather than three
 > thinly. That is a change to how packages are FORMED, not to how they are fed.
+
+### CORRECTION: Kinnan's own want gets 6 of his 14 slots, not 2
+
+The section above says his *"creatures that add mana" package took 2 slots while
+the shell's Acceleration took TEN*. **That compared one of his three add-mana
+packages against the shell's one.** Read whole, the build log says:
+
+    big creatures that add mana       2/2   Hulking Raptor ...
+    expensive cards that add mana     2/2   Caged Sun ...
+    creatures that add mana           2/2   Birds of Paradise ...
+
+**SIX of his fourteen own-package slots go to `eff:add-mana`**, which is 43% of
+his budget on his loudest want. The `doing x shapes` product that looked like
+dilution is the thing spending proportionally on it.
+
+Only four of the cards are CREATURES because two of the three shapes -
+`mv:big` and `mv:cheap` - do not require one, so `Caged Sun` fills a slot. **And
+that is correct for Kinnan**, whose ability reads *"whenever you tap a NONLAND
+PERMANENT for mana"*: a Caged Sun is exactly as doubled as a Llanowar Elf.
+
+> **So the shortfall is mostly the benchmark's typed floor.** Its job is written
+> as *"creatures that tap for mana, so Kinnan doubles them"* and counts only
+> creatures, while the commander's own text is about permanents. The engine is
+> spending his budget on his mechanic; the measure is narrower than the card.
+>
+> That does not make the whole row noise - naming a shell still costs him three
+> mana creatures - but it does mean the gap is much smaller than "2 against 10"
+> suggested, and three slot-policy changes measuring neutral is what that looks
+> like from the inside.

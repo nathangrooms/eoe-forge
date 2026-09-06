@@ -9147,3 +9147,44 @@ from Serpent. Card count is not it.
 > twenty-commander bench, run for a different reason, reported a job that had
 > been `ok 11/6` for weeks as `NONE 0/6`. A fixed list of commanders is exactly
 > the instrument a threshold fitted to a different fixed list cannot survive.
+
+## The combo lookup asks one colour key at a time now (6 Sep 2026)
+
+A real build failed while the database was otherwise healthy:
+
+    POST ai-deck-builder-v2 {"commander":{"name":"Ghave, Guru of Spores"}}
+    -> PostgREST 500 on combo_pool, 57014 statement timeout
+
+**It is not the index.** `combo_pool_key_pop_idx` is on `(identity_key,
+popularity DESC)` and serves ONE key in popularity order for free. Asked for all
+eight subsets of a three-colour identity at once, the planner cannot walk eight
+ordered ranges and merge them, so it bitmaps all eight, reads EVERY matching row
+from the heap and top-N sorts:
+
+    Bitmap Heap Scan  rows=18580  width=456  Heap Blocks: exact=2585
+    Buffers: shared hit=2626      Execution Time: 2196 ms
+
+Every buffer a CACHE HIT, so never IO and never a cold view - 18,580 wide rows
+materialised to return 400. **A five-colour identity has 32 keys and is worse.**
+
+`public.combos_for(text[], int)` asks one key at a time with a lateral, and
+`combosFor` calls it as an RPC:
+
+    EXPLAIN, healthy instance   2,196 ms -> 297 ms   7.4x
+    over HTTP, warm             0.23 s   -> 0.18 s
+    Ghave / Najeela / Atraxa    500/ok/ok -> all 200
+
+> **The warm HTTP gap is much smaller than the EXPLAIN gap**, because a warm
+> round trip is mostly transferring 400 rows of arrays. The EXPLAIN is the
+> number that predicts behaviour UNDER LOAD, which is exactly when the build
+> failed. Do not conclude from a warm curl that a 2 s query is fine.
+
+**This is the THIRD time this one query has been fixed**, and each fix was
+correct for the fault it addressed: `identity <@ '{R}'` could not serve an
+ordered LIMIT (3,328 ms), `fetchAll` silently rewrote the ordering to `id.asc`
+(9,280 ms), and now the planner will not merge eight ordered ranges (2,196 ms).
+A query every single build makes deserves an EXPLAIN whenever it is touched.
+
+`combo_pool` still has NO scheduled vacuum, unlike `cards_unique` (job 27) and
+`cards_pool` (job 28). It was not the cause here - it was vacuumed the same day
+and carried zero dead tuples - but the gap CLAUDE.md recorded is still open.

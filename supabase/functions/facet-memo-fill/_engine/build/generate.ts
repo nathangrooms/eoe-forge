@@ -2867,6 +2867,32 @@ const PACKAGE_MATCH = 0.6;
       }
     };
 
+    /*
+     * ANSWERS FIRST, WHILE THE DECK IS SHORT OF WHAT REAL DECKS HOLD.
+     *
+     * The flex pass places cards filling NO role the deck still needs, and it
+     * is 3 to 16 cards on a finished deck - so this is a SUBSTITUTION inside
+     * slots already being spent, not a new claim on the budget. That is the
+     * whole reason it is here and not earlier or later:
+     *
+     *   placing answers BEFORE the packages   keyed -82, packages -23, named -4
+     *   swapping for them at the END          shape 183 -> 179, ramp cascade
+     *   requiring the removal QUOTA to answer  changed NOTHING in either mode
+     *
+     * The quota loop is not the path. Measured across five commanders it
+     * assigns ONE OR TWO removal slots while the `commander` bucket - packages
+     * and the fit reserve - takes 26 to 40 cards. Interaction was never given a
+     * share of the budget, so the only place to find it without taking from the
+     * archetype is a pass already spending on cards the deck does not need.
+     *
+     * Bounded by the real tenth percentile: once the deck can answer six
+     * permanents this is a no-op, and a pool with nothing left falls through.
+     */
+    const answersSoFar = () =>
+      picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0);
+    if (answersSoFar() < REAL_DECK_ANSWERS_P10) {
+      takeFlex(card => answersAPermanent(card) && answersSoFar() < REAL_DECK_ANSWERS_P10);
+    }
     takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
     const beforeOverflow = creaturesPicked;
     takeFlex(() => true);
@@ -3124,6 +3150,27 @@ const PACKAGE_MATCH = 0.6;
       const outIdx = picked.findIndex(e => e.card.name === cut.name);
       if (outIdx < 0) continue;
       const outEntry = picked[outIdx];
+      /*
+       * A ROUND MAY NOT CUT THE DECK'S LAST WAYS TO ANSWER A PERMANENT.
+       *
+       * The rounds rank against the commander's plan, and a removal spell is a
+       * weak fit for almost every plan - so they cut answers first, which is
+       * how a deck that had reached the real-deck floor slid back under it.
+       * Measured: Lands matter went 5 answers to 3 with the flex pass placing
+       * them, because the rounds took them straight back out.
+       *
+       * Bounded on both sides so this is not the blanket ban CLAUDE.md records
+       * costing two jobs and three whole capabilities: it protects at most six
+       * cards, and only while the deck is BELOW what real Commander decks hold
+       * at the tenth percentile. Once it is at six, a round may cut one again.
+       */
+      if (
+        answersAPermanent(outEntry.card as BuildCard) &&
+        picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0) <=
+          REAL_DECK_ANSWERS_P10
+      ) {
+        continue;
+      }
       const outRoles = rolesOf(outEntry.card);
 
       const replacement = replacements.find(rec => {
@@ -3850,6 +3897,34 @@ const PLAYED_ENOUGH_RANK = 12_000;
  * an unplayed one, and a role the pool genuinely cannot fill any other way
  * still gets filled.
  */
+/**
+ * Can this card actually answer a permanent?
+ *
+ * `eff:damage` confers the `removal` role and cannot say whether the damage
+ * points at a creature or at a face, so a deck holding eight pings reads as
+ * fully stocked with removal and cannot kill anything. `deck-shape-check`
+ * counts the ROLE, so nothing complained. EDGAR MARKOV, in MARDU, came back
+ * holding exactly ONE card able to answer a permanent.
+ *
+ * Measured on the SAME metric over the 30 MTGJSON Commander decks whose cards
+ * all resolve in `cards_pool`, 6 Sep 2026:
+ *
+ *     real decks   min 4   p10 6   p50 9   p90 12   max 12
+ *     ours         TEN of eighteen strategy decks below that p10, two on ONE
+ *
+ * A HARD VERB ONLY. `eff:damage` is excluded, which undercounts a genuine burn
+ * spell - but both sides of the comparison are counted the same way, so the gap
+ * is real even though neither number is the whole truth. Widening it to damage
+ * is exactly what makes a ping look like removal again.
+ */
+const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-control'] as const;
+const REAL_DECK_ANSWERS_P10 = 6;
+
+function answersAPermanent(card: BuildCard): boolean {
+  const facets = (card as { facets?: readonly string[] }).facets ?? [];
+  return ANSWER_FACETS.some(f => facets.includes(f));
+}
+
 function playedFirst<T extends { card: CandidateCard }>(ranked: readonly T[]): T[] {
   const played: T[] = [];
   const fringe: T[] = [];

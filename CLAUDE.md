@@ -9952,3 +9952,60 @@ looked worse than it is on every run.
 nothing verified the mana base takes it. It does: Atraxa, Najeela, Teysa and
 Brago all hold it. Checked rather than assumed, because a 93% card arriving by
 accident is a card that can stop arriving by accident.
+
+## The Tribal shell asks for the same thing twice (6 Sep 2026)
+
+Measured on Lathliss, and it is seven of the Tribal shell's nine unfilled slots:
+
+    Paid for the type 7/9   Herald's Horn, Urza's Incubator, Patchwork Banner,
+                            Vanquisher's Banner, Progenitor's Icon, Pillar of
+                            Origins, Orcrist
+    The lords         2/9   Roaming Throne, Metallic Mimic
+
+**Both exemplar lists are entirely artifacts that care about a creature type.**
+"Paid for the type" is Vanquisher's Banner, Kindred Discovery, Herald's Horn,
+Urza's Incubator; "The lords" is Metallic Mimic, Adaptive Automaton, Icon of
+Ancestry, Door of Destinies. A package's wants are what its exemplars AGREE on,
+so both derive `type:artifact` plus a type-carer, they are the same package
+written twice, and whichever runs first takes the cards.
+
+`The lords` blurb is *anything reading "other creatures you control of the
+chosen type"*, which is a CREATURE LORD, and its four cards are colourless
+artifact stand-ins chosen because they work in any tribe.
+
+### REFUSED, measured: replacing the exemplars with real lords
+
+Three creature lords among five cards (Elvish Archdruid, Lord of Atlantis,
+Goblin King, Adaptive Automaton, Icon of Ancestry). The shared facets collapse
+to `eff:pump`, which is on a seventh of the pool, and the package filled
+**10/10 with Storm-Kiln Artist, Purphoros, Crashing Drawbridge, Captain Lannery
+Storm and Magda** - not one of them a Dragon lord. An honest 2 of 9 beats that,
+which is the verdict this file already reached for "The payoff".
+
+### REFUSED, measured: a tribe-STATED lords package
+
+The right shape on paper, and the same move `withTribePackage` already makes for
+the tribe itself: `cares:sub:<tribe>` + `eff:pump`, so the tribe is stated
+rather than derived. **The population is there in every tribe worth building** -
+goblin 35, elf 32, zombie 28, vampire 22, sliver 19, dragon 18, merfolk 18 - and
+the most played members are exactly right: Elvish Archdruid, Goblin Chieftain,
+Death Baron, Master of the Pearl Trident, Sliver Legion.
+
+    eighteen shells    keyed 1328 -> 1331, named 40 -> 38, ramp 311 -> 313
+                       Tribal: named 6/11 -> 4/11, ramp 23 -> 25 RAMP HIGH
+                       (over the real p90 of 21)
+    twenty commanders  46/71 -> 45/71 jobs, 4 zero groups unchanged
+    192 real decks     194/200, unchanged
+
+**The flat facet set is why.** Dragon lords came back as Magda, Brazen Outlaw,
+Nesting Dragon, Crucible of Fire and Ran and Shaw - and Magda's `cares:sub:dragon`
+and `eff:pump` come from DIFFERENT CLAUSES: she pumps DWARVES and tutors a
+Dragon. This file already records that "a conjunction over facets is only sound
+when the facets provably come from the same clause", and this is a third
+instance.
+
+> **The honest fix is editorial and is not a rule**: the two exemplar lists
+> should not both be all-artifact type-carers. Merging them, or making "The
+> lords" name the anthem effects and "Paid for the type" the card-advantage
+> ones, is a judgement about card lists rather than something to measure. It is
+> written down rather than guessed at.

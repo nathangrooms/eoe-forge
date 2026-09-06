@@ -9801,3 +9801,53 @@ said nothing about any of them.
 `ROLE_QUALIFIERS` lives beside `facetRoleQualifies` in `behaviour.ts`, in the
 words a player would use, and the screen renders it under each role. Same file
 so the two cannot drift into different rooms.
+
+## The engine SAID it had failed the commander, and nothing acted on it (6 Sep 2026)
+
+The build has printed *"still short of <commander>'s own asks: ..."* for weeks.
+Measured over the twenty benchmark commanders, **TWELVE OF TWENTY** ended short
+of a want the commander itself stated at weight 0.6 or above.
+
+**Prosper, Tome-Bound is the clearest.** His card is *"at the beginning of your
+end step, exile the top card of your library, you may play it"*. Asked for the
+**Value engine** shell - which he genuinely EARNS - his deck went from NINE
+cards carrying `eff:impulse` to **ZERO**, while the shell filled 27 of 27 of its
+own jobs. A shell taking 45% of the spells can leave the commander's defining
+mechanic completely unserved, and the build says so and carries on.
+
+    Prosper   0 -> 2 cards carrying eff:impulse
+    decks short of a loud want   12/20 -> 11/20
+    everything else              shells identical, shape 193/200, bench 46/71
+                                 5 zero groups, production 60/60
+
+### ONE DECK OF TWENTY, and the reason the rest do not move is the finding
+
+The remaining unserved wants are mostly EVASION GRANTS - `grants:unblockable`,
+`grants:flying`, `grants:trample` - plus `eff:recur-self` and
+`eff:play-from-graveyard`. Serving them means going past the p90 of what real
+decks hold in `enhance` and `protection`, and the role ceiling refuses that.
+
+**That refusal is correct and the ceiling is what makes it safe.** Without the
+check Giada came back with SIX protection against a real range of 0 to 5, and
+`deck-shape-check` caught it in the same run. The answers swap beside this one
+does not need a ceiling check because both cards carry `removal` and the count
+never moves; this one trades ACROSS roles, so it does.
+
+> **The general shape, and this is the fourth instance today.** A pass that
+> guarantees a floor has to be a SWAP rather than an addition, must never hand
+> over a card people play for one they do not, must not take the last card doing
+> some other job, and if it trades across roles it must respect the role
+> ceiling. Ramp, answers, tribe and now the commander's own asks all have the
+> same four guards.
+
+### And the note moved to the END of the build
+
+It was computed inside the RESERVE pass, so it described the deck as that pass
+left it - and then the swap above fixed some of what it named, leaving the note
+claiming a shortfall the finished deck did not have. Same fault the role-gap
+clauses had on 5 Sep: **a sentence a player disproves by counting the cards in
+front of them is worse than no sentence.**
+
+`scratch/_short.mjs` reports it over all twenty. Note that moving the note
+changed the measurement too, so the honest baseline was taken with the same note
+and the swap disabled (`COMMANDER_ASK_SWAPS = 0`), not against the old figure.

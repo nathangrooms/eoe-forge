@@ -2842,8 +2842,11 @@ const PACKAGE_MATCH = 0.6;
       return [...usefulPlayed, ...usefulRest, ...idle];
     })();
 
-    const takeFlex = (wanted: (card: BuildCard) => boolean) => {
-      for (const rec of flexOrder) {
+    const takeFlex = (
+      wanted: (card: BuildCard) => boolean,
+      order: typeof flexOrder = flexOrder
+    ) => {
+      for (const rec of order) {
         if (picked.length - chosenLands.length >= spellSlots) break;
         const card = rec.card as BuildCard;
         if (takenOracleIds.has(card.oracleId)) continue;
@@ -2892,7 +2895,123 @@ const PACKAGE_MATCH = 0.6;
     const answersSoFar = () =>
       picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0);
     if (answersSoFar() < answerFloor) {
-      takeFlex(card => answersAPermanent(card) && answersSoFar() < answerFloor);
+      /*
+       * FROM THE WHOLE RANKED POOL, NOT THE SHORTLIST, which is what the ramp
+       * guarantee already does and what this pass was missing.
+       *
+       * `flexOrder` is built from `rerank`, which ranks the SHORTLIST - the
+       * cards this commander scores well on. A removal spell is a weak fit for
+       * almost every plan, so for a commander like INFERNO OF THE STAR MOUNTS
+       * the shortlist held no hard answer at all: the deck came back with 21
+       * flex cards, ZERO of them able to answer a permanent, while mono-red has
+       * 185 played cards that can.
+       *
+       * Same slots, same ordering rules - played first, role ceiling, colour
+       * cap - only a candidate list wide enough to contain the answer.
+       */
+      /*
+       * CHEAP FILTER FIRST, AND BOUNDED. The first version ran
+       * `worksAgainstPlan` over every card in a 5,000-card pool and sorted the
+       * result: build time went from a 1.7 s median and a 4 s worst case to
+       * 2.7 s and TWENTY-ONE SECONDS, and one commander in forty failed
+       * outright. A pass that fixes interaction and breaks a build is not a fix.
+       *
+       * `answersAPermanent` is an array lookup, so filtering on it alone is
+       * affordable; the expensive per-card checks move into the predicate,
+       * where `takeFlex` runs them only for cards it actually reaches. The
+       * bound is generous next to a floor of at most eight.
+       */
+      const answerOrder = playedFirst(
+        rankedSpells.filter(
+          rec => !takenOracleIds.has((rec.card as BuildCard).oracleId) &&
+            answersAPermanent(rec.card as BuildCard)
+        ).slice(0, 300)
+      ) as typeof flexOrder;
+      takeFlex(
+        card =>
+          answersAPermanent(card) &&
+          answersSoFar() < answerFloor &&
+          !worksAgainstPlan(commanderPlan, card),
+        answerOrder
+      );
+
+      /*
+       * AND IF THE ROLE IS FULL OF PINGS, TRADE ONE FOR A REAL ANSWER.
+       *
+       * This is the whole diagnosis, and nothing else reaches it. Inferno of
+       * the Star Mounts came back holding TWENTY cards with the `removal` role
+       * - exactly its p90 ceiling - of which THREE could answer a permanent.
+       * Every one of the 300 candidates above was refused, all 300 by the
+       * removal ceiling. The role was full of cards that do not do its job, so
+       * the deck was locked out of removal by its own removal count.
+       *
+       * A SWAP, NOT AN ADDITION, which is what makes it safe. Both cards carry
+       * `removal`, so the role count does not move and no ceiling, floor or
+       * budget changes - the earlier floor-guarantee attempt swapped the worst
+       * card in the DECK and cascaded, taking two decks over the ramp p90
+       * without a ramp card moving. Here only the composition of one role
+       * changes.
+       *
+       * Never trades a played card for an unplayed one, the same rule the ramp
+       * guarantee and `deck-optimizer` both use, and never gives up a preferred
+       * card or the last of some other job.
+       */
+      for (const rec of answerOrder) {
+        if (answersSoFar() >= answerFloor) break;
+        const incoming = rec.card as BuildCard;
+        if (takenOracleIds.has(incoming.oracleId)) continue;
+        if (overColourlessCap(incoming)) continue;
+        if (worksAgainstPlan(commanderPlan, incoming)) continue;
+        const inRank = incoming.edhrecRank ?? Number.MAX_SAFE_INTEGER;
+
+        let worstAt = -1;
+        let worstScore = Infinity;
+        for (let i = 0; i < picked.length; i++) {
+          const entry = picked[i];
+          const card = entry.card as BuildCard;
+          if (entry.preferred || preferred.has(card.oracleId)) continue;
+          if (isLandCandidate(card)) continue;
+          if (answersAPermanent(card)) continue;
+          const roles = rolesOf(card);
+          if (!roles.has('removal')) continue;
+          /* Only the removal role may be given up here: anything else this card
+             does must survive the trade, or a swap that fixes interaction
+             leaves a different job short. */
+          let lastOfSomething = false;
+          for (const r of roles) {
+            if (r === 'land' || r === 'removal') continue;
+            if (!rolesOf(incoming).has(r) && carriedCount(r) - 1 < (targets[r] ?? 0)) {
+              lastOfSomething = true;
+              break;
+            }
+          }
+          if (lastOfSomething) continue;
+          if ((card.edhrecRank ?? Number.MAX_SAFE_INTEGER) < inRank) continue;
+          const score = entry.score ?? 0;
+          if (score < worstScore) { worstScore = score; worstAt = i; }
+        }
+        if (worstAt < 0) continue;
+
+        const outgoing = picked[worstAt].card as BuildCard;
+        takenOracleIds.delete(outgoing.oracleId);
+        takenOracleIds.add(incoming.oracleId);
+        if (!hasColour(incoming) && hasColour(outgoing)) colourlessPicked += 1;
+        if (hasColour(incoming) && !hasColour(outgoing)) colourlessPicked -= 1;
+        picked[worstAt] = {
+          card: incoming,
+          quantity: 1,
+          reason: rec.reason,
+          score: rec.score,
+          bucket: 'removal',
+          preferred: false,
+        };
+        carriedStamp += 1;
+        notes.push(
+          `${outgoing.name} out for ${incoming.name}: this deck had ${answersSoFar() - 1} ways to ` +
+            `answer a permanent and real decks in these colours run ${answerFloor}. ` +
+            `Dealing one damage is not removal.`
+        );
+      }
     }
     takeFlex(card => !cardRole(card, 'creature') || creaturesPicked < creatureFloor);
     const beforeOverflow = creaturesPicked;

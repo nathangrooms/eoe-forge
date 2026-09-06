@@ -33,8 +33,50 @@ try {
 }
 const H = { apikey: K, Authorization: `Bearer ${K}` };
 
+/*
+ * THE YARDSTICK MOVES WITH THE VOCABULARY, or it is not a yardstick.
+ *
+ * `DM_CURATED` applies the hand review to the REAL decks too. This file's own
+ * header already says the comparison has to ask the same question of both
+ * sides, and CLAUDE.md records the bug from the other direction: measuring a
+ * `cardRole` change against bands derived under the OLD rule reported ramp as
+ * broken on 16 of 20 decks when nothing was wrong.
+ *
+ * So a review that changes what 6,453 cards say has to re-derive these bands
+ * before any deck is judged against them.
+ */
+const CURATION = new Map();
+if (process.env.DM_CURATED) {
+  const file = process.env.DM_CURATED_FILE ?? 'docs/review/wb-card-review.json';
+  const mode = process.env.DM_CURATED;
+  for (const c of JSON.parse(readFileSync(file, 'utf8')).kept ?? []) {
+    CURATION.set(c.name, {
+      add: mode === '1' || mode === 'add' ? c.add ?? [] : [],
+      remove: new Set(mode === '1' || mode === 'remove' ? c.remove ?? [] : []),
+    });
+  }
+  console.log(`curation: ${CURATION.size} cards from ${file} (${mode})`);
+}
+
+function curate(row) {
+  const fix = CURATION.get(row.name);
+  if (!fix || !Array.isArray(row.facets)) return row;
+  const out = row.facets.filter(f => !fix.remove.has(f));
+  for (const f of fix.add) if (!out.includes(f)) out.push(f);
+  return { ...row, facets: out };
+}
+
 async function page(path, from = 0, size = 1000, acc = []) {
-  const res = await fetch(`${URL}/${path}&limit=${size}&offset=${from}`, { headers: H });
+  /* RETRY, because a chunked read of 6,000 oracle ids is exactly the shape that
+     meets a 57014 when the instance is busy, and losing the whole derivation to
+     one slow chunk wastes the twenty minutes before it. */
+  let res;
+  for (let attempt = 0; ; attempt++) {
+    res = await fetch(`${URL}/${path}&limit=${size}&offset=${from}`, { headers: H });
+    if (res.ok) break;
+    if (attempt >= 4) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+    await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+  }
   if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
   const rows = await res.json();
   acc.push(...rows);
@@ -59,12 +101,12 @@ console.log(`${decks.length} commander decks, ${cards.length} deck-card rows (of
 const wanted = [...new Set(cards.map(c => c.oracle_id))];
 console.log(`${wanted.length} distinct cards to resolve`);
 const byOracle = new Map();
-for (let i = 0; i < wanted.length; i += 150) {
-  const chunk = wanted.slice(i, i + 150);
+for (let i = 0; i < wanted.length; i += 80) {
+  const chunk = wanted.slice(i, i + 80);
   const rows = await page(
     `cards_pool?select=oracle_id,name,type_line,cmc,facets,tags&oracle_id=in.(${chunk.join(',')})`
   );
-  for (const r of rows) if (!byOracle.has(r.oracle_id)) byOracle.set(r.oracle_id, r);
+  for (const r of rows) if (!byOracle.has(r.oracle_id)) byOracle.set(r.oracle_id, curate(r));
 }
 console.log(`${byOracle.size} resolved in cards_pool\n`);
 

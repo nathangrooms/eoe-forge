@@ -9253,3 +9253,88 @@ because it creates two Treasures - for the spell's CONTROLLER, who is the
 opponent. The whole population of that shape is 12 cards and only three are
 played at all, so it is not worth a rule; it is recorded because a top-40 card
 carrying a wrong role will keep turning up in these reads.
+
+## A build took 70 seconds of CPU, and two suspects were cleared first (6 Sep 2026)
+
+A 60-commander sweep failed on PROGENITUS with 546 WORKER_RESOURCE_LIMIT, every
+attempt. Reproduced locally with the pool served from a tape in ONE MILLISECOND:
+**70,343 ms**. Pure computation, no network.
+
+A CPU profile put 60 of the 70 seconds inside `castability.collapse` and `step`.
+**THREE PLACES CALL IT AND TWO WERE MEASURED AND CLEARED:**
+
+    the land walk         45 exact solves in  4 ms
+    the ranker's memo    370 exact solves in 44 ms
+    solveRampFloor        the other 60 seconds
+
+> **Walk the profile's CALL TREE, not its self-time.** All three sit under the
+> same three frames (`collapse` <- `castability` <- `cardPlayability`), so the
+> flat list named the innermost function and said nothing about which caller was
+> paying. Two separate fixes were written and measured at ZERO before the tree
+> was read.
+
+### Why `solveRampFloor` was the cost, and bisection is the fix
+
+It asks "how many accelerants make this deck's top end castable" by walking rock
+counts 0..20 and running the whole probe set at each - an exact multivariate
+hypergeometric per probe. The module header records Progenitus's ten pips across
+five colours solving in ~175 ms, which is TRUE and is the whole problem: the
+walk asks a couple of hundred times.
+
+**The predicate is monotonic** - an accelerant replaces a filler spell with a
+mana source, so castability can only rise - so the smallest count meeting
+comfort is a boundary a bisection finds EXACTLY. 21 questions become about 5.
+
+    Progenitus, local, tape-served pool   70,343 ms -> 11,721 ms
+    eighteen shells                       0 of 18 moved, every column identical
+    192 real decks / twenty commanders    182/200 and 47/71, both unchanged
+    DEPLOYED, forty random commanders     slowest build 3,413 ms -> 2,342 ms
+
+**0 of 18 shells moved is the proof the bisection changes no answer.** A faster
+build that picked different cards would be a different feature.
+
+**A memo by (rocks, cost) does NOTHING and was tried first:** every rock count
+builds a different mana base, so no two questions share a key. Asking fewer
+questions was the only lever.
+
+Two smaller fixes kept because each is correct on its own terms: the land walk
+memoises by (land count, cost), and the ranker's castability memo now hangs off
+the MANA profile rather than the DECK profile. `cardPlayability(card, mana)`
+reads the mana profile and the cost and nothing else, so keying on the deck
+profile was strictly too narrow - a build makes a new `DeckProfile` per pass
+while handing most of them the same `provisionalMana`.
+
+### The combo query needs BOTH shapes, and an index it never had
+
+Asking one key at a time is right for a narrow identity and wrong for a wide
+one. The plain popularity walk is the reverse:
+
+                        mono-red      five colours
+    per-key lateral       579 ms         8,648 ms
+    popularity walk     7,998 ms             1 ms
+
+A five-colour identity matches EVERY combo - the filter removed 368 of 56,240
+rows - so 32 ordered ranges of 400 is 12,800 rows to return 400. A mono-red
+identity is the opposite: the popularity walk throws away 5,875 rows to find
+400, scattered across the heap, which is **27 ms warm and EIGHT SECONDS cold**.
+
+`combos_for` picks by key count now, and `combo_pool_popularity_idx` is what
+makes the wide case possible at all.
+
+> ⚠️ **That index must be recreated if `combo_pool` is rebuilt.** There are four
+> now: id, (identity_key, popularity DESC), gin(oracle_ids), and popularity.
+>
+> ⚠️ **This query has now been fixed FOUR times** and each fix was right for the
+> fault it addressed: `identity <@ '{R}'` could not serve an ordered LIMIT,
+> `fetchAll` silently rewrote the ordering to `id.asc`, the planner would not
+> merge eight ordered ranges, and now one shape cannot serve both widths. A
+> query every build makes deserves an EXPLAIN at BOTH ENDS of its input range
+> whenever it is touched - measuring only three colours is what let the
+> five-colour case ship broken.
+
+### Still failing: Progenitus alone
+
+546 at 6.7 s, down from 15 s. Locally 11.7 s, of which about 3.3 s is
+`computePower` re-evaluating the deck once per review round and 1.6 s is what
+remains of the ramp solve. One commander in sixty, and the only one measured
+that cannot build.

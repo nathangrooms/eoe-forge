@@ -7963,6 +7963,41 @@ rewriting it is editorial rather than measured.
 > is 5 of 53. **Two of the three "verbless" packages in the first run were an
 > artefact of the missing normaliser.**
 
+## The `granted-ability` gap, sized: what it needs and what it unlocks
+
+`clause-rules.ts` reads "Creatures you control have flying" and produces
+`{layer:'ability', grant:['flying']}`. It reads **"Creatures you control have
+\"{T}: Add one mana of any color\""** and produces `manual` with NO EFFECTS AT
+ALL. The rule's own comment declares this: *"KEYWORDS ONLY: granting a whole
+nested ability is the declared `granted-ability` gap"*.
+
+    Cryptolith Rite    #690    Enduring Vitality  #431
+    Elven Chorus      #1372    Paradise Mantle   (equipped variant)
+
+A card that turns your whole board into mana dorks contributes NOTHING to the
+ramp role, which is the one non-negotiable role in this engine.
+
+**What it needs, measured rather than guessed.** Two things, and the second is
+why this was not done on 6 Sep:
+
+1. `Modification` must carry the granted ability, not just keyword strings:
+   `{ layer:'ability'; grant?: string[]; remove?: string[]; grantAbility?: Ability[] }`.
+   That change is one line and `tsc` is clean with it.
+2. **`clause-rules.ts` imports TYPES ONLY from `dsl.ts` and can reach no
+   compiler function.** Compiling the quoted ability needs either an import of
+   `compiler.ts` - which imports `clause-rules` and would be circular - or a
+   compile hook threaded through `BuildCtx`. The hook is the right answer and it
+   is a refactor, not a rule.
+
+> **The DSL field was written and then REVERTED.** An optional field nothing
+> produces is decoration, and this file records five words shipped without a
+> consumer. It goes in with the hook or not at all.
+
+**Sizing.** This is the DSL half of the route-to-full split: 6,197 cards are
+blocked by markers rather than by unread text, and a granted ability is one of
+the marker shapes. The four named above are the mana cluster; the general form
+covers every "creatures you control have <quoted>".
+
 ## `combo_pool` HAD NEVER BEEN VACUUMED, and every build fetches combos
 
     last_vacuum   NULL          56,240 rows

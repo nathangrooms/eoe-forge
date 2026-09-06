@@ -9520,3 +9520,54 @@ one it replaces.
 > passes. `deck-optimizer` shares the ENGINE by vendoring but not the policy
 > around it. Anything learned about what a swap may do should be checked in both
 > places - the generator's ramp guarantee, its answer swap, and this.
+
+## A Sliver deck with no Slivers: the pool is ranked and a tribe is not (6 Sep 2026)
+
+**SLIVER HIVELORD came back with ZERO SLIVERS in 99 cards and SIX PER CENT keyed
+synergy.** Nothing was wrong with the plan - it asked for `sub:sliver` correctly
+and the build log said so twice: *"The slivers 0/7"* and *"still short of Sliver
+Hivelord's own asks"*.
+
+The pool is the top N by popularity. **A tribe's members are played only in that
+tribe's decks, so they rank badly and a bounded pool holds none of them:**
+
+    slivers in the catalogue      115
+    ...in the top 2,500 by rank     0     best rank 3,153
+    five-colour pool budget     2,500     median sliver rank 11,177
+
+**IT IS NOT ONE TRIBE.** Of the tribes with 40 or more members, Hero has 0 in
+the top 2,500, Mutant 1, Villain 2, Robot 2, Rat 2, Ally 3, Spider 3, Ninja 3.
+Any tribal commander whose identity forces a small budget was building a deck
+without its tribe, and five colours forces the smallest budget there is.
+
+**TWO PLACES CUT IT, AND FIXING ONE ALONE DID NOTHING.** `catalog.poolFor`
+fetches the commander's tribe whatever its rank - bounded at 300, only when a
+tribe exists - and the pipeline's own budget slice keeps those rows instead of
+throwing them straight back out. With only the fetch, the deck still had zero
+Slivers and the log read *"ranking the top 2500 of 3312; 812 not considered"*.
+The Slivers were all 812.
+
+    Sliver Hivelord   0 Slivers -> 19, keyed 6% -> 36%
+                      "The slivers 0/7" -> "7/7"
+    decks under 30% keyed, sixty commanders   1 -> 0
+    slowest build                    10,068 ms -> 2,971 ms
+
+### STATE_BOUND 1e9 -> 3e8 was needed with it, and it is a real trade
+
+A deck that now holds its tribe holds more coloured costs, and Sliver Hivelord
+went over the worker's CPU budget on every attempt until FOUR-colour costs
+joined five-colour ones on the approximation. It is flagged, not silent, and a
+four-colour deck's castability is now approximate.
+
+    eighteen shells    0 of 18 moved, every column identical
+    192 real decks     185/200, unchanged
+    twenty commanders  47/71 jobs, 5 zero groups, unchanged
+
+> The eighteen shells cover one to three colours and their tribes are already
+> in-pool, so their being identical proves this touches only the decks it was
+> built for. **It does not prove the STATE_BOUND trade is free.**
+
+> ⚠️ **A CHANGE TO WHAT IS FETCHED NEEDS A FRESH TAPE.** `poolFor` gained an
+> argument, so every recorded call key changed and the replay threw - which is
+> the guard working. `compare-shells.mjs` refused the run rather than comparing
+> against a throw. Re-record before comparing.

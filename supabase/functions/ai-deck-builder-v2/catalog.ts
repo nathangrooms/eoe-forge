@@ -786,7 +786,29 @@ export class Catalog {
       `${POOL_TABLE}?select=${encodeURIComponent(select)}` +
         `&legalities->>${encodeURIComponent(fmt)}=eq.${query.legalityFilter.equals}` +
         `&color_identity=cd.${encodeURIComponent(identity)}` +
-        `&type_line=ilike.${encodeURIComponent('*Land*')}`
+        /*
+         * `like`, NOT `ilike`. Scryfall CASES its type lines, so `*Land*`
+         * matches exactly what `*land*` did - and CLAUDE.md already measured
+         * the difference at 12x on a matview scan of `cards_unique`, which is
+         * the fat 77 MB one.
+         *
+         * Measured again 6 Sep 2026 on the five-colour identity, which has the
+         * largest land pool there is:
+         *
+         *     ilike, cold   2.40 s        like, cold   0.28 s
+         *     ilike, warm   0.24 s        like, warm   0.29 s
+         *
+         * Warm they are the same and cold it is 8x, which is the case that
+         * matters: PROGENITUS's pool fetch was measured at 18,128 ms in
+         * production - `2500 rows + 1194 land rows` - and the CPU budget is
+         * spent across the WHOLE request, so a slow fetch is what the build
+         * does not have left. He returned 546 on every attempt.
+         *
+         * The leading wildcard stays because the type genuinely has to be
+         * matched mid-string ("Legendary Land — Urza's Saga"), so this cannot
+         * use an index either way. Making each row cheaper is the lever.
+         */
+        `&type_line=like.${encodeURIComponent('*Land*')}`
     );
 
     /*

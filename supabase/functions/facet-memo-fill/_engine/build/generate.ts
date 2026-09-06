@@ -2628,6 +2628,7 @@ const PACKAGE_MATCH = 0.6;
    * still gets a full creature count rather than a short deck.
    */
   const tribeMemberFacet = commanderPlan.tribe ? `sub:${commanderPlan.tribe}` : null;
+  const roundsTribeFacet = tribeMemberFacet;
   if (tribeMemberFacet !== null) {
     const isTribeMember = (card: BuildCard): boolean =>
       ((card as { facets?: readonly string[] }).facets ?? []).includes(tribeMemberFacet);
@@ -2653,7 +2654,6 @@ const PACKAGE_MATCH = 0.6;
      * Tribe members ARE creatures, so filling the tribe also serves the
      * creature floor - the unrestricted call below simply has less to do.
      */
-    const TRIBE_FLOOR = 20;
     fillTo(
       () => tribeHeld() >= TRIBE_FLOOR || creaturesPicked >= creatureFloor + 8,
       card => cardRole(card, 'creature') && isTribeMember(card),
@@ -3338,6 +3338,34 @@ const PACKAGE_MATCH = 0.6;
         answersAPermanent(outEntry.card as BuildCard) &&
         picked.reduce((n, e) => (answersAPermanent(e.card as BuildCard) ? n + 1 : n), 0) <=
           answerFloorFor(input.commander.colorIdentity ?? [])
+      ) {
+        continue;
+      }
+      /*
+       * AND A ROUND MAY NOT CUT A TRIBAL DECK BELOW ITS TRIBE.
+       *
+       * Same shape and the same reason. A tribe member is a weak fit for the
+       * commander's plan whenever the plan's loud wants are about what the deck
+       * DOES rather than what it is made of, so the rounds reach for them
+       * first: measured on Sliver Hivelord, "round 3: Bonescythe Sliver out
+       * (5.6, weak fit) for Birds of Paradise (7.2)".
+       *
+       * Bounded the same way - only while the deck is below the floor real
+       * tribal decks sit at, so a deck already holding its twenty may still
+       * trade one for something better.
+       */
+      if (
+        roundsTribeFacet !== null &&
+        ((outEntry.card as { facets?: readonly string[] }).facets ?? []).includes(
+          roundsTribeFacet
+        ) &&
+        picked.reduce(
+          (n, e) =>
+            ((e.card as { facets?: readonly string[] }).facets ?? []).includes(roundsTribeFacet!)
+              ? n + 1
+              : n,
+          0
+        ) <= TRIBE_FLOOR
       ) {
         continue;
       }
@@ -4107,6 +4135,21 @@ const ANSWER_FACETS = ['eff:destroy', 'eff:exile', 'eff:neutralise', 'eff:gain-c
 function answerFloorFor(identity: readonly string[]): number {
   return identity.includes('G') ? 5 : 8;
 }
+
+/*
+ * WHAT REAL TRIBAL DECKS HOLD OF THEIR OWN TRIBE.
+ *
+ * Each of the 30 MTGJSON Commander decks' LARGEST single creature subtype,
+ * keeping the ones that are genuinely tribal rather than incidentally full of
+ * Humans:
+ *
+ *     sliver 41 · eldrazi 33 · eldrazi 33 · shapeshifter 21 · gate 19
+ *
+ * There is a real Sliver deck in that data running FORTY-ONE Slivers, and ours
+ * ran 19. Twenty is below every one of those, which is the conservative end of
+ * a small sample and the same p10-shaped choice ramp and lands already get.
+ */
+const TRIBE_FLOOR = 20;
 
 function answersAPermanent(card: BuildCard): boolean {
   const facets = (card as { facets?: readonly string[] }).facets ?? [];

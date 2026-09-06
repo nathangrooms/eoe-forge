@@ -9905,3 +9905,50 @@ looked like a ranking failure for two sessions. Calling `packagesForCommander`
 directly and printing the COUNT is what found it, and the count was zero for
 half the field. `scratch/_pkgs.mjs` does that; `scratch/_freq.mjs` prints a
 commander's loud wants beside how much of the pool carries each.
+
+## "82 of 94 staples" was grading the decks against our opinion (6 Sep 2026)
+
+`deployed-deck-sweep.mjs` marked a build down for missing any of nine cards,
+under a comment reading *"deliberately short and uncontroversial: a Commander
+player notices the ABSENCE of every one of these"*. That is an opinion, and the
+standard here is that a deck is good when it measures well against REAL decks
+and never against one.
+
+`scripts/probe/real-deck-staples.mjs` asks the 192 MTGJSON Commander decks,
+counting a deck only where its OWN COMMANDER'S colour identity allows the card:
+
+    Sol Ring             188/192   98%      Swords to Plowshares  41/108  38%
+    Command Tower        178/192   93%      Cultivate             43/98   44%
+    Arcane Signet        139/192   72%      Swiftfoot Boots       42/192  22%
+                                            Lightning Greaves     41/192  21%
+                                            Counterspell           4/108   4%
+                                            Demonic Tutor          0/96    0%
+
+**Two of the nine appear in zero or four real decks**, and TWELVE of the
+fourteen-deck sweep's "missing staples" were Demonic Tutor and Counterspell.
+
+    MEASURED staples across 14 deployed decks   42/42
+    all nine                                    82/94, still printed
+
+The headline counts the three a real deck almost always runs. The other six are
+still checked and printed, because their absence is worth SEEING; it is a
+question rather than a fault.
+
+> ⚠️ **RANK AND THIS SAMPLE DISAGREE ABOUT BOOTS AND GREAVES, and neither is
+> discarded.** Precons are budget products, which under-represents an expensive
+> card for a reason that is not deck construction - that does not rescue Demonic
+> Tutor at 0 of 96, and it does not explain Lightning Greaves at 21% when EDHREC
+> rank 13 says players run it constantly. The generator still places both by
+> name. **Do not remove a named staple on this sample alone.**
+
+This also confirms yesterday's note: CLAUDE.md already recorded Demonic Tutor at
+0 of 17 black decks and Counterspell at 0 of 21 blue, and declined to act. The
+missing piece was that the SWEEP was still grading against them, so the product
+looked worse than it is on every run.
+
+### And Command Tower is a measured staple nobody had checked
+
+93% of real decks run it, it is a LAND so no named-staple pass places it, and
+nothing verified the mana base takes it. It does: Atraxa, Najeela, Teysa and
+Brago all hold it. Checked rather than assumed, because a 93% card arriving by
+accident is a card that can stop arriving by accident.

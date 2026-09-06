@@ -9338,3 +9338,85 @@ makes the wide case possible at all.
 `computePower` re-evaluating the deck once per review round and 1.6 s is what
 remains of the ramp solve. One commander in sixty, and the only one measured
 that cannot build.
+
+## The mana base was built by scanning a 187 MB matview (6 Sep 2026)
+
+`landPoolFor` is the ONE caller that genuinely needs `oracle_text` - it is how
+the deck learns what a land taps for - so it read `cards_unique` and scanned it
+for the ~1,200 land rows. Production measured that fetch on the SAME commander:
+
+    pool: 2500 rows + 1194 land rows -> 2500 printings in    355 ms
+                                                          2,187 ms
+                                                         11,819 ms
+                                                         15,763 ms
+                                                         18,128 ms
+
+**The spread IS the bug.** An edge function spends its CPU budget across the
+WHOLE request, so a slow fetch is what the build does not have left. PROGENITUS
+returned 546 WORKER_RESOURCE_LIMIT on every attempt and each retry warmed the
+cache a little further until one succeeded - which a player experiences as "it
+works sometimes".
+
+    cards_unique      187 MB   894-1,565 ms for that query
+    cards_land_pool   728 kB          18 ms
+
+**728 kB stays resident, so the cold case stops existing rather than being made
+faster.** A partial index on `cards_unique` was tried first and is kept: it
+removed a 721 ms bitmap (the planner was ANDing 31,829 legality rows against
+1,235 land rows) but not the heap fetches. The narrow view removes both.
+
+`type_line=ilike` also became `like` - Scryfall CASES its type lines, and
+CLAUDE.md had already measured `ilike` at 12x on this view. Cold 2.40 s ->
+0.28 s, warm the same either way.
+
+> ⚠️ **It carries COMMANDER legality and nothing else**, exactly like
+> `cards_pool`, so `landPoolFor` branches on format. Reading `commander_legal`
+> for a Standard deck would not error - it would quietly build the wrong pool.
+>
+> ⚠️ **It is derived from `cards_unique` and must move with it.**
+> `refresh_cards_unique` refreshes all three views now, CONCURRENTLY. The
+> migration REFUSES TO APPLY if that function does not name it, because a view
+> silently describing last week's catalogue is a failure this project has
+> already had twice.
+>
+> There are FOUR vacuum jobs now, staggered five minutes apart: cards_unique
+> 07:00, cards_pool 07:05, combo_pool 07:10, cards_land_pool 07:15.
+
+### STATE_BOUND 4e9 -> 1e9, and it is a real trade
+
+Four- and five-colour costs still solved exactly at about 512 ms each, and a
+five-colour deck holds several. Lowering the bound sends those down the
+approximation the module already uses for harder costs, and it is FLAGGED
+rather than silent.
+
+    Progenitus, local   4,839 ms -> 2,491 ms, power 6.9 -> 6.7
+    eighteen shells     0 of 18 moved, every column identical
+    192 real decks      182/200, unchanged
+
+**The shells cover one to three colours, so their being identical proves this
+touches only wide decks - it does not prove the trade is free.** It is not: a
+five-colour deck's castability is now approximate and its score moves about 0.2.
+A deck that does not build is worse than a deck scored 0.2 lower.
+
+### What it did to the whole sweep
+
+    SIXTY random commanders, seed 7, DEPLOYED
+                            before            after
+      built                 59/60             60/60
+      build time, median    3,611 ms          1,751 ms
+      build time, slowest   24,917 ms         3,160 ms
+      keyed median          80%               80%, 0 decks generic
+      answers under p10     8/59              8/60
+
+    single commanders, before -> after
+      Progenitus   546 every attempt  ->  200 at 5.1 s cold, then 1.0 s
+      Najeela      7.5 s              ->  1.0 s
+      Atraxa       ~4 s               ->  2.0 s
+      Krenko       4.9 s              ->  2.0 s
+
+> **The lesson about measuring this.** Every timing taken between 05:30 and
+> 06:30 was worthless: the database was saturated by this session's own probe
+> load, single-row reads passed the gate at 0.04 s while a 1,009-buffer
+> ALL-CACHE-HIT query measured 1,565 ms. The gate is a single-row read and does
+> not detect starvation of a bigger query. When a plan's buffers are all hits
+> and it is still slow, stop tuning and wait.

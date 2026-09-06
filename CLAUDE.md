@@ -10004,8 +10004,20 @@ Dragon. This file already records that "a conjunction over facets is only sound
 when the facets provably come from the same clause", and this is a third
 instance.
 
-> **The honest fix is editorial and is not a rule**: the two exemplar lists
-> should not both be all-artifact type-carers. Merging them, or making "The
-> lords" name the anthem effects and "Paid for the type" the card-advantage
-> ones, is a judgement about card lists rather than something to measure. It is
-> written down rather than guessed at.
+### REFUSED, measured: making "The lords" purely anthems
+
+The third attempt, and the one the blurbs argue for: replace the two
+counter-makers with two more artifacts that give +1/+1 to a chosen type, so the
+list is Adaptive Automaton, Icon of Ancestry, Patchwork Banner, Obelisk of Urd
+and `eff:pump` joins `type:artifact` as something they all agree on.
+
+**It changed nothing. THE LORDS 2/9 with the same two cards**, and Patchwork
+Banner - now one of its own exemplars - was taken by "Paid for the type" before
+it ran.
+
+> **So the exemplar list is not the constraint; the COMPETITION is.** Two
+> packages in one shell deriving near-identical wants will always leave the
+> second starving, whatever either list says, because the first one picks. The
+> fix is to drop one or genuinely merge them, which is a judgement about card
+> lists rather than something a rule can decide. Three attempts, all measured,
+> all recorded - **do not spend a fourth session on the exemplars.**

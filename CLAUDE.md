@@ -8835,3 +8835,89 @@ Reverted. Worth knowing for the next attempt: reading the population found the
 rule would also have been wrong as a filter - Eiganjo, Walking Ballista,
 Voracious Hydra, Ulvenwald Tracker and Apex Altisaur are permanents whose only
 removal facet is damage and which genuinely do kill creatures.
+
+## Our decks answer 5 permanents; real Commander decks answer 9 (6 Sep 2026)
+
+The `removal` ROLE is conferred by `eff:damage`, which cannot say whether the
+damage points at a creature or at a face. So a deck holding eight pings reads as
+fully stocked with removal and cannot kill anything, and `deck-shape-check` -
+which counts the ROLE - says it is fine.
+
+**Edgar Markov, in MARDU, came back holding exactly ONE card able to answer a
+permanent.** Measured on the SAME metric on both sides, over the 30 MTGJSON
+Commander decks whose cards all resolve in `cards_pool`:
+
+    real decks   min 4   p10 6   p50 9   p90 12   max 12
+    ours         TEN of eighteen strategy decks below that p10, two on ONE
+
+A hard verb only - `eff:destroy`, `eff:exile`, `eff:neutralise`,
+`eff:gain-control`. `eff:damage` is deliberately excluded, which UNDERCOUNTS a
+genuine burn spell; both sides are counted the same way, so the gap is real even
+though neither number is the whole truth. Widening it to damage is exactly what
+makes a ping look like removal.
+
+**The eighteen-shell probe carries an `answers` column now**, flagged LOW under
+the real p10, because a gap no instrument reports is a gap nobody fixes.
+
+### The structural cause: the quota loop owns almost nothing
+
+Bucket counts on five finished decks, and this is the finding rather than any
+one pass:
+
+    Edgar     commander 40, land 32, refined 12, flex  3, ramp 2, creature 2
+    Krenko    commander 32, land 21, flex 14, refined 9, removal 2, draw 2
+    Meren     land 29, commander 28, flex 14, refined 9, removal 1
+    Talrand   commander 30, land 26, refined 9, creature 8, flex 7, removal 2
+    Brago     land 30, commander 26, flex 16, creature 6, removal 2
+
+The `commander` bucket - packages plus the fit reserve plus the placed staples -
+takes **26 to 40 cards**. The quota loop, which is the only pass that fills a
+role because the role is short, assigns ONE OR TWO removal slots. Interaction
+was never given a share of the budget.
+
+### THREE MECHANISMS, ALL MEASURED, NONE SHIPPED
+
+| | answers | shape /200 | 18-shell keyed | other |
+|---|---|---|---|---|
+| baseline | 96, 11 decks under p10 | 183 | 1307 | named 41 |
+| a floor GUARANTEE at the end | +6 | **179** | -4 | 2 decks over ramp p90 |
+| the same at floor 4 | +2 | 182 | 0 | ramp -2 |
+| PLACING answers before packages | reaches 6 | 182 | **-82** | packages -23, named -4 |
+| flex prefers answers while short | +6, 10 under | **184** | **-26** | named -2, derived bench -1 job |
+| flex, at threshold 4 | +3 | 182 | -7 | ramp -3 |
+| requiring the removal QUOTA to answer | 0 | 183 | 0 | **NOTHING moved, either mode** |
+
+Every revert was verified to restore the baseline exactly, so each attribution
+is sound.
+
+**Four things worth keeping from that table.**
+
+1. **The quota-loop fix changes NOTHING**, in derived mode or named. That is not
+   a weak result, it is a clean negative: the removal quota is not the path by
+   which removal enters a deck, so no rule about which cards may take a removal
+   slot can matter. Rule 1, confirmed by a measurement rather than a sweep.
+2. **Swapping at the END cascades.** The deck it hands back is filled
+   differently by every later pass: two decks went over the ramp p90 without a
+   single ramp card being swapped in.
+3. **Placing them at the START starves the archetype.** Six slots taken before
+   the packages run cost 23 package fills and 82 keyed points. The deck has no
+   spare slots - every one is already claimed by a floor, a package, a staple, a
+   combo or the reserve.
+4. **The flex variant is the best of them and is still refused.** It is a
+   SUBSTITUTION inside slots already being spent on cards that fill no role, and
+   it improves both real-deck-grounded numbers - shape 183 -> 184 and answers 96
+   -> 102. It costs 26 keyed points and TWO shells lose one of their own example
+   cards, and archetype fidelity is the thing the owner has complained about
+   most. That trade is a product decision rather than a measurement, so it is
+   written down rather than taken.
+
+### What the next attempt should know
+
+The honest fix is where the role is DECIDED: `cardRole` should not call a
+one-damage ping removal. That moves `REAL_DECK_ROLES` too - both sides of the
+comparison - and this file already records that re-deriving the bands is its own
+change with its own measurement, and that it cost two capabilities when tried.
+
+A cheaper idea nobody has measured: give interaction a share of the BUDGET the
+way the archetype has one, so it competes at the point the budget is divided
+rather than by taking cards from a pass that already spent it.
